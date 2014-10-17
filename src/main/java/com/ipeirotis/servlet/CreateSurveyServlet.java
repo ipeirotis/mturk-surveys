@@ -1,0 +1,42 @@
+package com.ipeirotis.servlet;
+
+import java.io.IOException;
+
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
+import com.ipeirotis.mturk.requester.HIT;
+import com.ipeirotis.service.mturk.CreateHITService;
+
+@Singleton
+public class CreateSurveyServlet extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+
+    private CreateHITService createHITService;
+
+    @Inject
+    public CreateSurveyServlet(CreateHITService createHITService){
+        this.createHITService = createHITService;
+    }
+
+    public void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        String surveyId = request.getParameter("id");
+
+        try {
+            HIT hit = createHITService.createHIT(surveyId);
+            response.setContentType("text/plain");
+            response.getWriter().println("created HIT with id: " + hit.getHITId());
+        } catch (Exception e) {
+            response.sendError(500, e.getMessage());
+        }
+    }
+
+    public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+
+    }
+}
+
