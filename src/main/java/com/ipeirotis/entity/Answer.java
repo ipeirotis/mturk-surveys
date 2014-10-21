@@ -2,23 +2,17 @@ package com.ipeirotis.entity;
 
 import java.util.List;
 
+import com.ipeirotis.entity.enums.AnswerType;
 import com.ipeirotis.entity.enums.SuggestionStyle;
 
 public class Answer {
 
-    private String text;
+    private AnswerType type;
     private List<Selection> selections;
-    private SuggestionStyle styleSuggestion;
+    private SuggestionStyle suggestionStyle;
 
     public Answer() {
-    }
 
-    public String getText() {
-        return text;
-    }
-
-    public void setText(String text) {
-        this.text = text;
     }
 
     public List<Selection> getSelections() {
@@ -29,12 +23,20 @@ public class Answer {
         this.selections = selections;
     }
 
-    public SuggestionStyle getStyleSuggestion() {
-        return styleSuggestion;
+    public SuggestionStyle getSuggestionStyle() {
+        return suggestionStyle;
     }
 
-    public void setStyleSuggestion(SuggestionStyle styleSuggestion) {
-        this.styleSuggestion = styleSuggestion;
+    public void setSuggestionStyle(SuggestionStyle suggestionStyle) {
+        this.suggestionStyle = suggestionStyle;
+    }
+
+    public AnswerType getType() {
+        return type;
+    }
+
+    public void setType(AnswerType type) {
+        this.type = type;
     }
 
 }

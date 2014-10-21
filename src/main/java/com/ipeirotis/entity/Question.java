@@ -8,7 +8,6 @@ import com.googlecode.objectify.annotation.Cache;
 import com.googlecode.objectify.annotation.Entity;
 import com.googlecode.objectify.annotation.Id;
 import com.googlecode.objectify.annotation.Index;
-import com.ipeirotis.entity.enums.QuestionContentType;
 
 @Entity
 @Cache
@@ -22,8 +21,7 @@ public class Question {
     private String surveyId;
     private boolean isRequired = false;
     private String displayName;
-    private String text;
-    private QuestionContentType contentType;
+    private String content;
     private List<Answer> answers;
 
     public Question(){
@@ -62,14 +60,6 @@ public class Question {
         this.displayName = displayName;
     }
 
-    public String getText() {
-        return text;
-    }
-
-    public void setText(String text) {
-        this.text = text;
-    }
-
     public List<Answer> getAnswers() {
         return answers;
     }
@@ -78,12 +68,12 @@ public class Question {
         this.answers = answers;
     }
 
-    public QuestionContentType getContentType() {
-        return contentType;
+    public String getContent() {
+        return content;
     }
 
-    public void setContentType(QuestionContentType contentType) {
-        this.contentType = contentType;
+    public void setContent(String content) {
+        this.content = content;
     }
 
 }

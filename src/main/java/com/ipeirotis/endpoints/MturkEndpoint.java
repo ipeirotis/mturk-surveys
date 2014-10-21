@@ -29,7 +29,7 @@ public class MturkEndpoint {
         try {
             return getHITService.getHIT(id);
         } catch (Exception e) {
-            throw new InternalServerErrorException("Mturk error", e);
+            throw new InternalServerErrorException(e.getMessage(), e);
         }
     }
 
@@ -38,7 +38,7 @@ public class MturkEndpoint {
         try {
             return new StringResponse(String.format("Your balance: %.2f", getAccountBalanceService.getBalance()));
         } catch (Exception e) {
-            throw new InternalServerErrorException("Mturk error", e);
+            throw new InternalServerErrorException(e.getMessage(), e);
         }
     }
 }

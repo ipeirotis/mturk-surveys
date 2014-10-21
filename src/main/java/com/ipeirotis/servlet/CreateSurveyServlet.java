@@ -1,6 +1,8 @@
 package com.ipeirotis.servlet;
 
 import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -14,6 +16,7 @@ import com.ipeirotis.service.mturk.CreateHITService;
 @Singleton
 public class CreateSurveyServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
+    private static final Logger logger = Logger.getLogger(CreateSurveyServlet.class.getName());
 
     private CreateHITService createHITService;
 
@@ -31,6 +34,7 @@ public class CreateSurveyServlet extends HttpServlet {
             response.setContentType("text/plain");
             response.getWriter().println("created HIT with id: " + hit.getHITId());
         } catch (Exception e) {
+            logger.log(Level.SEVERE, "Error creating HIT", e);
             response.sendError(500, e.getMessage());
         }
     }

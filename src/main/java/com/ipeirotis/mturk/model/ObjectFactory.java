@@ -223,6 +223,14 @@ public class ObjectFactory {
     }
 
     /**
+     * Create an instance of {@link HTMLQuestion }
+     *
+     */
+    public HTMLQuestion createHTMLQuestion() {
+        return new HTMLQuestion();
+    }
+
+    /**
      * Create an instance of {@link JAXBElement }{@code <}{@link List }{@code >}}
      * 
      */

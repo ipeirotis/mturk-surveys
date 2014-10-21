@@ -12,7 +12,9 @@ import com.ipeirotis.dao.QuestionDao;
 import com.ipeirotis.dao.SurveyDao;
 import com.ipeirotis.entity.Answer;
 import com.ipeirotis.entity.Question;
+import com.ipeirotis.entity.Selection;
 import com.ipeirotis.entity.Survey;
+import com.ipeirotis.entity.enums.AnswerType;
 
 public class SurveyService {
     
@@ -28,19 +30,23 @@ public class SurveyService {
     public void create(Survey survey) throws BadRequestException {
         validate(survey);
 
-        for(Question question : survey.getQuestions()) {
-            question.setSurveyId(survey.getId());
+        if(survey.getQuestions() != null && survey.getQuestions().size() > 0) {
+            for(Question question : survey.getQuestions()) {
+                question.setSurveyId(survey.getId());
+            }
+            questionDao.saveAll(survey.getQuestions());
         }
         
         surveyDao.save(survey);
-        questionDao.saveAll(survey.getQuestions());
     }
 
     public Survey get(String id) {
         Survey survey = surveyDao.get(id);
         if(survey != null) {
             List<Question> questions = questionDao.listByProperty("surveyId", id);
-            survey.setQuestions(questions);
+            if(questions != null && questions.size() > 0) {
+                survey.setQuestions(questions);
+            }
         }
         return survey;
     }
@@ -82,23 +88,37 @@ public class SurveyService {
         }
 
         List<Question> questions = survey.getQuestions();
-        if(questions == null || questions.size() == 0) {
-            errors.add("at least one question is required");
-        } else {
+        if((questions == null || questions.size() == 0) && StringUtils.isBlank(survey.getHtmlQuestions())) {
+            errors.add("questions or htmlQuestions are required");
+        } else if (questions != null) {
             int questionIndex = 1;
             for(Question question : questions) {
-                if(StringUtils.isBlank(question.getText())) {
-                    errors.add(String.format("question %d text is required", questionIndex));
+                if(StringUtils.isBlank(question.getContent())) {
+                    errors.add(String.format("question %d content is required", questionIndex));
                 }
-    
+
                 List<Answer> answers = question.getAnswers();
                 if(answers == null || answers.size() == 0) {
                     errors.add(String.format("question %d at least one answer is required", questionIndex));
                 } else {
                     int answerIndex = 1;
                     for(Answer answer : answers) {
-                        if(StringUtils.isBlank(answer.getText()) && answer.getSelections() == null) {
-                            errors.add(String.format("question %d, answer %d text or selections are required", questionIndex, answerIndex));
+                        if(answer.getType() == null) {
+                            errors.add(String.format("question %d, answer %d type is required(freetext or selection)", questionIndex, answerIndex));
+                        } else if (answer.getType() == AnswerType.selection) {
+                            if (answer.getSelections() == null || answer.getSelections().size() == 0) {
+                                   errors.add(String.format("question %d, answer %d selections are required because answer type is 'selection'", 
+                                           questionIndex, answerIndex));
+                            } else {
+                                int selectionIndex = 1;
+                                for(Selection selection : answer.getSelections()) {
+                                    if(selection.getIdentifier() == null){
+                                        errors.add(String.format("question %d, answer %d, selection %d identifier is required", 
+                                                questionIndex, answerIndex, selectionIndex));
+                                    }
+                                    selectionIndex++;
+                                }
+                            }
                         }
                         answerIndex++;
                     }

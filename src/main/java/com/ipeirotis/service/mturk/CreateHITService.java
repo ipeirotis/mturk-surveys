@@ -1,7 +1,5 @@
 package com.ipeirotis.service.mturk;
 
-import static com.ipeirotis.ofy.OfyService.ofy;
-
 import java.math.BigDecimal;
 import java.util.Calendar;
 import java.util.List;
@@ -11,13 +9,20 @@ import javax.xml.namespace.QName;
 import javax.xml.ws.Holder;
 
 import com.google.inject.Inject;
+import com.ipeirotis.entity.Answer;
 import com.ipeirotis.entity.Question;
+import com.ipeirotis.entity.Selection;
 import com.ipeirotis.entity.Survey;
+import com.ipeirotis.entity.enums.AnswerType;
 import com.ipeirotis.exception.MturkException;
 import com.ipeirotis.mturk.model.AnswerSpecificationType;
+import com.ipeirotis.mturk.model.BinaryContentType;
 import com.ipeirotis.mturk.model.ContentType;
 import com.ipeirotis.mturk.model.FreeTextAnswerType;
+import com.ipeirotis.mturk.model.HTMLQuestion;
 import com.ipeirotis.mturk.model.QuestionForm;
+import com.ipeirotis.mturk.model.SelectionAnswerType;
+import com.ipeirotis.mturk.model.Selections;
 import com.ipeirotis.mturk.requester.CreateHITRequest;
 import com.ipeirotis.mturk.requester.HIT;
 import com.ipeirotis.mturk.requester.OperationRequest;
@@ -53,19 +58,19 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
 
     public HIT createHIT(String surveyId) throws Exception {
         Survey survey = surveyService.get(surveyId);
-        List<Question> questions = ofy().load().type(Question.class).filter("surveyId", surveyId).list();
-        return this.createHIT(survey.getTitle(), survey.getDescription(), 
-                questions, survey.getReward(), survey.getMaxAssignments());
+        return this.createHIT(survey.getTitle(), survey.getDescription(), survey.getHtmlQuestions(),
+                survey.getQuestions(), survey.getReward(), survey.getMaxAssignments());
     }
     
-    public HIT createHIT(String title, String description, 
+    public HIT createHIT(String title, String description, String htmlQuestions,
             List<Question> questions, Double reward, Integer maxAssignments) throws Exception {
         return this.createHIT(
                 null, // HITTypeId
-                title, 
-                description, // description
-                null, // keywords 
-                questions, 
+                title,
+                description,
+                null, // keywords
+                htmlQuestions,
+                questions,
                 reward,
                 DEFAULT_ASSIGNMENT_DURATION_IN_SECONDS,
                 DEFAULT_AUTO_APPROVAL_DELAY_IN_SECONDS,
@@ -78,12 +83,12 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
             );
     }
 
-    public HIT createHIT(String hitTypeId, String title, String description, String keywords, 
+    public HIT createHIT(String hitTypeId, String title, String description, String keywords, String htmlQuestions,
             List<Question> questions, Double reward, Long assignmentDurationInSeconds, Long autoApprovalDelayInSeconds, 
             Long lifetimeInSeconds, Integer maxAssignments, String requesterAnnotation,
             String uniqueRequestToken, ReviewPolicy assignmentReviewPolicy, ReviewPolicy hitReviewPolicy) throws Exception {
 
-        CreateHITRequest req = wrapHITParams(hitTypeId, title, description, keywords,
+        CreateHITRequest req = wrapHITParams(hitTypeId, title, description, keywords, htmlQuestions,
                 questions, reward, assignmentDurationInSeconds, autoApprovalDelayInSeconds,
                 lifetimeInSeconds, maxAssignments, requesterAnnotation, uniqueRequestToken,
                 assignmentReviewPolicy, hitReviewPolicy, null);
@@ -97,26 +102,31 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
     }
 
     private CreateHITRequest wrapHITParams(String hitTypeId, String title, String description, String keywords, 
-            List<Question> questions, Double reward, Long assignmentDurationInSeconds, Long autoApprovalDelayInSeconds, 
-            Long lifetimeInSeconds, Integer maxAssignments, String requesterAnnotation,
-            String uniqueRequestToken, ReviewPolicy assignmentReviewPolicy, ReviewPolicy hitReviewPolicy,
-            String hitLayoutId) {
+            String htmlQuestions, List<Question> questions, Double reward, Long assignmentDurationInSeconds, 
+            Long autoApprovalDelayInSeconds, Long lifetimeInSeconds, Integer maxAssignments, 
+            String requesterAnnotation, String uniqueRequestToken, ReviewPolicy assignmentReviewPolicy, 
+            ReviewPolicy hitReviewPolicy, String hitLayoutId) {
         CreateHITRequest request = new CreateHITRequest();
         
-        if (questions != null)        request.setQuestion(wrapQuestions(questions));
-        if (lifetimeInSeconds != null)request.setLifetimeInSeconds(lifetimeInSeconds);
-        if (hitTypeId != null)        request.setHITTypeId(hitTypeId);
-        if (title != null)            request.setTitle(title);
-        if (description != null)      request.setDescription(description);
-        if (keywords != null)         request.setKeywords(keywords);
-        if (maxAssignments != null)   request.setMaxAssignments(maxAssignments);
-        if (hitReviewPolicy != null)  request.setHITReviewPolicy(hitReviewPolicy);
-        if (hitLayoutId != null)      request.setHITLayoutId(hitLayoutId);
-        if (requesterAnnotation != null)        request.setRequesterAnnotation(requesterAnnotation);
-        if (assignmentDurationInSeconds != null)request.setAssignmentDurationInSeconds(assignmentDurationInSeconds);
-        if (autoApprovalDelayInSeconds != null) request.setAutoApprovalDelayInSeconds(autoApprovalDelayInSeconds);
-        if (assignmentReviewPolicy != null)     request.setAssignmentReviewPolicy(assignmentReviewPolicy);
-        if (uniqueRequestToken != null)         request.setUniqueRequestToken(uniqueRequestToken);
+        if (htmlQuestions != null) {
+            request.setQuestion(wrapQuestions(htmlQuestions));
+        }
+        if (questions != null && questions.size() > 0) {
+            request.setQuestion(wrapQuestions(questions));
+        }
+        request.setLifetimeInSeconds(lifetimeInSeconds);
+        request.setHITTypeId(hitTypeId);
+        request.setTitle(title);
+        request.setDescription(description);
+        request.setKeywords(keywords);
+        request.setMaxAssignments(maxAssignments);
+        request.setHITReviewPolicy(hitReviewPolicy);
+        request.setHITLayoutId(hitLayoutId);
+        request.setRequesterAnnotation(requesterAnnotation);
+        request.setAssignmentDurationInSeconds(assignmentDurationInSeconds);
+        request.setAutoApprovalDelayInSeconds(autoApprovalDelayInSeconds);
+        request.setAssignmentReviewPolicy(assignmentReviewPolicy);
+        request.setUniqueRequestToken(uniqueRequestToken);
           
         if (reward != null) {
           Price p = new Price();
@@ -127,6 +137,12 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
         return request;
     }
 
+    private String wrapQuestions(String htmlQuestions) {
+        HTMLQuestion question = new HTMLQuestion();
+        question.setHTMLContent(htmlQuestions);
+        return JAXBUtil.marshal(question);
+    }
+
     private String wrapQuestions(List<Question> questions) {
         QuestionForm form = new QuestionForm();
         for(Question question : questions) {
@@ -134,14 +150,39 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
             
             ContentType content = new ContentType();
             JAXBElement<String> contentElement = new JAXBElement<String>(new QName(QUESTION_NS, "Text"), 
-                    String.class, question.getText());
+                    String.class, question.getContent());
             content.getTitleOrTextOrList().add(contentElement);
 
-            FreeTextAnswerType freeTextAnswerType = new FreeTextAnswerType();
-            freeTextAnswerType.setDefaultText(question.getText());
-
             AnswerSpecificationType answerSpecificationType = new AnswerSpecificationType();
-            answerSpecificationType.setFreeTextAnswer(freeTextAnswerType);
+            for(Answer answer : question.getAnswers()) {
+                if(answer.getType() == AnswerType.freetext) {
+                    FreeTextAnswerType freeTextAnswerType = new FreeTextAnswerType();
+                    freeTextAnswerType.setDefaultText(question.getContent());
+                    answerSpecificationType.setFreeTextAnswer(freeTextAnswerType);
+                } else if(answer.getType() == AnswerType.selection) {
+                    SelectionAnswerType selectionAnswerType = new SelectionAnswerType();
+                    if(answer.getSuggestionStyle() != null) {
+                        selectionAnswerType.setStyleSuggestion(answer.getSuggestionStyle().toString());
+                    }
+                    List<Selection> answerSelections = answer.getSelections();
+                    Selections selections = new Selections();
+                    if(answerSelections != null) {
+                        for(Selection selection : answerSelections) {
+                            com.ipeirotis.mturk.model.Selection s = new com.ipeirotis.mturk.model.Selection();
+                            s.setSelectionIdentifier(selection.getIdentifier());
+                            s.setText(selection.getText());
+                            if(selection.getBinaryContentUrl() != null) {
+                                BinaryContentType binaryContentType = new BinaryContentType();
+                                binaryContentType.setDataURL(selection.getBinaryContentUrl());
+                                s.setBinary(binaryContentType);
+                            }
+                            selections.getSelection().add(s);
+                        }
+                    }
+                    selectionAnswerType.setSelections(selections);
+                    answerSpecificationType.setSelectionAnswer(selectionAnswerType);
+                }
+            }
 
             mturkQuestion.setQuestionContent(content);
             mturkQuestion.setAnswerSpecification(answerSpecificationType);
@@ -150,7 +191,7 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
             mturkQuestion.setDisplayName(question.getDisplayName());
 
             form.getOverviewOrQuestion().add(mturkQuestion);
-        }System.out.println(JAXBUtil.marshal(form));
+        }
         return JAXBUtil.marshal(form);
     }
 
