@@ -8,7 +8,7 @@ import com.google.inject.Singleton;
 import com.googlecode.objectify.ObjectifyFilter;
 import com.ipeirotis.endpoints.MturkEndpoint;
 import com.ipeirotis.endpoints.SurveyEndpoint;
-import com.ipeirotis.servlet.CreateSurveyServlet;
+import com.ipeirotis.servlet.CreateHITServlet;
 
 public class EndpointsModule extends GuiceSystemServiceServletModule {
     @Override
@@ -17,7 +17,7 @@ public class EndpointsModule extends GuiceSystemServiceServletModule {
 
         bind(ObjectifyFilter.class).in(Singleton.class);
         filter("/*").through(ObjectifyFilter.class);
-        serve("/createSurvey").with(CreateSurveyServlet.class);
+        serve("/createHIT").with(CreateHITServlet.class);
 
         Set<Class<?>> serviceClasses = new HashSet<Class<?>>();
         serviceClasses.add(MturkEndpoint.class);

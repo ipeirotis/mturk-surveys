@@ -88,7 +88,7 @@ public class SurveyService {
         }
 
         List<Question> questions = survey.getQuestions();
-        if((questions == null || questions.size() == 0) && StringUtils.isBlank(survey.getHtmlQuestions())) {
+        if((questions == null || questions.size() == 0) && StringUtils.isBlank(survey.getHtmlQuestion())) {
             errors.add("questions or htmlQuestions are required");
         } else if (questions != null) {
             int questionIndex = 1;

@@ -1,5 +1,7 @@
 package com.ipeirotis.service.mturk;
 
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -17,23 +19,30 @@ import org.apache.commons.lang3.StringUtils;
 import com.ipeirotis.exception.MturkException;
 import com.ipeirotis.mturk.requester.AWSMechanicalTurkRequester;
 import com.ipeirotis.mturk.requester.AWSMechanicalTurkRequesterPortType;
+import com.ipeirotis.mturk.requester.HIT;
 import com.ipeirotis.mturk.requester.OperationRequest;
 
 public abstract class BaseMturkService <REQUEST, RESULT> {
 
-    private static final String HMAC_SHA1_ALGORITHM = "HmacSHA1";
-    private static final String SERVICE = "AWSMechanicalTurkRequester";
-    private static final String ENDPOINT_SANDBOX = "https://mechanicalturk.sandbox.amazonaws.com";
+    public static final String HMAC_SHA1_ALGORITHM = "HmacSHA1";
+    public static final String SERVICE = "AWSMechanicalTurkRequester";
+    public static final String ENDPOINT_SANDBOX = "https://mechanicalturk.sandbox.amazonaws.com";
+    public static final String ENDPOINT_PRODUCTION =
+            "http://mechanicalturk.amazonaws.com/?Service=AWSMechanicalTurkRequester";
+    public static final String PROD_WORKER_WEBSITE_URL = "http://www.mturk.com";
+    public static final String SANDBOX_WORKER_WEBSITE_URL = "http://workersandbox.mturk.com";
+    public static final String PROD_REQUESTER_WEBSITE_URL = "http://requester.mturk.com";
+    public static final String SANDBOX_REQUESTER_WEBSITE_URL = "http://requestersandbox.mturk.com";
     private static final SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
 
     protected abstract void run(String awsAccessKeyId, Calendar timestamp, String signature, String validate, 
             String credential, List<REQUEST> request, Holder<OperationRequest> operationRequest, Holder<List<RESULT>> result);
 
-    public Holder<List<RESULT>> request(String operation) throws Exception {
+    public Holder<List<RESULT>> request(String operation) throws MturkException {
         return this.request(operation, null);
     }
 
-    public Holder<List<RESULT>> request(String operation, REQUEST request) throws Exception {
+    public Holder<List<RESULT>> request(String operation, REQUEST request) throws MturkException {
         Calendar calendar = Calendar.getInstance();
         calendar.setTime(new Date());
 
@@ -47,7 +56,7 @@ public abstract class BaseMturkService <REQUEST, RESULT> {
 
         run(System.getProperty("AWS_ACCESS_KEY_ID"), calendar, signature, 
                 null, null, requests, operationRequest, result);
-        handleErrors(operationRequest);
+        handleErrors(operationRequest, result);
         
         return result;
     }
@@ -61,23 +70,39 @@ public abstract class BaseMturkService <REQUEST, RESULT> {
     }
 
     protected String getSignature(String service, String operation,
-            String timestamp, String secretKey) throws Exception {
-        Mac mac = Mac.getInstance(HMAC_SHA1_ALGORITHM);
-        mac.init(new SecretKeySpec(secretKey.getBytes(), HMAC_SHA1_ALGORITHM));
-        byte[] byteArray = Base64.encodeBase64(mac.doFinal((service + operation + timestamp)
-                .getBytes()));
-        return new String(byteArray);
+            String timestamp, String secretKey) {
+        try {
+            Mac mac = Mac.getInstance(HMAC_SHA1_ALGORITHM);
+            mac.init(new SecretKeySpec(secretKey.getBytes(), HMAC_SHA1_ALGORITHM));
+            byte[] byteArray = Base64.encodeBase64(mac.doFinal((service + operation + timestamp)
+                    .getBytes()));
+            return new String(byteArray);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        } catch (InvalidKeyException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    protected void handleErrors(Holder<OperationRequest> operationRequest) throws MturkException{
-        if(operationRequest.value != null && operationRequest.value.getErrors() != null) {
-            List<String> errors = new ArrayList<String>();
+    protected void handleErrors(Holder<OperationRequest> operationRequest, Holder<List<RESULT>> result) throws MturkException{
+        List<String> errors = new ArrayList<String>();
+        RESULT res = result.value == null ? null : result.value.get(0);
+        if (res != null && res instanceof HIT) {
+            HIT hit = (HIT)res;
+            if(hit.getRequest().getErrors() != null) {
+                for(com.ipeirotis.mturk.requester.Error error : hit.getRequest().getErrors().getError()) {
+                    errors.add(error.getMessage());
+                }
+            }
+        } else if(operationRequest.value != null && operationRequest.value.getErrors() != null) {
             for(com.ipeirotis.mturk.requester.Error error : operationRequest.value.getErrors().getError()) {
                 errors.add(error.getMessage());
             }
-            if (!errors.isEmpty()) {
-                throw new MturkException(String.format("Error: %s", StringUtils.join(errors, ", ")));
-            }
+        }
+
+        if (!errors.isEmpty()) {
+            throw new MturkException("Error: %s", StringUtils.join(errors, ", "));
         }
     }
+
 }

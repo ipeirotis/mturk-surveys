@@ -8,6 +8,8 @@ import javax.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Holder;
 
+import org.apache.commons.lang3.builder.ToStringBuilder;
+
 import com.google.inject.Inject;
 import com.ipeirotis.entity.Answer;
 import com.ipeirotis.entity.Question;
@@ -19,7 +21,6 @@ import com.ipeirotis.mturk.model.AnswerSpecificationType;
 import com.ipeirotis.mturk.model.BinaryContentType;
 import com.ipeirotis.mturk.model.ContentType;
 import com.ipeirotis.mturk.model.FreeTextAnswerType;
-import com.ipeirotis.mturk.model.HTMLQuestion;
 import com.ipeirotis.mturk.model.QuestionForm;
 import com.ipeirotis.mturk.model.SelectionAnswerType;
 import com.ipeirotis.mturk.model.Selections;
@@ -36,6 +37,9 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
     private static final long DEFAULT_ASSIGNMENT_DURATION_IN_SECONDS = (long) 60 * 60; // 1 hour
     private static final long DEFAULT_AUTO_APPROVAL_DELAY_IN_SECONDS = (long) 60 * 60 * 24 * 15; // 15 days
     private static final long DEFAULT_LIFETIME_IN_SECONDS = (long) 60 * 60 * 24 * 3; // 3 days
+    private static final long DEFAULT_FRAME_HEIGHT = 450L; // px
+    private static final String CDATA_HEADER = "<![CDATA[";
+    private static final String CDATA_FOOTER = "]]>";
     private static final String QUESTION_NS = "http://mechanicalturk.amazonaws.com/AWSMechanicalTurkDataSchemas/2005-10-01/QuestionForm.xsd";
 
     private SurveyService surveyService;
@@ -54,22 +58,23 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
 
         getPort().createHIT(awsAccessKeyId, timestamp, signature, validate, 
                 credential, request, operationRequest, result);
-    }
+        System.out.println(ToStringBuilder.reflectionToString(request.get(0)));
+   }
 
-    public HIT createHIT(String surveyId) throws Exception {
+    public HIT createHIT(String surveyId) throws MturkException {
         Survey survey = surveyService.get(surveyId);
-        return this.createHIT(survey.getTitle(), survey.getDescription(), survey.getHtmlQuestions(),
+        return this.createHIT(survey.getTitle(), survey.getDescription(), survey.getHtmlQuestion(),
                 survey.getQuestions(), survey.getReward(), survey.getMaxAssignments());
     }
     
-    public HIT createHIT(String title, String description, String htmlQuestions,
-            List<Question> questions, Double reward, Integer maxAssignments) throws Exception {
+    public HIT createHIT(String title, String description, String htmlQuestion,
+            List<Question> questions, Double reward, Integer maxAssignments) throws MturkException {
         return this.createHIT(
                 null, // HITTypeId
                 title,
                 description,
                 null, // keywords
-                htmlQuestions,
+                htmlQuestion,
                 questions,
                 reward,
                 DEFAULT_ASSIGNMENT_DURATION_IN_SECONDS,
@@ -83,12 +88,12 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
             );
     }
 
-    public HIT createHIT(String hitTypeId, String title, String description, String keywords, String htmlQuestions,
+    public HIT createHIT(String hitTypeId, String title, String description, String keywords, String htmlQuestion,
             List<Question> questions, Double reward, Long assignmentDurationInSeconds, Long autoApprovalDelayInSeconds, 
             Long lifetimeInSeconds, Integer maxAssignments, String requesterAnnotation,
-            String uniqueRequestToken, ReviewPolicy assignmentReviewPolicy, ReviewPolicy hitReviewPolicy) throws Exception {
+            String uniqueRequestToken, ReviewPolicy assignmentReviewPolicy, ReviewPolicy hitReviewPolicy) throws MturkException {
 
-        CreateHITRequest req = wrapHITParams(hitTypeId, title, description, keywords, htmlQuestions,
+        CreateHITRequest req = wrapHITParams(hitTypeId, title, description, keywords, htmlQuestion,
                 questions, reward, assignmentDurationInSeconds, autoApprovalDelayInSeconds,
                 lifetimeInSeconds, maxAssignments, requesterAnnotation, uniqueRequestToken,
                 assignmentReviewPolicy, hitReviewPolicy, null);
@@ -102,14 +107,14 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
     }
 
     private CreateHITRequest wrapHITParams(String hitTypeId, String title, String description, String keywords, 
-            String htmlQuestions, List<Question> questions, Double reward, Long assignmentDurationInSeconds, 
+            String htmlQuestion, List<Question> questions, Double reward, Long assignmentDurationInSeconds, 
             Long autoApprovalDelayInSeconds, Long lifetimeInSeconds, Integer maxAssignments, 
             String requesterAnnotation, String uniqueRequestToken, ReviewPolicy assignmentReviewPolicy, 
             ReviewPolicy hitReviewPolicy, String hitLayoutId) {
         CreateHITRequest request = new CreateHITRequest();
         
-        if (htmlQuestions != null) {
-            request.setQuestion(wrapQuestions(htmlQuestions));
+        if (htmlQuestion != null) {
+            request.setQuestion(wrapHTMLQuestions(htmlQuestion, DEFAULT_FRAME_HEIGHT));
         }
         if (questions != null && questions.size() > 0) {
             request.setQuestion(wrapQuestions(questions));
@@ -137,10 +142,19 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
         return request;
     }
 
-    private String wrapQuestions(String htmlQuestions) {
-        HTMLQuestion question = new HTMLQuestion();
+    private String wrapHTMLQuestions(String html, long frameHeight) {
+        /*HTMLQuestion question = new HTMLQuestion();
         question.setHTMLContent(htmlQuestions);
-        return JAXBUtil.marshal(question);
+        question.setFrameHeight(BigInteger.valueOf(DEFAULT_FRAME_HEIGHT));
+        return JAXBUtil.marshal(question);*/
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+        + "<HTMLQuestion xmlns=\"http://mechanicalturk.amazonaws.com/AWSMechanicalTurkDataSchemas/2011-11-11/HTMLQuestion.xsd\"><HTMLContent>"
+        + CDATA_HEADER
+        + html
+        + CDATA_FOOTER
+        + "</HTMLContent><FrameHeight>"
+        + frameHeight
+        + "</FrameHeight></HTMLQuestion>";
     }
 
     private String wrapQuestions(List<Question> questions) {
@@ -156,9 +170,7 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
             AnswerSpecificationType answerSpecificationType = new AnswerSpecificationType();
             for(Answer answer : question.getAnswers()) {
                 if(answer.getType() == AnswerType.freetext) {
-                    FreeTextAnswerType freeTextAnswerType = new FreeTextAnswerType();
-                    freeTextAnswerType.setDefaultText(question.getContent());
-                    answerSpecificationType.setFreeTextAnswer(freeTextAnswerType);
+                    answerSpecificationType.setFreeTextAnswer(new FreeTextAnswerType());
                 } else if(answer.getType() == AnswerType.selection) {
                     SelectionAnswerType selectionAnswerType = new SelectionAnswerType();
                     if(answer.getSuggestionStyle() != null) {

@@ -17,7 +17,7 @@ public class Survey {
     private String description;
     private Double reward; 
     private Integer maxAssignments;
-    private String htmlQuestions;
+    private String htmlQuestion;
     @Ignore
     private List<Question> questions;
 
@@ -73,12 +73,12 @@ public class Survey {
         this.maxAssignments = maxAssignments;
     }
 
-    public String getHtmlQuestions() {
-        return htmlQuestions;
+    public String getHtmlQuestion() {
+        return htmlQuestion;
     }
 
-    public void setHtmlQuestions(String htmlQuestions) {
-        this.htmlQuestions = htmlQuestions;
+    public void setHtmlQuestions(String htmlQuestion) {
+        this.htmlQuestion = htmlQuestion;
     }
 
 }

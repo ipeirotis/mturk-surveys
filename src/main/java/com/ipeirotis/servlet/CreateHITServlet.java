@@ -10,18 +10,19 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import com.ipeirotis.exception.MturkException;
 import com.ipeirotis.mturk.requester.HIT;
 import com.ipeirotis.service.mturk.CreateHITService;
 
 @Singleton
-public class CreateSurveyServlet extends HttpServlet {
+public class CreateHITServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
-    private static final Logger logger = Logger.getLogger(CreateSurveyServlet.class.getName());
+    private static final Logger logger = Logger.getLogger(CreateHITServlet.class.getName());
 
     private CreateHITService createHITService;
 
     @Inject
-    public CreateSurveyServlet(CreateHITService createHITService){
+    public CreateHITServlet(CreateHITService createHITService){
         this.createHITService = createHITService;
     }
 
@@ -33,7 +34,7 @@ public class CreateSurveyServlet extends HttpServlet {
             HIT hit = createHITService.createHIT(surveyId);
             response.setContentType("text/plain");
             response.getWriter().println("created HIT with id: " + hit.getHITId());
-        } catch (Exception e) {
+        } catch (MturkException e) {
             logger.log(Level.SEVERE, "Error creating HIT", e);
             response.sendError(500, e.getMessage());
         }

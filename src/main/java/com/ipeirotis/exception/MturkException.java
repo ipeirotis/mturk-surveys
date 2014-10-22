@@ -1,6 +1,6 @@
 package com.ipeirotis.exception;
 
-public class MturkException extends RuntimeException {
+public class MturkException extends Exception {
 
     private static final long serialVersionUID = 1L;
 

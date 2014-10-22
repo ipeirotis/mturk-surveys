@@ -23,7 +23,7 @@ public class GetHITService extends BaseMturkService<GetHITRequest, HIT>{
                 credential, request, operationRequest, result);
     }
 
-    public HIT getHIT(String hitId) throws Exception {
+    public HIT getHIT(String hitId) throws MturkException {
         GetHITRequest getHITRequest = new GetHITRequest();
         getHITRequest.setHITId(hitId);
 

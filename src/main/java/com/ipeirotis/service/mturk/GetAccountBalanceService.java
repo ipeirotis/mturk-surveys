@@ -5,6 +5,7 @@ import java.util.List;
 
 import javax.xml.ws.Holder;
 
+import com.ipeirotis.exception.MturkException;
 import com.ipeirotis.mturk.requester.GetAccountBalanceRequest;
 import com.ipeirotis.mturk.requester.GetAccountBalanceResult;
 import com.ipeirotis.mturk.requester.OperationRequest;
@@ -22,7 +23,7 @@ public class GetAccountBalanceService extends BaseMturkService<GetAccountBalance
                 credential, request, operationRequest, result);
     }
 
-    public double getBalance() throws Exception {
+    public double getBalance() throws MturkException {
         Holder<List<GetAccountBalanceResult>> result = request("GetAccountBalance");
         if(result.value != null && result.value.size() != 0) {
             return result.value.get(0).getAvailableBalance().getAmount().doubleValue();

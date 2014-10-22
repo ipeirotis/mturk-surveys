@@ -8,6 +8,7 @@ import com.google.api.server.spi.config.ApiMethod.HttpMethod;
 import com.google.api.server.spi.response.InternalServerErrorException;
 import com.google.inject.Inject;
 import com.ipeirotis.endpoints.response.StringResponse;
+import com.ipeirotis.exception.MturkException;
 import com.ipeirotis.mturk.requester.HIT;
 import com.ipeirotis.service.mturk.GetAccountBalanceService;
 import com.ipeirotis.service.mturk.GetHITService;
@@ -28,7 +29,7 @@ public class MturkEndpoint {
     public HIT getHIT(@Named("id") String id) throws InternalServerErrorException {
         try {
             return getHITService.getHIT(id);
-        } catch (Exception e) {
+        } catch (MturkException e) {
             throw new InternalServerErrorException(e.getMessage(), e);
         }
     }
@@ -37,7 +38,7 @@ public class MturkEndpoint {
     public StringResponse getBalance() throws InternalServerErrorException {
         try {
             return new StringResponse(String.format("Your balance: %.2f", getAccountBalanceService.getBalance()));
-        } catch (Exception e) {
+        } catch (MturkException e) {
             throw new InternalServerErrorException(e.getMessage(), e);
         }
     }
