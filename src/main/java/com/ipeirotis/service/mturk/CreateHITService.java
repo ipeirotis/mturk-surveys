@@ -8,8 +8,6 @@ import javax.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Holder;
 
-import org.apache.commons.lang3.builder.ToStringBuilder;
-
 import com.google.inject.Inject;
 import com.ipeirotis.entity.Answer;
 import com.ipeirotis.entity.Question;
@@ -58,7 +56,6 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
 
         getPort().createHIT(awsAccessKeyId, timestamp, signature, validate, 
                 credential, request, operationRequest, result);
-        System.out.println(ToStringBuilder.reflectionToString(request.get(0)));
    }
 
     public HIT createHIT(String surveyId) throws MturkException {
@@ -143,10 +140,6 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
     }
 
     private String wrapHTMLQuestions(String html, long frameHeight) {
-        /*HTMLQuestion question = new HTMLQuestion();
-        question.setHTMLContent(htmlQuestions);
-        question.setFrameHeight(BigInteger.valueOf(DEFAULT_FRAME_HEIGHT));
-        return JAXBUtil.marshal(question);*/
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
         + "<HTMLQuestion xmlns=\"http://mechanicalturk.amazonaws.com/AWSMechanicalTurkDataSchemas/2011-11-11/HTMLQuestion.xsd\"><HTMLContent>"
         + CDATA_HEADER

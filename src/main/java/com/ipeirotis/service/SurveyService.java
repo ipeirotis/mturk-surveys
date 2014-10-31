@@ -17,7 +17,9 @@ import com.ipeirotis.entity.Survey;
 import com.ipeirotis.entity.enums.AnswerType;
 
 public class SurveyService {
-    
+
+    private static final String REGEX_WHITESPACE_BETWEEN_HTML = "[>]{1}\\s+[<]{1}";
+
     private SurveyDao surveyDao;
     private QuestionDao questionDao;
 
@@ -35,6 +37,10 @@ public class SurveyService {
                 question.setSurveyId(survey.getId());
             }
             questionDao.saveAll(survey.getQuestions());
+        }
+        if(survey.getHtmlQuestion() != null) {
+            survey.setHtmlQuestion(survey.getHtmlQuestion()
+                    .replaceAll(REGEX_WHITESPACE_BETWEEN_HTML, "><").replaceAll("\n", "").replaceAll("\t", ""));
         }
         
         surveyDao.save(survey);

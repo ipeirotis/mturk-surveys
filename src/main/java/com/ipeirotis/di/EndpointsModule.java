@@ -9,6 +9,7 @@ import com.googlecode.objectify.ObjectifyFilter;
 import com.ipeirotis.endpoints.MturkEndpoint;
 import com.ipeirotis.endpoints.SurveyEndpoint;
 import com.ipeirotis.servlet.CreateHITServlet;
+import com.ipeirotis.servlet.SaveUserAnswerServlet;
 
 public class EndpointsModule extends GuiceSystemServiceServletModule {
     @Override
@@ -18,6 +19,7 @@ public class EndpointsModule extends GuiceSystemServiceServletModule {
         bind(ObjectifyFilter.class).in(Singleton.class);
         filter("/*").through(ObjectifyFilter.class);
         serve("/createHIT").with(CreateHITServlet.class);
+        serve("/saveAnswer").with(SaveUserAnswerServlet.class);
 
         Set<Class<?>> serviceClasses = new HashSet<Class<?>>();
         serviceClasses.add(MturkEndpoint.class);

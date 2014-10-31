@@ -77,7 +77,7 @@ public class Survey {
         return htmlQuestion;
     }
 
-    public void setHtmlQuestions(String htmlQuestion) {
+    public void setHtmlQuestion(String htmlQuestion) {
         this.htmlQuestion = htmlQuestion;
     }
 

@@ -25,6 +25,8 @@ public class GetAccountBalanceService extends BaseMturkService<GetAccountBalance
 
     public double getBalance() throws MturkException {
         Holder<List<GetAccountBalanceResult>> result = request("GetAccountBalance");
+        handleErrors(result.value.get(0).getRequest());
+
         if(result.value != null && result.value.size() != 0) {
             return result.value.get(0).getAvailableBalance().getAmount().doubleValue();
         } else {

@@ -28,11 +28,8 @@ public class GetHITService extends BaseMturkService<GetHITRequest, HIT>{
         getHITRequest.setHITId(hitId);
 
         Holder<List<HIT>> result = request("GetHIT", getHITRequest);
+        handleErrors(result.value.get(0).getRequest());
 
-        if(result.value != null && result.value.size() != 0) {
-            return result.value.get(0);
-        } else {
-            throw new MturkException("Unknown server error");
-        }
+        return result.value.get(0);
     }
 }

@@ -21,6 +21,7 @@ import com.ipeirotis.mturk.requester.AWSMechanicalTurkRequester;
 import com.ipeirotis.mturk.requester.AWSMechanicalTurkRequesterPortType;
 import com.ipeirotis.mturk.requester.HIT;
 import com.ipeirotis.mturk.requester.OperationRequest;
+import com.ipeirotis.mturk.requester.Request;
 
 public abstract class BaseMturkService <REQUEST, RESULT> {
 
@@ -105,4 +106,16 @@ public abstract class BaseMturkService <REQUEST, RESULT> {
         }
     }
 
+    protected void handleErrors(Request request) throws MturkException{
+        List<String> errors = new ArrayList<String>();
+        if(request.getErrors() != null) {
+            for(com.ipeirotis.mturk.requester.Error error : request.getErrors().getError()) {
+                errors.add(error.getMessage());
+            }
+        }
+
+        if (!errors.isEmpty()) {
+            throw new MturkException("Error: %s", StringUtils.join(errors, ", "));
+        }
+    }
 }
