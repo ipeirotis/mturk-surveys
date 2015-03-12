@@ -29,7 +29,7 @@ public class SurveyService {
         this.questionDao = questionDao;
     }
 
-    public void create(Survey survey) throws BadRequestException {
+    public Survey create(Survey survey) throws BadRequestException {
         validate(survey);
 
         if(survey.getQuestions() != null && survey.getQuestions().size() > 0) {
@@ -43,7 +43,7 @@ public class SurveyService {
                     .replaceAll(REGEX_WHITESPACE_BETWEEN_HTML, "><").replaceAll("\n", "").replaceAll("\t", ""));
         }
         
-        surveyDao.save(survey);
+        return surveyDao.saveAndGet(survey);
     }
 
     public Survey get(String id) {

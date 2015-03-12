@@ -6,9 +6,6 @@ public class Selection {
     private String text;
     private String binaryContentUrl;
 
-    public Selection() {
-    }
-
     public String getIdentifier() {
         return identifier;
     }

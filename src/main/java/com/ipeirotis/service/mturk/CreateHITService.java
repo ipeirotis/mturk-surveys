@@ -8,7 +8,6 @@ import javax.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Holder;
 
-import com.google.inject.Inject;
 import com.ipeirotis.entity.Answer;
 import com.ipeirotis.entity.Question;
 import com.ipeirotis.entity.Selection;
@@ -27,7 +26,6 @@ import com.ipeirotis.mturk.requester.HIT;
 import com.ipeirotis.mturk.requester.OperationRequest;
 import com.ipeirotis.mturk.requester.Price;
 import com.ipeirotis.mturk.requester.ReviewPolicy;
-import com.ipeirotis.service.SurveyService;
 import com.ipeirotis.util.JAXBUtil;
 
 public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
@@ -39,13 +37,6 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
     private static final String CDATA_HEADER = "<![CDATA[";
     private static final String CDATA_FOOTER = "]]>";
     private static final String QUESTION_NS = "http://mechanicalturk.amazonaws.com/AWSMechanicalTurkDataSchemas/2005-10-01/QuestionForm.xsd";
-
-    private SurveyService surveyService;
-
-    @Inject
-    public CreateHITService(SurveyService surveyService) {
-        this.surveyService = surveyService;
-    }
     
     @Override
     protected void run(String awsAccessKeyId, Calendar timestamp,
@@ -58,8 +49,7 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
                 credential, request, operationRequest, result);
    }
 
-    public HIT createHIT(String surveyId) throws MturkException {
-        Survey survey = surveyService.get(surveyId);
+    public HIT createHIT(Survey survey) throws MturkException {
         return this.createHIT(survey.getTitle(), survey.getDescription(), survey.getHtmlQuestion(),
                 survey.getQuestions(), survey.getReward(), survey.getMaxAssignments());
     }

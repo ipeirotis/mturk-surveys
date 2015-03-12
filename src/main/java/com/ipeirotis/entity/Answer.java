@@ -11,10 +11,6 @@ public class Answer {
     private List<Selection> selections;
     private SuggestionStyle suggestionStyle;
 
-    public Answer() {
-
-    }
-
     public List<Selection> getSelections() {
         return selections;
     }

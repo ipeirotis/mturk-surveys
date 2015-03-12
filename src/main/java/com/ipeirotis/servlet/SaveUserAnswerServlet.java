@@ -3,6 +3,7 @@ package com.ipeirotis.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Date;
+import java.util.logging.Logger;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -17,6 +18,8 @@ import com.ipeirotis.service.UserAnswerService;
 @Singleton
 public class SaveUserAnswerServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
+    @SuppressWarnings("unused")
+    private static final Logger logger = Logger.getLogger(SaveUserAnswerServlet.class.getName());
 
     private UserAnswerService userAnswerService;
 
@@ -33,19 +36,17 @@ public class SaveUserAnswerServlet extends HttpServlet {
         String callback = request.getParameter("callback");
         String answer = request.getParameter("answer");
         String hitId = request.getParameter("hitId");
-        String ip = request.getHeader("x-forwarded-for");
-        if (ip == null) {
-            ip = request.getHeader("X_FORWARDED_FOR");
-            if (ip == null) {
-                ip = request.getRemoteAddr();
-            }
-        }
+        String workerId = request.getParameter("workerId");
+        String surveyId = request.getParameter("surveyId");
+        String ip = getIp(request);
 
         UserAnswer userAnswer = new UserAnswer();
         userAnswer.setAnswer(answer);
         userAnswer.setDate(new Date());
         userAnswer.setIp(ip);
         userAnswer.setHitId(hitId);
+        userAnswer.setWorkerId(workerId);
+        userAnswer.setSurveyId(surveyId);
         userAnswer.setLocationCity(city);
         userAnswer.setLocationCountry(country);
         userAnswer.setLocationRegion(region);
@@ -53,7 +54,7 @@ public class SaveUserAnswerServlet extends HttpServlet {
         
         PrintWriter out = response.getWriter();
         String responseObject = new Gson().toJson(userAnswer);
-        
+
         if(callback != null) {
             response.setContentType("text/javascript");
             out.println(callback + "(" + responseObject + ");");
@@ -65,6 +66,17 @@ public class SaveUserAnswerServlet extends HttpServlet {
 
     public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 
+    }
+
+    private String getIp(HttpServletRequest request) {
+        String ip = request.getHeader("x-forwarded-for");
+        if (ip == null) {
+            ip = request.getHeader("X_FORWARDED_FOR");
+            if (ip == null) {
+                ip = request.getRemoteAddr();
+            }
+        }
+        return ip;
     }
 }
 

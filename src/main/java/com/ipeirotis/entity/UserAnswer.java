@@ -5,6 +5,7 @@ import java.util.Date;
 import com.googlecode.objectify.annotation.Cache;
 import com.googlecode.objectify.annotation.Entity;
 import com.googlecode.objectify.annotation.Id;
+import com.googlecode.objectify.annotation.Index;
 
 @Entity
 @Cache
@@ -15,14 +16,14 @@ public class UserAnswer {
     private String answer;
     private Date date;
     private String hitId;
+    @Index
+    private String surveyId;
+    @Index
+    private String workerId;
     private String ip;
     private String locationCountry;
     private String locationRegion;
     private String locationCity;
-    
-    public UserAnswer(){
-        
-    }
 
     public Long getId() {
         return id;
@@ -56,6 +57,22 @@ public class UserAnswer {
         this.hitId = hitId;
     }
 
+    public String getSurveyId() {
+        return surveyId;
+    }
+
+    public void setSurveyId(String surveyId) {
+        this.surveyId = surveyId;
+    }
+
+    public String getWorkerId() {
+        return workerId;
+    }
+
+    public void setWorkerId(String workerId) {
+        this.workerId = workerId;
+    }
+
     public String getIp() {
         return ip;
     }
@@ -87,4 +104,5 @@ public class UserAnswer {
     public void setLocationCity(String locationCity) {
         this.locationCity = locationCity;
     }
+
 }

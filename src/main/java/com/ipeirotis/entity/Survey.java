@@ -21,10 +21,6 @@ public class Survey {
     @Ignore
     private List<Question> questions;
 
-    public Survey(){
-        
-    }
-
     public String getId() {
         return id;
     }

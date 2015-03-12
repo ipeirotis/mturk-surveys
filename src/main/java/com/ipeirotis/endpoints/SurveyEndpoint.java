@@ -8,6 +8,7 @@ import com.google.api.server.spi.config.ApiMethod.HttpMethod;
 import com.google.api.server.spi.response.BadRequestException;
 import com.google.api.server.spi.response.NotFoundException;
 import com.google.inject.Inject;
+import com.ipeirotis.endpoints.response.StringResponse;
 import com.ipeirotis.entity.Survey;
 import com.ipeirotis.service.SurveyService;
 
@@ -22,8 +23,8 @@ public class SurveyEndpoint {
     }
 
     @ApiMethod(name = "create", path = "survey", httpMethod = HttpMethod.POST)
-    public void create(Survey survey) throws BadRequestException {
-        surveyService.create(survey);
+    public Survey create(Survey survey) throws BadRequestException {
+        return surveyService.create(survey);
     }
 
     @ApiMethod(name = "get", path = "survey/{id}", httpMethod = HttpMethod.GET)
@@ -37,8 +38,9 @@ public class SurveyEndpoint {
     }
 
     @ApiMethod(name = "delete", path = "survey/{id}", httpMethod = HttpMethod.DELETE)
-    public void delete(@Named("id") String id) throws NotFoundException {
+    public StringResponse delete(@Named("id") String id) throws NotFoundException {
         surveyService.delete(id);
+        return new StringResponse(String.format("Survey %s deleted successfully", id));
     }
 
 }

@@ -2,7 +2,7 @@ package com.ipeirotis.service.mturk;
 
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.text.SimpleDateFormat;
+import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -22,6 +22,7 @@ import com.ipeirotis.mturk.requester.AWSMechanicalTurkRequesterPortType;
 import com.ipeirotis.mturk.requester.HIT;
 import com.ipeirotis.mturk.requester.OperationRequest;
 import com.ipeirotis.mturk.requester.Request;
+import com.ipeirotis.util.SafeDateFormat;
 
 public abstract class BaseMturkService <REQUEST, RESULT> {
 
@@ -31,10 +32,10 @@ public abstract class BaseMturkService <REQUEST, RESULT> {
     public static final String ENDPOINT_PRODUCTION =
             "http://mechanicalturk.amazonaws.com/?Service=AWSMechanicalTurkRequester";
     public static final String PROD_WORKER_WEBSITE_URL = "http://www.mturk.com";
-    public static final String SANDBOX_WORKER_WEBSITE_URL = "http://workersandbox.mturk.com";
     public static final String PROD_REQUESTER_WEBSITE_URL = "http://requester.mturk.com";
+    public static final String SANDBOX_WORKER_WEBSITE_URL = "http://workersandbox.mturk.com";
     public static final String SANDBOX_REQUESTER_WEBSITE_URL = "http://requestersandbox.mturk.com";
-    private static final SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+    private static final DateFormat format = SafeDateFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
 
     protected abstract void run(String awsAccessKeyId, Calendar timestamp, String signature, String validate, 
             String credential, List<REQUEST> request, Holder<OperationRequest> operationRequest, Holder<List<RESULT>> result);
