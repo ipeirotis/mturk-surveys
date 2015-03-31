@@ -1,12 +1,51 @@
-<!doctype html>
-<html>
-<head>
-<title>Mturk surveys</title>
-</head>
-<body>
-    <h3>Mturk surveys</h3>
-    <ol>
-        <li><a href="/template/gender.html">gender</a></li>
-    </ol>
+<!DOCTYPE HTML>
+
+<html ng-app="mturk" id="ng-app">
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>Mechanical Turk Surveys</title>
+
+    <link rel="stylesheet" type="text/css" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.css">
+    <link rel="stylesheet" href="/css/style.css" />
+
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.15/angular.js" type="text/javascript"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.15/angular-cookies.js" type="text/javascript"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.15/angular-resource.js" type="text/javascript"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.15/angular-route.js" type="text/javascript"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.15/angular-sanitize.js" type="text/javascript"></script>
+    <script src="/lib/ui-bootstrap-tpls-0.11.0.js" type="text/javascript"></script>
+
+    <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.js" type="text/javascript"></script>
+    <script type='text/javascript' src='js/script.js'></script>
+  </head>
+
+  <body>
+    <div class="container content">
+        <div class="row">
+            <a href="http://www.mturk-tracker.com/">
+                <img src="/img/mturktracker_logo.png" alt="">
+            </a>
+        </div>
+		<div class="row">
+			<div class="col-md-2">
+				<ul class="nav nav-pills nav-stacked" navpills>
+					<li data-match-route="/gender"><a ng-href="#/gender">Gender</a></li>
+                    <li data-match-route="/birth"><a ng-href="#/birth">Year of Birth</a></li>
+                    <li data-match-route="/maritalStatus"><a ng-href="#/maritalStatus">Marital Status</a></li>
+                    <li data-match-route="/householdSize"><a ng-href="#/householdSize">Household Size</a></li>
+                    <li data-match-route="/householdIncome"><a ng-href="#/householdIncome">Household Income</a></li>
+                    <li data-match-route="/countries"><a ng-href="#/countries">Countries</a></li>
+				</ul>
+			</div>
+			<div class="col-md-10" ng-view></div>
+		</div>
+	</div>
+    <footer id="footer">
+        <p>For bugs reports or feature requests, please contact
+        <a href="http://www.stern.nyu.edu/~panos">Panos Ipeirotis</a>
+        <br> If you want to cite this website, please cite the paper
+        <a href="http://portal.acm.org/citation.cfm?id=1869094">Analyzing the Amazon Mechanical Turk Marketplace</a>, P. Ipeirotis, ACM XRDS, Vol 17, Issue 2, Winter 2010, pp 16-21.</p>
+    </footer>
 </body>
 </html>

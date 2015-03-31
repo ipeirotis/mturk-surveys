@@ -30,21 +30,24 @@ public abstract class BaseMturkService <REQUEST, RESULT> {
     public static final String SERVICE = "AWSMechanicalTurkRequester";
     public static final String ENDPOINT_SANDBOX = "https://mechanicalturk.sandbox.amazonaws.com";
     public static final String ENDPOINT_PRODUCTION =
-            "http://mechanicalturk.amazonaws.com/?Service=AWSMechanicalTurkRequester";
+            "https://mechanicalturk.amazonaws.com/?Service=AWSMechanicalTurkRequester";
     public static final String PROD_WORKER_WEBSITE_URL = "http://www.mturk.com";
     public static final String PROD_REQUESTER_WEBSITE_URL = "http://requester.mturk.com";
     public static final String SANDBOX_WORKER_WEBSITE_URL = "http://workersandbox.mturk.com";
     public static final String SANDBOX_REQUESTER_WEBSITE_URL = "http://requestersandbox.mturk.com";
     private static final DateFormat format = SafeDateFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
 
+    private Boolean production = false;
+
     protected abstract void run(String awsAccessKeyId, Calendar timestamp, String signature, String validate, 
             String credential, List<REQUEST> request, Holder<OperationRequest> operationRequest, Holder<List<RESULT>> result);
 
-    public Holder<List<RESULT>> request(String operation) throws MturkException {
-        return this.request(operation, null);
+    public Holder<List<RESULT>> request(Boolean production, String operation) throws MturkException {
+        return this.request(production, operation, null);
     }
 
-    public Holder<List<RESULT>> request(String operation, REQUEST request) throws MturkException {
+    public Holder<List<RESULT>> request(Boolean production, String operation, REQUEST request) throws MturkException {
+        this.production = production;
         Calendar calendar = Calendar.getInstance();
         calendar.setTime(new Date());
 
@@ -64,10 +67,10 @@ public abstract class BaseMturkService <REQUEST, RESULT> {
     }
 
     protected AWSMechanicalTurkRequesterPortType getPort() {
-        AWSMechanicalTurkRequesterPortType port = 
-                new AWSMechanicalTurkRequester().getAWSMechanicalTurkRequesterPort();
+        AWSMechanicalTurkRequesterPortType port = new AWSMechanicalTurkRequester().getAWSMechanicalTurkRequesterPort();
         BindingProvider bp = (BindingProvider)port;
-        bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, ENDPOINT_SANDBOX);
+        bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY,
+                Boolean.TRUE.equals(this.production) ? ENDPOINT_PRODUCTION : ENDPOINT_SANDBOX);
         return port;
     }
 
@@ -88,7 +91,7 @@ public abstract class BaseMturkService <REQUEST, RESULT> {
 
     protected void handleErrors(Holder<OperationRequest> operationRequest, Holder<List<RESULT>> result) throws MturkException{
         List<String> errors = new ArrayList<String>();
-        RESULT res = result.value == null ? null : result.value.get(0);
+        RESULT res = (result.value == null || result.value.size() == 0) ? null : result.value.get(0);
         if (res != null && res instanceof HIT) {
             HIT hit = (HIT)res;
             if(hit.getRequest().getErrors() != null) {

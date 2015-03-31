@@ -23,8 +23,8 @@ public class GetAccountBalanceService extends BaseMturkService<GetAccountBalance
                 credential, request, operationRequest, result);
     }
 
-    public double getBalance() throws MturkException {
-        Holder<List<GetAccountBalanceResult>> result = request("GetAccountBalance");
+    public double getBalance(Boolean production) throws MturkException {
+        Holder<List<GetAccountBalanceResult>> result = request(production, "GetAccountBalance");
         handleErrors(result.value.get(0).getRequest());
 
         if(result.value != null && result.value.size() != 0) {

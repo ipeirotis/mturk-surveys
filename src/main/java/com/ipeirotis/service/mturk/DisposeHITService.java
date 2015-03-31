@@ -23,11 +23,11 @@ public class DisposeHITService extends BaseMturkService<DisposeHITRequest, Dispo
                 credential, request, operationRequest, result);
     }
 
-    public void disposeHIT(String hitId) throws MturkException {
+    public void disposeHIT(Boolean production, String hitId) throws MturkException {
         DisposeHITRequest disposeHITRequest = new DisposeHITRequest();
         disposeHITRequest.setHITId(hitId);
 
-        Holder<List<DisposeHITResult>> result = request("DisposeHIT", disposeHITRequest);
+        Holder<List<DisposeHITResult>> result = request(production, "DisposeHIT", disposeHITRequest);
         handleErrors(result.value.get(0).getRequest());
     }
 }

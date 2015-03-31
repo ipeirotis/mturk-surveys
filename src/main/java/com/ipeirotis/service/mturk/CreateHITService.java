@@ -31,7 +31,7 @@ import com.ipeirotis.util.JAXBUtil;
 public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
 
     private static final long DEFAULT_ASSIGNMENT_DURATION_IN_SECONDS = (long) 60 * 60; // 1 hour
-    private static final long DEFAULT_AUTO_APPROVAL_DELAY_IN_SECONDS = (long) 60 * 60 * 24 * 15; // 15 days
+    private static final long DEFAULT_AUTO_APPROVAL_DELAY_IN_SECONDS = (long) 60; // 60 sec
     private static final long DEFAULT_LIFETIME_IN_SECONDS = (long) 60 * 60 * 24 * 3; // 3 days
     private static final long DEFAULT_FRAME_HEIGHT = 450L; // px
     private static final String CDATA_HEADER = "<![CDATA[";
@@ -49,14 +49,14 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
                 credential, request, operationRequest, result);
    }
 
-    public HIT createHIT(Survey survey) throws MturkException {
-        return this.createHIT(survey.getTitle(), survey.getDescription(), survey.getHtmlQuestion(),
+    public HIT createHIT(Boolean production, Survey survey) throws MturkException {
+        return this.createHIT(production, survey.getTitle(), survey.getDescription(), survey.getHtmlQuestion(),
                 survey.getQuestions(), survey.getReward(), survey.getMaxAssignments());
     }
     
-    public HIT createHIT(String title, String description, String htmlQuestion,
+    public HIT createHIT(Boolean production, String title, String description, String htmlQuestion,
             List<Question> questions, Double reward, Integer maxAssignments) throws MturkException {
-        return this.createHIT(
+        return this.createHIT(production,
                 null, // HITTypeId
                 title,
                 description,
@@ -75,7 +75,7 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
             );
     }
 
-    public HIT createHIT(String hitTypeId, String title, String description, String keywords, String htmlQuestion,
+    public HIT createHIT(Boolean production, String hitTypeId, String title, String description, String keywords, String htmlQuestion,
             List<Question> questions, Double reward, Long assignmentDurationInSeconds, Long autoApprovalDelayInSeconds, 
             Long lifetimeInSeconds, Integer maxAssignments, String requesterAnnotation,
             String uniqueRequestToken, ReviewPolicy assignmentReviewPolicy, ReviewPolicy hitReviewPolicy) throws MturkException {
@@ -84,7 +84,7 @@ public class CreateHITService extends BaseMturkService<CreateHITRequest, HIT>{
                 questions, reward, assignmentDurationInSeconds, autoApprovalDelayInSeconds,
                 lifetimeInSeconds, maxAssignments, requesterAnnotation, uniqueRequestToken,
                 assignmentReviewPolicy, hitReviewPolicy, null);
-        Holder<List<HIT>> result = this.request("CreateHIT", req);
+        Holder<List<HIT>> result = this.request(production, "CreateHIT", req);
 
         if(result.value != null && result.value.size() != 0) {
             return result.value.get(0);

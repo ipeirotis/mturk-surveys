@@ -15,9 +15,11 @@ public class Survey {
     private String id;
     private String title;
     private String description;
-    private Double reward; 
+    private Double reward;
     private Integer maxAssignments;
     private String htmlQuestion;
+    @Ignore
+    private String template;
     @Ignore
     private List<Question> questions;
 
@@ -45,14 +47,6 @@ public class Survey {
         this.description = description;
     }
 
-    public List<Question> getQuestions() {
-        return questions;
-    }
-
-    public void setQuestions(List<Question> questions) {
-        this.questions = questions;
-    }
-
     public Double getReward() {
         return reward;
     }
@@ -75,6 +69,22 @@ public class Survey {
 
     public void setHtmlQuestion(String htmlQuestion) {
         this.htmlQuestion = htmlQuestion;
+    }
+
+    public String getTemplate() {
+        return template;
+    }
+
+    public void setTemplate(String template) {
+        this.template = template;
+    }
+
+    public List<Question> getQuestions() {
+        return questions;
+    }
+
+    public void setQuestions(List<Question> questions) {
+        this.questions = questions;
     }
 
 }

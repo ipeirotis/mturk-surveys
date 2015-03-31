@@ -7,10 +7,12 @@ import com.ipeirotis.dao.SurveyDao;
 import com.ipeirotis.dao.UserAnswerDao;
 import com.ipeirotis.service.SurveyService;
 import com.ipeirotis.service.UserAnswerService;
+import com.ipeirotis.service.mturk.ApproveAssignmentService;
 import com.ipeirotis.service.mturk.CreateHITService;
 import com.ipeirotis.service.mturk.DisableHITService;
 import com.ipeirotis.service.mturk.DisposeHITService;
 import com.ipeirotis.service.mturk.GetAccountBalanceService;
+import com.ipeirotis.service.mturk.GetAssignmentsForHITService;
 import com.ipeirotis.service.mturk.GetHITService;
 import com.ipeirotis.service.mturk.SearchHITsService;
 
@@ -32,6 +34,8 @@ public class AppModule extends AbstractModule {
         bind(GetHITService.class).in(Singleton.class);
         bind(GetAccountBalanceService.class).in(Singleton.class);
         bind(SearchHITsService.class).in(Singleton.class);
+        bind(GetAssignmentsForHITService.class).in(Singleton.class);
+        bind(ApproveAssignmentService.class).in(Singleton.class);
     }
 
 }

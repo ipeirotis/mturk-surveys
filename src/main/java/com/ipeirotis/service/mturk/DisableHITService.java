@@ -23,11 +23,11 @@ public class DisableHITService extends BaseMturkService<DisableHITRequest, Disab
                 credential, request, operationRequest, result);
     }
 
-    public void disableHIT(String hitId) throws MturkException {
+    public void disableHIT(Boolean production, String hitId) throws MturkException {
         DisableHITRequest disableHITRequest = new DisableHITRequest();
         disableHITRequest.setHITId(hitId);
 
-        Holder<List<DisableHITResult>> result = request("DisableHIT", disableHITRequest);
+        Holder<List<DisableHITResult>> result = request(production, "DisableHIT", disableHITRequest);
         handleErrors(result.value.get(0).getRequest());
     }
 }

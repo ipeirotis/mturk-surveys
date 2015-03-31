@@ -23,11 +23,11 @@ public class GetHITService extends BaseMturkService<GetHITRequest, HIT>{
                 credential, request, operationRequest, result);
     }
 
-    public HIT getHIT(String hitId) throws MturkException {
+    public HIT getHIT(Boolean production, String hitId) throws MturkException {
         GetHITRequest getHITRequest = new GetHITRequest();
         getHITRequest.setHITId(hitId);
 
-        Holder<List<HIT>> result = request("GetHIT", getHITRequest);
+        Holder<List<HIT>> result = request(production, "GetHIT", getHITRequest);
         handleErrors(result.value.get(0).getRequest());
 
         return result.value.get(0);

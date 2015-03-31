@@ -20,6 +20,10 @@ public class UserAnswerService {
         userAnswerDao.save(userAnswer);
     }
 
+    public void save(List<UserAnswer> userAnswers) {
+        userAnswerDao.save(userAnswers);
+    }
+
     public List<UserAnswer> query(Map<String, Object> params) {
         return userAnswerDao.query(params).list();
     }

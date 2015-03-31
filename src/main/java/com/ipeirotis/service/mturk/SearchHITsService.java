@@ -24,9 +24,10 @@ public class SearchHITsService extends BaseMturkService<SearchHITsRequest, Searc
                 request, operationRequest, result);
     }
 
-    public List<HIT> searchHITs() throws MturkException {
+    public List<HIT> searchHITs(Boolean production) throws MturkException {
         SearchHITsRequest searchHITsRequest = new SearchHITsRequest();
-        Holder<List<SearchHITsResult>> result = request("SearchHITs", searchHITsRequest);
+        searchHITsRequest.setPageSize(100);
+        Holder<List<SearchHITsResult>> result = request(production, "SearchHITs", searchHITsRequest);
         handleErrors(result.value.get(0).getRequest());
         
         return result.value.get(0).getHIT();

@@ -15,6 +15,8 @@ import com.ipeirotis.exception.MturkException;
 import com.ipeirotis.mturk.requester.HIT;
 import com.ipeirotis.service.SurveyService;
 import com.ipeirotis.service.mturk.CreateHITService;
+import com.ipeirotis.service.mturk.GetAccountBalanceService;
+import com.ipeirotis.util.MailUtil;
 
 @Singleton
 public class CreateHITServlet extends HttpServlet {
@@ -22,17 +24,21 @@ public class CreateHITServlet extends HttpServlet {
     private static final Logger logger = Logger.getLogger(CreateHITServlet.class.getName());
 
     private CreateHITService createHITService;
+    private GetAccountBalanceService getAccountBalanceService;
     private SurveyService surveyService;
 
     @Inject
-    public CreateHITServlet(CreateHITService createHITService, SurveyService surveyService){
+    public CreateHITServlet(CreateHITService createHITService, GetAccountBalanceService getAccountBalanceService,
+            SurveyService surveyService){
         this.createHITService = createHITService;
+        this.getAccountBalanceService = getAccountBalanceService;
         this.surveyService = surveyService;
     }
 
     public void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         String surveyId = request.getParameter("surveyId");
+        boolean production = "true".equals(request.getParameter("production")) ? true : false;
 
         try {
             Survey survey = surveyService.get(surveyId);
@@ -41,9 +47,17 @@ public class CreateHITServlet extends HttpServlet {
                 logger.log(Level.SEVERE, error);
                 response.sendError(404, error);
             } else {
-                HIT hit = createHITService.createHIT(survey);
+                double balance = getAccountBalanceService.getBalance(production);
+                if(balance < survey.getReward()*survey.getMaxAssignments()) {
+                    MailUtil.send(String.format("Your balance is too low (%.2f)", balance),
+                            "mturk-surveys", "ipeirotis@gmail.com",
+                            "mturk-surveys", "ipeirotis@gmail.com");
+                }
+                HIT hit = createHITService.createHIT(production, survey);
                 response.setContentType("text/plain");
-                response.getWriter().println("created HIT with id: " + hit.getHITId());
+                String responseText = "created HIT with id: " + hit.getHITId();
+                logger.info(responseText);
+                response.getWriter().println(responseText);
             }
         } catch (MturkException e) {
             logger.log(Level.SEVERE, "Error creating HIT", e);
@@ -54,5 +68,6 @@ public class CreateHITServlet extends HttpServlet {
     public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 
     }
+
 }
 

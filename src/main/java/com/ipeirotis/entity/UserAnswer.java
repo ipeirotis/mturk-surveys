@@ -1,6 +1,7 @@
 package com.ipeirotis.entity;
 
 import java.util.Date;
+import java.util.Map;
 
 import com.googlecode.objectify.annotation.Cache;
 import com.googlecode.objectify.annotation.Entity;
@@ -13,7 +14,9 @@ public class UserAnswer {
 
     @Id
     private Long id;
-    private String answer;
+    private String answer;//TODO: remove after migration
+    private Map<String, String> answers;
+    @Index
     private Date date;
     private String hitId;
     @Index
@@ -103,6 +106,14 @@ public class UserAnswer {
 
     public void setLocationCity(String locationCity) {
         this.locationCity = locationCity;
+    }
+
+    public Map<String, String> getAnswers() {
+        return answers;
+    }
+
+    public void setAnswers(Map<String, String> answers) {
+        this.answers = answers;
     }
 
 }

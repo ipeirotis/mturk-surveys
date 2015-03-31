@@ -21,6 +21,10 @@ public class OfyBaseDao<T> {
         return ofy().save().entity(entity).now();
     }
 
+    public Map<Key<T>, T> save(List<T> entities) {
+        return ofy().save().entities(entities).now();
+    }
+
     public T saveAndGet(T entity) {
         Key<T> key = ofy().save().entity(entity).now();
         return ofy().load().key(key).now();
