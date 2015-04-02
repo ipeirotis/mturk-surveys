@@ -1,7 +1,6 @@
 package com.ipeirotis.endpoints;
 
 import java.text.ParseException;
-import java.util.List;
 import java.util.logging.Logger;
 
 import javax.inject.Named;
@@ -13,10 +12,7 @@ import com.google.api.server.spi.config.Nullable;
 import com.google.api.server.spi.response.BadRequestException;
 import com.google.api.server.spi.response.NotFoundException;
 import com.google.inject.Inject;
-import com.ipeirotis.dto.BirthSurveyAnswers;
-import com.ipeirotis.dto.ByCountryAnswers;
-import com.ipeirotis.dto.DemographicsSurveyAnswers;
-import com.ipeirotis.dto.GenderSurveyAnswers;
+import com.ipeirotis.dto.DemographicsSurveyAnswersByPeriod;
 import com.ipeirotis.endpoints.response.StringResponse;
 import com.ipeirotis.entity.Survey;
 import com.ipeirotis.service.SurveyService;
@@ -58,26 +54,9 @@ public class SurveyEndpoint {
     }
 
     @ApiMethod(name = "getDemographicsAnswers", path = "survey/demographics/answers", httpMethod = HttpMethod.GET)
-    public DemographicsSurveyAnswers getDemographicsAnswers(
+    public DemographicsSurveyAnswersByPeriod getDemographicsAnswers(
             @Named("from") String from, @Named("to") String to) throws ParseException {
         return surveyService.getDemographicsAnswers(from, to);
     }
 
-    @ApiMethod(name = "getGenderAnswers", path = "survey/gender/answers", httpMethod = HttpMethod.GET)
-    public List<GenderSurveyAnswers> getGenderAnswers(
-            @Named("from") String from, @Named("to") String to) throws ParseException {
-        return surveyService.getGenderAnswers(from, to);
-    }
-
-    @ApiMethod(name = "getBirthAnswers", path = "survey/birth/answers", httpMethod = HttpMethod.GET)
-    public BirthSurveyAnswers getBirthAnswers(
-            @Named("from") String from, @Named("to") String to) throws ParseException {
-        return surveyService.getBirthAnswers(from, to);
-    }
-
-    @ApiMethod(name = "getByCountryAnswers", path = "survey/byCountry", httpMethod = HttpMethod.GET)
-    public ByCountryAnswers getByCountryAnswers(
-            @Named("from") String from, @Named("to") String to) throws ParseException {
-        return surveyService.getByCountryAnswers(from, to);
-    }
 }

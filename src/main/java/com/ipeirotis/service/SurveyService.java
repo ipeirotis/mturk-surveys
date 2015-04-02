@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,10 +24,8 @@ import com.google.api.server.spi.response.NotFoundException;
 import com.google.inject.Inject;
 import com.ipeirotis.dao.QuestionDao;
 import com.ipeirotis.dao.SurveyDao;
-import com.ipeirotis.dto.BirthSurveyAnswers;
-import com.ipeirotis.dto.ByCountryAnswers;
 import com.ipeirotis.dto.DemographicsSurveyAnswers;
-import com.ipeirotis.dto.GenderSurveyAnswers;
+import com.ipeirotis.dto.DemographicsSurveyAnswersByPeriod;
 import com.ipeirotis.entity.Answer;
 import com.ipeirotis.entity.Question;
 import com.ipeirotis.entity.Selection;
@@ -98,8 +97,7 @@ public class SurveyService {
             survey.setHtmlQuestion(survey.getHtmlQuestion()
                     .replaceAll(REGEX_WHITESPACE_BETWEEN_HTML, "><")
                     .replaceAll("\n", "")
-                    .replaceAll("\t", "")
-                    /*.replaceAll("\"", "\\\\'")*/);
+                    .replaceAll("\t", ""));
         }
         
         return surveyDao.saveAndGet(survey);
@@ -198,7 +196,23 @@ public class SurveyService {
         }
     }
 
-    public List<UserAnswer> listAnswers(String surveyId, String from, String to) throws ParseException {
+    public List<UserAnswer> listAnswers(String surveyId, Date from, Date to) {
+        Map<String, Object> params = new HashMap<String, Object>();
+        if(surveyId != null) {
+            params.put("surveyId", surveyId);
+        }
+        params.put("date >=", from);
+        params.put("date <", to);
+
+        return userAnswerService.query(params);
+    }
+
+    public DemographicsSurveyAnswersByPeriod getDemographicsAnswers(String from, String to)
+            throws ParseException {
+        Map<Date, List<UserAnswer>> hourlyMap = new HashMap<Date, List<UserAnswer>>();
+        Map<Date, List<UserAnswer>> dailyMap = new HashMap<Date, List<UserAnswer>>();
+        Map<Date, List<UserAnswer>> weeklyMap = new HashMap<Date, List<UserAnswer>>();
+
         Calendar dateFrom = Calendar.getInstance();
         dateFrom.setTime(df.parse(from));
         dateFrom.set(Calendar.HOUR_OF_DAY, 0);
@@ -207,38 +221,23 @@ public class SurveyService {
 
         Calendar dateTo = Calendar.getInstance();
         dateTo.setTime(df.parse(to));
-        dateTo.set(Calendar.HOUR_OF_DAY, 23);
-        dateTo.set(Calendar.MINUTE, 59);
-        dateTo.set(Calendar.SECOND, 59);
+        dateTo.set(Calendar.HOUR_OF_DAY, 0);
+        dateTo.set(Calendar.MINUTE, 0);
+        dateTo.set(Calendar.SECOND, 0);
+        dateTo.add(Calendar.DAY_OF_MONTH, 1);
+        List<UserAnswer> answers = listAnswers("demographics", dateFrom.getTime(), dateTo.getTime());
 
-        Map<String, Object> params = new HashMap<String, Object>();
-        if(surveyId != null) {
-            params.put("surveyId", surveyId);
+        //init weekly map
+        Calendar tempDate = Calendar.getInstance();
+        tempDate.setTime(dateTo.getTime());
+        while (dateFrom.compareTo(tempDate) <= 0) {
+            tempDate.add(Calendar.DAY_OF_MONTH, -7);
+            if(dateFrom.compareTo(tempDate) <= 0) {
+                weeklyMap.put(tempDate.getTime(), new ArrayList<UserAnswer>());
+            } else {
+                weeklyMap.put(dateFrom.getTime(), new ArrayList<UserAnswer>());
+            }
         }
-        params.put("date >=", dateFrom.getTime());
-        params.put("date <=", dateTo.getTime());
-
-        return userAnswerService.query(params);
-    }
-
-    public DemographicsSurveyAnswers getDemographicsAnswers(String from, String to) throws ParseException {
-        DemographicsSurveyAnswers result = new DemographicsSurveyAnswers();
-        Map<Date, Map<String, Float>> byCountry = new HashMap<Date, Map<String,Float>>();
-        Map<Date, Map<String, Float>> byBirthday = new HashMap<Date, Map<String,Float>>();
-        Map<Date, Map<String, Float>> byGender = new HashMap<Date, Map<String,Float>>();
-        Map<Date, Map<String, Float>> byMaritalStatus = new HashMap<Date, Map<String,Float>>();
-        Map<Date, Map<String, Float>> byHouseholdSize = new HashMap<Date, Map<String,Float>>();
-        Map<Date, Map<String, Float>> byHouseholdIncome = new HashMap<Date, Map<String,Float>>();
-        Map<String, Set<String>> labels = new HashMap<String, Set<String>>();
-        result.setByCountry(byCountry);
-        result.setByBirthday(byBirthday);
-        result.setByGender(byGender);
-        result.setByMaritalStatus(byMaritalStatus);
-        result.setByHouseholdSize(byHouseholdSize);
-        result.setByHouseholdIncome(byHouseholdIncome);
-
-        Map<Date, List<UserAnswer>> dailyMap = new HashMap<Date, List<UserAnswer>>();
-        List<UserAnswer> answers = listAnswers("demographics", from, to);
 
         for (UserAnswer userAnswer : answers) {
             Calendar d = Calendar.getInstance();
@@ -248,7 +247,7 @@ public class SurveyService {
             d.set(Calendar.SECOND, 0);
             d.set(Calendar.MILLISECOND, 0);
 
-            if (dailyMap.containsKey(d.getTime())) {
+            if(dailyMap.containsKey(d.getTime())) {
                 List<UserAnswer> list = dailyMap.get(d.getTime());
                 list.add(userAnswer);
             } else {
@@ -256,13 +255,76 @@ public class SurveyService {
                 newList.add(userAnswer);
                 dailyMap.put(d.getTime(), newList);
             }
+
+            //weekly
+            for(Map.Entry<Date,List<UserAnswer>> entry : weeklyMap.entrySet()) {
+                Calendar lastDayOfWeek = Calendar.getInstance();
+                lastDayOfWeek.setTime(entry.getKey());
+                lastDayOfWeek.add(Calendar.WEEK_OF_MONTH, 1);
+
+                if(lastDayOfWeek.compareTo(dateTo) > 0) {
+                    lastDayOfWeek.setTime(dateTo.getTime());
+                }
+
+                if(d.getTime().after(entry.getKey()) && d.compareTo(lastDayOfWeek) < 0) {
+                    entry.getValue().add(userAnswer);
+                }
+            }
+
+            //hourly
+            Calendar dateWithHour = Calendar.getInstance();
+            dateWithHour.setTime(userAnswer.getDate());
+            dateWithHour.set(Calendar.MINUTE, 0);
+            dateWithHour.set(Calendar.SECOND, 0);
+            dateWithHour.set(Calendar.MILLISECOND, 0);
+
+            if(hourlyMap.containsKey(dateWithHour.getTime())) {
+                List<UserAnswer> list = hourlyMap.get(dateWithHour.getTime());
+                list.add(userAnswer);
+            } else {
+                List<UserAnswer> newList = new ArrayList<UserAnswer>();
+                newList.add(userAnswer);
+                hourlyMap.put(dateWithHour.getTime(), newList);
+            }
         }
 
-        for(Map.Entry<Date, List<UserAnswer>> entry : dailyMap.entrySet()) {
+        //clear empty arrays
+        Iterator<Map.Entry<Date,List<UserAnswer>>> i = weeklyMap.entrySet().iterator();
+        while (i.hasNext()) {
+            Map.Entry<Date,List<UserAnswer>> entry = i.next();
+            if(entry.getValue().size() == 0) {
+                i.remove();
+            }
+        }
+
+        DemographicsSurveyAnswersByPeriod result = new DemographicsSurveyAnswersByPeriod();
+        result.setHourly(getData(hourlyMap));
+        result.setDaily(getData(dailyMap));
+        result.setWeekly(getData(weeklyMap));
+        return result;
+    }
+
+    private DemographicsSurveyAnswers getData(Map<Date, List<UserAnswer>> answers){
+        DemographicsSurveyAnswers result = new DemographicsSurveyAnswers();
+        Map<Date, Map<String, Float>> byCountry = new HashMap<Date, Map<String,Float>>();
+        Map<Date, Map<String, Float>> byYearOfBirth = new HashMap<Date, Map<String,Float>>();
+        Map<Date, Map<String, Float>> byGender = new HashMap<Date, Map<String,Float>>();
+        Map<Date, Map<String, Float>> byMaritalStatus = new HashMap<Date, Map<String,Float>>();
+        Map<Date, Map<String, Float>> byHouseholdSize = new HashMap<Date, Map<String,Float>>();
+        Map<Date, Map<String, Float>> byHouseholdIncome = new HashMap<Date, Map<String,Float>>();
+        Map<String, Set<String>> labels = new HashMap<String, Set<String>>();
+        result.setCountries(byCountry);
+        result.setYearOfBirth(byYearOfBirth);
+        result.setGender(byGender);
+        result.setMaritalStatus(byMaritalStatus);
+        result.setHouseholdSize(byHouseholdSize);
+        result.setHouseholdIncome(byHouseholdIncome);
+
+        for(Map.Entry<Date, List<UserAnswer>> entry : answers.entrySet()) {
             Date day = entry.getKey();
 
-            Map<String, Float> byBirthdayMap = new HashMap<String, Float>();
-            byBirthday.put(day, byBirthdayMap);
+            Map<String, Float> byYearOfBirthMap = new HashMap<String, Float>();
+            byYearOfBirth.put(day, byYearOfBirthMap);
             
             Map<String, Float> byCountryMap = new HashMap<String, Float>();
             byCountry.put(day, byCountryMap);
@@ -281,7 +343,7 @@ public class SurveyService {
 
             for(UserAnswer userAnswer : entry.getValue()) {
                 incCountries(userAnswer.getLocationCountry(), byCountryMap, labels);
-                incDecades("yearOfBirth", userAnswer.getAnswers(), byBirthdayMap, labels);
+                incDecades("yearOfBirth", userAnswer.getAnswers(), byYearOfBirthMap, labels);
                 inc("gender", userAnswer.getAnswers(), byGenderMap, labels);
                 inc("maritalStatus", userAnswer.getAnswers(), byMaritalStatusMap, labels);
                 inc("householdSize", userAnswer.getAnswers(), byHouseholdSizeMap, labels);
@@ -290,7 +352,7 @@ public class SurveyService {
         }
         
         toPercentage(byCountry);
-        toPercentage(byBirthday);
+        toPercentage(byYearOfBirth);
         toPercentage(byGender);
         toPercentage(byMaritalStatus);
         toPercentage(byHouseholdSize);
@@ -361,146 +423,4 @@ public class SurveyService {
         return String.format("%d-%d", rounded, rounded+10);
     }
 
-    public List<GenderSurveyAnswers> getGenderAnswers(String from, String to) throws ParseException {
-        Map<Date, GenderSurveyAnswers> dailyMap = new HashMap<Date, GenderSurveyAnswers>();
-        List<UserAnswer> answers = listAnswers("gender", from, to);
-        for (UserAnswer userAnswer : answers) {
-            Calendar d = Calendar.getInstance();
-            d.setTime(userAnswer.getDate());
-            d.set(Calendar.HOUR_OF_DAY, 0);
-            d.set(Calendar.MINUTE, 0);
-            d.set(Calendar.SECOND, 0);
-            d.set(Calendar.MILLISECOND, 0);
-
-            GenderSurveyAnswers existing = dailyMap.get(d.getTime());
-            if (existing != null) {
-                if("male".equals(userAnswer.getAnswer())) {
-                    existing.setMale(existing.getMale() + 1);
-                } else if("female".equals(userAnswer.getAnswer())) {
-                    existing.setFemale(existing.getFemale() + 1);
-                }
-            } else {
-                existing = new GenderSurveyAnswers();
-                existing.setDate(d.getTime());
-                existing.setFemale(0);
-                existing.setMale(0);
-
-                if("male".equals(userAnswer.getAnswer())) {
-                    existing.setMale(existing.getMale() + 1);
-                } else if("female".equals(userAnswer.getAnswer())) {
-                    existing.setFemale(existing.getFemale() + 1);
-                }
-                dailyMap.put(d.getTime(), existing);
-            }
-        }
-        //to percentages
-        for(GenderSurveyAnswers genderAnswers : dailyMap.values()) {
-            float male = genderAnswers.getMale();
-            float female = genderAnswers.getFemale();
-            float malePercentage = (male+female == 0) ? 0 : male/(male+female) * 100;
-            float femalePercentage = (male+female == 0) ? 0 : female/(male+female) * 100;
-            genderAnswers.setMale(malePercentage);
-            genderAnswers.setFemale(femalePercentage);
-        }
-        
-        return new ArrayList<GenderSurveyAnswers>(dailyMap.values());
-    }
-
-    public BirthSurveyAnswers getBirthAnswers(String from, String to) throws ParseException {
-        Set<String> decades = new TreeSet<String>();
-        BirthSurveyAnswers result = new BirthSurveyAnswers();
-        HashMap<Date, Map<String, Float>> dailyMap = new HashMap<Date, Map<String, Float>>();
-        result.setData(dailyMap);
-        result.setDecades(decades);
-
-        List<UserAnswer> answers = listAnswers("birth", from, to);
-        for (UserAnswer userAnswer : answers) {
-            Calendar d = Calendar.getInstance();
-            d.setTime(userAnswer.getDate());
-            d.set(Calendar.HOUR_OF_DAY, 0);
-            d.set(Calendar.MINUTE, 0);
-            d.set(Calendar.SECOND, 0);
-            d.set(Calendar.MILLISECOND, 0);
-            
-            Map<String, Float> byDecadeMap = dailyMap.get(d.getTime());
-            if (byDecadeMap != null) {
-                String key = getDecadeKey(userAnswer.getAnswer());
-                decades.add(key);
-                Float count = byDecadeMap.get(key);
-                if(count != null) {
-                    byDecadeMap.put(key, count + 1);
-                } else {
-                    byDecadeMap.put(key, 1f);
-                }
-            } else {
-                byDecadeMap = new HashMap<String, Float>();
-                String key = getDecadeKey(userAnswer.getAnswer());
-                decades.add(key);
-                byDecadeMap.put(key, 1f);
-
-                dailyMap.put(d.getTime(), byDecadeMap);
-            }
-        }
-        //to percentage
-        for(Map.Entry<Date, Map<String, Float>> entry : dailyMap.entrySet()) {
-            Float amount = 0f;
-            Map<String, Float> map = entry.getValue();
-            for(Float value : map.values()) {
-                amount += value;
-            }
-            for(Map.Entry<String, Float> e : map.entrySet()) {
-                map.put(e.getKey(), (amount == 0) ? 0 : e.getValue()/amount*100);
-            }
-        }
-        return result;
-    }
-
-    public ByCountryAnswers getByCountryAnswers(String from, String to) throws ParseException {
-        Set<String> countries = new TreeSet<String>();
-        ByCountryAnswers result = new ByCountryAnswers();
-        HashMap<Date, Map<String, Float>> dailyMap = new HashMap<Date, Map<String, Float>>();
-        result.setData(dailyMap);
-        result.setCountries(countries);
-
-        List<UserAnswer> answers = listAnswers(null, from, to);
-        for (UserAnswer userAnswer : answers) {
-            Calendar d = Calendar.getInstance();
-            d.setTime(userAnswer.getDate());
-            d.set(Calendar.HOUR_OF_DAY, 0);
-            d.set(Calendar.MINUTE, 0);
-            d.set(Calendar.SECOND, 0);
-            d.set(Calendar.MILLISECOND, 0);
-            
-            Map<String, Float> byCountryMap = dailyMap.get(d.getTime());
-            if (byCountryMap != null) {
-                String key = userAnswer.getLocationCountry();
-                countries.add(key);
-                Float count = byCountryMap.get(key);
-                if(count != null) {
-                    byCountryMap.put(key, count + 1);
-                } else {
-                    byCountryMap.put(key, 1f);
-                }
-            } else {
-                byCountryMap = new HashMap<String, Float>();
-                String key = userAnswer.getLocationCountry();
-                countries.add(key);
-                byCountryMap.put(key, 1f);
-
-                dailyMap.put(d.getTime(), byCountryMap);
-            }
-        }
-        //to percentage
-        for(Map.Entry<Date, Map<String, Float>> entry : dailyMap.entrySet()) {
-            Float amount = 0f;
-            Map<String, Float> map = entry.getValue();
-            for(Float value : map.values()) {
-                amount += value;
-            }
-            for(Map.Entry<String, Float> e : map.entrySet()) {
-                map.put(e.getKey(), (amount == 0) ? 0 : e.getValue()/amount*100);
-            }
-        }
-        return result;
-    }
 }
