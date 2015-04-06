@@ -11,6 +11,7 @@ import com.ipeirotis.endpoints.SurveyEndpoint;
 import com.ipeirotis.servlet.ApproveAssignmentsServlet;
 import com.ipeirotis.servlet.CreateHITServlet;
 import com.ipeirotis.servlet.GetUserAnswerServlet;
+import com.ipeirotis.servlet.MergeAnswersServlet;
 import com.ipeirotis.servlet.SaveUserAnswerServlet;
 
 public class EndpointsModule extends GuiceSystemServiceServletModule {
@@ -23,7 +24,8 @@ public class EndpointsModule extends GuiceSystemServiceServletModule {
         serve("/createHIT").with(CreateHITServlet.class);
         serve("/saveAnswer").with(SaveUserAnswerServlet.class);
         serve("/getAnswer").with(GetUserAnswerServlet.class);
-        serve("/approveAssignments").with(ApproveAssignmentsServlet.class);
+        serve("/tasks/approveAssignments").with(ApproveAssignmentsServlet.class);
+        serve("/tasks/mergeAnswers").with(MergeAnswersServlet.class);
 
         Set<Class<?>> serviceClasses = new HashSet<Class<?>>();
         serviceClasses.add(MturkEndpoint.class);

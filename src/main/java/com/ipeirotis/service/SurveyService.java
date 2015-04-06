@@ -60,10 +60,7 @@ public class SurveyService {
         incomeLabels.add("$40,000-$59,999");
         incomeLabels.add("$60,000-$74,999");
         incomeLabels.add("$75,000-$99,999");
-        incomeLabels.add("$100,000-$149,999");
-        incomeLabels.add("$150,000-$199,999");
-        incomeLabels.add("$200,000-$249,999");
-        incomeLabels.add("$300,000 or more");
+        incomeLabels.add("$100,000 or more");
     }
 
     private DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");

@@ -8,7 +8,7 @@ angular.module('mturk').controller('ChartController',
     $scope.activePill = 'hourlyChartPill';
     $scope.chartIds = ['hourlyChart', 'dailyChart', 'weeklyChart'];
     $scope.drawnCharts = [];
-    $scope.visibleChart = 'hourlyChart';
+    $scope.visibleChart = 'dailyChart';
 
     $scope.hourlyChart = initChart();
     $scope.dailyChart = initChart();
