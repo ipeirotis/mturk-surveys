@@ -21,7 +21,7 @@
 <ul class="nav nav-pills" ng-model="activePill" pills>
   <li class="active"><a href="" id="hourlyChartPill" ng-click="draw('hourlyChart')">hourly</a></li>
   <li><a href="" id="dailyChartPill" ng-click="draw('dailyChart')">daily</a></li>
-  <li><a href="" id="weeklyChartPill" ng-click="draw('weeklyChart')">weekly</a></li>
+  <li><a href="" id="weeklyChartPill" ng-click="draw('weeklyChart')">day of week</a></li>
 </ul>
 <div google-chart chart="hourlyChart" id="hourlyChart" style="display:block;width:100%;height:400px;" on-ready="chartReady('hourlyChart')"/>
 <div google-chart chart="dailyChart" id="dailyChart" style="display:none;width:100%;height:400px;" on-ready="chartReady('dailyChart')"/>

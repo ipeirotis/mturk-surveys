@@ -10,6 +10,8 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,6 +43,28 @@ public class SurveyService {
 
     private static final Logger logger = Logger.getLogger(SurveyService.class.getName());
     private static final String REGEX_WHITESPACE_BETWEEN_HTML = "[>]{1}\\s+[<]{1}";
+
+    private static final String[] days = new String[] {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+    private static final Set<String> countryLabels = new LinkedHashSet<String>();
+    private static final Set<String> incomeLabels = new LinkedHashSet<String>();
+
+    static {
+        countryLabels.add("US");
+        countryLabels.add("India");
+        countryLabels.add("Others");
+
+        incomeLabels.add("Less than $10,000");
+        incomeLabels.add("$10,000-$14,999");
+        incomeLabels.add("$15,000-$24,999");
+        incomeLabels.add("$25,000-$39,999");
+        incomeLabels.add("$40,000-$59,999");
+        incomeLabels.add("$60,000-$74,999");
+        incomeLabels.add("$75,000-$99,999");
+        incomeLabels.add("$100,000-$149,999");
+        incomeLabels.add("$150,000-$199,999");
+        incomeLabels.add("$200,000-$249,999");
+        incomeLabels.add("$300,000 or more");
+    }
 
     private DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
 
@@ -209,9 +233,12 @@ public class SurveyService {
 
     public DemographicsSurveyAnswersByPeriod getDemographicsAnswers(String from, String to)
             throws ParseException {
-        Map<Date, List<UserAnswer>> hourlyMap = new HashMap<Date, List<UserAnswer>>();
-        Map<Date, List<UserAnswer>> dailyMap = new HashMap<Date, List<UserAnswer>>();
-        Map<Date, List<UserAnswer>> weeklyMap = new HashMap<Date, List<UserAnswer>>();
+        Map<String, List<UserAnswer>> hourlyMap = new HashMap<String, List<UserAnswer>>();
+        Map<String, List<UserAnswer>> dailyMap = new HashMap<String, List<UserAnswer>>();
+        Map<String, List<UserAnswer>> dayOfWeekMap = new LinkedHashMap<String, List<UserAnswer>>();
+        for(String day : days) {
+            dayOfWeekMap.put(day, new ArrayList<UserAnswer>());
+        }
 
         Calendar dateFrom = Calendar.getInstance();
         dateFrom.setTime(df.parse(from));
@@ -227,18 +254,6 @@ public class SurveyService {
         dateTo.add(Calendar.DAY_OF_MONTH, 1);
         List<UserAnswer> answers = listAnswers("demographics", dateFrom.getTime(), dateTo.getTime());
 
-        //init weekly map
-        Calendar tempDate = Calendar.getInstance();
-        tempDate.setTime(dateTo.getTime());
-        while (dateFrom.compareTo(tempDate) <= 0) {
-            tempDate.add(Calendar.DAY_OF_MONTH, -7);
-            if(dateFrom.compareTo(tempDate) <= 0) {
-                weeklyMap.put(tempDate.getTime(), new ArrayList<UserAnswer>());
-            } else {
-                weeklyMap.put(dateFrom.getTime(), new ArrayList<UserAnswer>());
-            }
-        }
-
         for (UserAnswer userAnswer : answers) {
             Calendar d = Calendar.getInstance();
             d.setTime(userAnswer.getDate());
@@ -247,29 +262,18 @@ public class SurveyService {
             d.set(Calendar.SECOND, 0);
             d.set(Calendar.MILLISECOND, 0);
 
-            if(dailyMap.containsKey(d.getTime())) {
-                List<UserAnswer> list = dailyMap.get(d.getTime());
+            if(dailyMap.containsKey(d.getTime().toString())) {
+                List<UserAnswer> list = dailyMap.get(d.getTime().toString());
                 list.add(userAnswer);
             } else {
                 List<UserAnswer> newList = new ArrayList<UserAnswer>();
                 newList.add(userAnswer);
-                dailyMap.put(d.getTime(), newList);
+                dailyMap.put(d.getTime().toString(), newList);
             }
 
-            //weekly
-            for(Map.Entry<Date,List<UserAnswer>> entry : weeklyMap.entrySet()) {
-                Calendar lastDayOfWeek = Calendar.getInstance();
-                lastDayOfWeek.setTime(entry.getKey());
-                lastDayOfWeek.add(Calendar.WEEK_OF_MONTH, 1);
-
-                if(lastDayOfWeek.compareTo(dateTo) > 0) {
-                    lastDayOfWeek.setTime(dateTo.getTime());
-                }
-
-                if(d.getTime().after(entry.getKey()) && d.compareTo(lastDayOfWeek) < 0) {
-                    entry.getValue().add(userAnswer);
-                }
-            }
+            //dayOfWeek
+            String dayOfWeek = days[d.get(Calendar.DAY_OF_WEEK)-1];
+            dayOfWeekMap.get(dayOfWeek).add(userAnswer);
 
             //hourly
             Calendar dateWithHour = Calendar.getInstance();
@@ -278,41 +282,35 @@ public class SurveyService {
             dateWithHour.set(Calendar.SECOND, 0);
             dateWithHour.set(Calendar.MILLISECOND, 0);
 
-            if(hourlyMap.containsKey(dateWithHour.getTime())) {
-                List<UserAnswer> list = hourlyMap.get(dateWithHour.getTime());
+            String hour = String.valueOf(dateWithHour.get(Calendar.HOUR_OF_DAY));
+            if(hourlyMap.containsKey(hour)) {
+                List<UserAnswer> list = hourlyMap.get(hour);
                 list.add(userAnswer);
             } else {
                 List<UserAnswer> newList = new ArrayList<UserAnswer>();
                 newList.add(userAnswer);
-                hourlyMap.put(dateWithHour.getTime(), newList);
-            }
-        }
-
-        //clear empty arrays
-        Iterator<Map.Entry<Date,List<UserAnswer>>> i = weeklyMap.entrySet().iterator();
-        while (i.hasNext()) {
-            Map.Entry<Date,List<UserAnswer>> entry = i.next();
-            if(entry.getValue().size() == 0) {
-                i.remove();
+                hourlyMap.put(hour, newList);
             }
         }
 
         DemographicsSurveyAnswersByPeriod result = new DemographicsSurveyAnswersByPeriod();
         result.setHourly(getData(hourlyMap));
         result.setDaily(getData(dailyMap));
-        result.setWeekly(getData(weeklyMap));
+        result.setWeekly(getData(dayOfWeekMap));
         return result;
     }
 
-    private DemographicsSurveyAnswers getData(Map<Date, List<UserAnswer>> answers){
+    private DemographicsSurveyAnswers getData(Map<String, List<UserAnswer>> answers){
         DemographicsSurveyAnswers result = new DemographicsSurveyAnswers();
-        Map<Date, Map<String, Float>> byCountry = new HashMap<Date, Map<String,Float>>();
-        Map<Date, Map<String, Float>> byYearOfBirth = new HashMap<Date, Map<String,Float>>();
-        Map<Date, Map<String, Float>> byGender = new HashMap<Date, Map<String,Float>>();
-        Map<Date, Map<String, Float>> byMaritalStatus = new HashMap<Date, Map<String,Float>>();
-        Map<Date, Map<String, Float>> byHouseholdSize = new HashMap<Date, Map<String,Float>>();
-        Map<Date, Map<String, Float>> byHouseholdIncome = new HashMap<Date, Map<String,Float>>();
+        Map<String, Map<String, Float>> byCountry = new LinkedHashMap<String, Map<String,Float>>();
+        Map<String, Map<String, Float>> byYearOfBirth = new LinkedHashMap<String, Map<String,Float>>();
+        Map<String, Map<String, Float>> byGender = new LinkedHashMap<String, Map<String,Float>>();
+        Map<String, Map<String, Float>> byMaritalStatus = new LinkedHashMap<String, Map<String,Float>>();
+        Map<String, Map<String, Float>> byHouseholdSize = new LinkedHashMap<String, Map<String,Float>>();
+        Map<String, Map<String, Float>> byHouseholdIncome = new LinkedHashMap<String, Map<String,Float>>();
+
         Map<String, Set<String>> labels = new HashMap<String, Set<String>>();
+
         result.setCountries(byCountry);
         result.setYearOfBirth(byYearOfBirth);
         result.setGender(byGender);
@@ -320,26 +318,26 @@ public class SurveyService {
         result.setHouseholdSize(byHouseholdSize);
         result.setHouseholdIncome(byHouseholdIncome);
 
-        for(Map.Entry<Date, List<UserAnswer>> entry : answers.entrySet()) {
-            Date day = entry.getKey();
+        for(Map.Entry<String, List<UserAnswer>> entry : answers.entrySet()) {
+            String key = entry.getKey();
 
             Map<String, Float> byYearOfBirthMap = new HashMap<String, Float>();
-            byYearOfBirth.put(day, byYearOfBirthMap);
+            byYearOfBirth.put(key, byYearOfBirthMap);
             
             Map<String, Float> byCountryMap = new HashMap<String, Float>();
-            byCountry.put(day, byCountryMap);
+            byCountry.put(key, byCountryMap);
 
             Map<String, Float> byGenderMap = new HashMap<String, Float>();
-            byGender.put(day, byGenderMap);
+            byGender.put(key, byGenderMap);
 
             Map<String, Float> byMaritalStatusMap = new HashMap<String, Float>();
-            byMaritalStatus.put(day, byMaritalStatusMap);
+            byMaritalStatus.put(key, byMaritalStatusMap);
 
             Map<String, Float> byHouseholdSizeMap = new HashMap<String, Float>();
-            byHouseholdSize.put(day, byHouseholdSizeMap);
+            byHouseholdSize.put(key, byHouseholdSizeMap);
 
             Map<String, Float> byHouseholdIncomeMap = new HashMap<String, Float>();
-            byHouseholdIncome.put(day, byHouseholdIncomeMap);
+            byHouseholdIncome.put(key, byHouseholdIncomeMap);
 
             for(UserAnswer userAnswer : entry.getValue()) {
                 incCountries(userAnswer.getLocationCountry(), byCountryMap, labels);
@@ -357,6 +355,29 @@ public class SurveyService {
         toPercentage(byMaritalStatus);
         toPercentage(byHouseholdSize);
         toPercentage(byHouseholdIncome);
+
+        //clear empty data
+        if(labels.get("householdIncome") != null) {
+            Iterator<String> incomeLabelsIterator = incomeLabels.iterator();
+            while (incomeLabelsIterator.hasNext()) {
+                String label = incomeLabelsIterator.next();
+                if(!labels.get("householdIncome").contains(label)) {
+                    incomeLabelsIterator.remove();
+                }
+            }
+            labels.put("householdIncome", incomeLabels);
+        }
+
+        if(labels.get("countries") != null) {
+            Iterator<String> countryLabelsIterator = countryLabels.iterator();
+            while (countryLabelsIterator.hasNext()) {
+                String label = countryLabelsIterator.next();
+                if(!labels.get("countries").contains(label)) {
+                    countryLabelsIterator.remove();
+                }
+            }
+            labels.put("countries", countryLabels);
+        }
 
         result.setLabels(labels);
         return result;
@@ -388,10 +409,18 @@ public class SurveyService {
         }
     }
     
-    private void incCountries(String id, Map<String, Float> dst, Map<String, Set<String>> labels) {
-        Float count = dst.get(id);
-        dst.put(id, (count == null) ? 1f : count + 1f);
-        addLabel("countries", id, labels);
+    private void incCountries(String code, Map<String, Float> dst, Map<String, Set<String>> labels) {
+        String country;
+        if("US".equals(code)) {
+            country = "US";
+        } else if("IN".equals(code)) {
+            country = "India";
+        } else {
+            country = "Others";
+        }
+        Float count = dst.get(country);
+        dst.put(country, (count == null) ? 1f : count + 1f);
+        addLabel("countries", country, labels);
     }
 
     private void addLabel(String questionId, String answer, Map<String, Set<String>> labels) {
@@ -405,8 +434,8 @@ public class SurveyService {
         }
     }
 
-    private void toPercentage(Map<Date, Map<String, Float>> dst) {
-        for(Map.Entry<Date, Map<String, Float>> entry : dst.entrySet()) {
+    private void toPercentage(Map<String, Map<String, Float>> dst) {
+        for(Map.Entry<String, Map<String, Float>> entry : dst.entrySet()) {
             Float amount = 0f;
             Map<String, Float> map = entry.getValue();
             for(Float value : map.values()) {

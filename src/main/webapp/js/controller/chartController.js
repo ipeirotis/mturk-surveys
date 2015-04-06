@@ -88,7 +88,7 @@ angular.module('mturk').controller('ChartController',
     function populate(chart, data, type, id) {
         var rows = new Array();
         for (var propName in data[type][id]) {
-            var row = {c:[{v: new Date(propName)}]};
+            var row = {c:[{v: (type == 'hourly' || type == 'weekly')? propName : new Date(propName)}]};
             var i = data[type][id][propName];
             angular.forEach(data[type].labels[id], function(label){
                 var val = i[label] ? i[label] : 0;
@@ -99,12 +99,15 @@ angular.module('mturk').controller('ChartController',
         };
 
         var cols = new Array();
-        cols.push({label: "Date", type: "date"});
+        if(type == 'hourly' || type == 'weekly') {
+            cols.push({label: "Date", type: "string"});
+        } else {
+            cols.push({label: "Date", type: "date"});
+        }
         angular.forEach(data[type].labels[id], function(label){
             cols.push({label: label, type: "number"});
             cols.push({type:'string', role:'tooltip'});
         });
-
         chart.data.cols = cols;
         chart.data.rows= rows;
     };
