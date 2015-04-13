@@ -12,6 +12,8 @@
     <div class='container'>
         <div class='row'>
             <div class='col-md-3 col-sm-6 center-block' style='float: none !important'>
+                <div class='alert alert-success' role='alert' id='survey-notification'>
+                    This HIT can be completed once a month.</div>
                 <form name='mturk_form' method='post' id='mturk_form' style='display:none'
                     action='${endpoint}/mturk/externalSubmit'>
                     <input type='hidden' value='' name='assignmentId' id='assignmentId' />
@@ -72,7 +74,6 @@
                             <option value='$100,000 or more'>$100,000 or more</option>
                         </select>
                     </div>
-                    <br><div class='alert alert-success' role='alert' style='display:none' id='survey-notification'>This HIT can be completed once a month.</div>
                     <br><div class='alert alert-danger' role='alert' style='display:none' id='validation-error'>All fields are required!</div>
                     <input type='submit' id='submitButton' class='btn btn-primary' style='margin-top: 5px;' value='Submit' />
                 </form>
@@ -114,7 +115,6 @@
                 }, 'jsonp');
             } else {
                 $('#mturk_form').show();
-                $('#survey-notification').show();
             }
 
             if (assignmentId == 'ASSIGNMENT_ID_NOT_AVAILABLE') {
