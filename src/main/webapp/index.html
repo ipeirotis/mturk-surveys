@@ -28,17 +28,27 @@
             </a>
         </div>
 		<div class="row">
-			<div class="col-md-2">
+			<div class="col-md-3">
 				<ul class="nav nav-pills nav-stacked" navpills>
-					<li data-match-route="/gender"><a ng-href="#/gender">Gender</a></li>
-                    <li data-match-route="/yearOfBirth"><a ng-href="#/yearOfBirth">Year of Birth</a></li>
-                    <li data-match-route="/maritalStatus"><a ng-href="#/maritalStatus">Marital Status</a></li>
-                    <li data-match-route="/householdSize"><a ng-href="#/householdSize">Household Size</a></li>
-                    <li data-match-route="/householdIncome"><a ng-href="#/householdIncome">Household Income</a></li>
-                    <li data-match-route="/countries"><a ng-href="#/countries">Countries</a></li>
+					<li data-match-route="/gender/all"><a ng-href="#/gender/all">Gender</a></li>
+                    <li data-match-route="/gender/us"><a ng-href="#/gender/us" class="nav-with-country">Gender (US)</a></li>
+                    <li data-match-route="/gender/in"><a ng-href="#/gender/in" class="nav-with-country">Gender (India)</a></li>
+                    <li data-match-route="/yearOfBirth/all"><a ng-href="#/yearOfBirth/all">Year of Birth</a></li>
+                    <li data-match-route="/yearOfBirth/us"><a ng-href="#/yearOfBirth/us" class="nav-with-country">Year of Birth (US)</a></li>
+                    <li data-match-route="/yearOfBirth/in"><a ng-href="#/yearOfBirth/in" class="nav-with-country">Year of Birth (India)</a></li>
+                    <li data-match-route="/maritalStatus/all"><a ng-href="#/maritalStatus/all">Marital Status</a></li>
+                    <li data-match-route="/maritalStatus/us"><a ng-href="#/maritalStatus/us" class="nav-with-country">Marital Status (US)</a></li>
+                    <li data-match-route="/maritalStatus/in"><a ng-href="#/maritalStatus/in" class="nav-with-country">Marital Status (India)</a></li>
+                    <li data-match-route="/householdSize/all"><a ng-href="#/householdSize/all">Household Size</a></li>
+                    <li data-match-route="/householdSize/us"><a ng-href="#/householdSize/us" class="nav-with-country">Household Size (US)</a></li>
+                    <li data-match-route="/householdSize/in"><a ng-href="#/householdSize/in" class="nav-with-country">Household Size (India)</a></li>
+                    <li data-match-route="/householdIncome/all"><a ng-href="#/householdIncome/all">Household Income</a></li>
+                    <li data-match-route="/householdIncome/us"><a ng-href="#/householdIncome/us" class="nav-with-country">Household Income (US)</a></li>
+                    <li data-match-route="/householdIncome/in"><a ng-href="#/householdIncome/in" class="nav-with-country">Household Income (India)</a></li>
+                    <li data-match-route="/countries/all"><a ng-href="#/countries/all">Countries</a></li>
 				</ul>
 			</div>
-			<div class="col-md-10" ng-view></div>
+			<div class="col-md-9" ng-view></div>
 		</div>
 	</div>
     <footer id="footer">

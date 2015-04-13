@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <cronentries>
   <cron>
-    <url>/createHIT?surveyId=demographics&amp;production=true</url>
+    <url>/tasks/createHIT?surveyId=demographics&amp;production=true</url>
     <description>Create Demographics HIT</description>
     <schedule>every 15 minutes</schedule>
   </cron>

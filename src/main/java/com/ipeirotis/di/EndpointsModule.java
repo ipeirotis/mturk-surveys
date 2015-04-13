@@ -21,9 +21,9 @@ public class EndpointsModule extends GuiceSystemServiceServletModule {
 
         bind(ObjectifyFilter.class).in(Singleton.class);
         filter("/*").through(ObjectifyFilter.class);
-        serve("/createHIT").with(CreateHITServlet.class);
         serve("/saveAnswer").with(SaveUserAnswerServlet.class);
         serve("/getAnswer").with(GetUserAnswerServlet.class);
+        serve("/tasks/createHIT").with(CreateHITServlet.class);
         serve("/tasks/approveAssignments").with(ApproveAssignmentsServlet.class);
         serve("/tasks/mergeAnswers").with(MergeAnswersServlet.class);
 

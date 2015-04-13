@@ -1,8 +1,8 @@
 angular.module('mturk', ['ngRoute', 'ngSanitize', 'ui.bootstrap', 'googlechart'])
 .config(['$routeProvider', 'views', function($routeProvider, views) {
     $routeProvider
-    .when('/:id', {templateUrl: views.chart, controller: 'ChartController'})
-    .otherwise({redirectTo: '/gender'});
+    .when('/:id/:country', {templateUrl: views.chart, controller: 'ChartController'})
+    .otherwise({redirectTo: '/gender/all'});
 }])
 
 .config(['$httpProvider', function($httpProvider) {

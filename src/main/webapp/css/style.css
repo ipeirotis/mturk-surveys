@@ -68,3 +68,7 @@ body {
 	color: #075b8d;
 	padding: 10px 10px 0 70px;
 }
+
+.nav .nav-with-country {
+    font-size: 12px;
+}

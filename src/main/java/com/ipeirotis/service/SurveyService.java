@@ -231,10 +231,19 @@ public class SurveyService {
     public DemographicsSurveyAnswersByPeriod getDemographicsAnswers(String from, String to)
             throws ParseException {
         Map<String, List<UserAnswer>> hourlyMap = new HashMap<String, List<UserAnswer>>();
+        Map<String, List<UserAnswer>> hourlyMapUS = new HashMap<String, List<UserAnswer>>();
+        Map<String, List<UserAnswer>> hourlyMapIN = new HashMap<String, List<UserAnswer>>();
         Map<String, List<UserAnswer>> dailyMap = new HashMap<String, List<UserAnswer>>();
+        Map<String, List<UserAnswer>> dailyMapUS = new HashMap<String, List<UserAnswer>>();
+        Map<String, List<UserAnswer>> dailyMapIN = new HashMap<String, List<UserAnswer>>();
         Map<String, List<UserAnswer>> dayOfWeekMap = new LinkedHashMap<String, List<UserAnswer>>();
+        Map<String, List<UserAnswer>> dayOfWeekMapUS = new LinkedHashMap<String, List<UserAnswer>>();
+        Map<String, List<UserAnswer>> dayOfWeekMapIN = new LinkedHashMap<String, List<UserAnswer>>();
+
         for(String day : days) {
             dayOfWeekMap.put(day, new ArrayList<UserAnswer>());
+            dayOfWeekMapUS.put(day, new ArrayList<UserAnswer>());
+            dayOfWeekMapIN.put(day, new ArrayList<UserAnswer>());
         }
 
         Calendar dateFrom = Calendar.getInstance();
@@ -259,42 +268,72 @@ public class SurveyService {
             d.set(Calendar.SECOND, 0);
             d.set(Calendar.MILLISECOND, 0);
 
-            if(dailyMap.containsKey(d.getTime().toString())) {
-                List<UserAnswer> list = dailyMap.get(d.getTime().toString());
-                list.add(userAnswer);
-            } else {
-                List<UserAnswer> newList = new ArrayList<UserAnswer>();
-                newList.add(userAnswer);
-                dailyMap.put(d.getTime().toString(), newList);
-            }
-
-            //dayOfWeek
-            String dayOfWeek = days[d.get(Calendar.DAY_OF_WEEK)-1];
-            dayOfWeekMap.get(dayOfWeek).add(userAnswer);
-
-            //hourly
             Calendar dateWithHour = Calendar.getInstance();
             dateWithHour.setTime(userAnswer.getDate());
             dateWithHour.set(Calendar.MINUTE, 0);
             dateWithHour.set(Calendar.SECOND, 0);
             dateWithHour.set(Calendar.MILLISECOND, 0);
 
+            String dayOfWeek = days[d.get(Calendar.DAY_OF_WEEK)-1];
             String hour = String.valueOf(dateWithHour.get(Calendar.HOUR_OF_DAY));
-            if(hourlyMap.containsKey(hour)) {
-                List<UserAnswer> list = hourlyMap.get(hour);
-                list.add(userAnswer);
-            } else {
-                List<UserAnswer> newList = new ArrayList<UserAnswer>();
-                newList.add(userAnswer);
-                hourlyMap.put(hour, newList);
+
+            aggregateAnswer(dailyMap, hourlyMap, dayOfWeekMap, userAnswer,
+                    d.getTime().toString(), dayOfWeek, hour);
+
+            if("US".equals(userAnswer.getLocationCountry())) {
+                aggregateAnswer(dailyMapUS, hourlyMapUS, dayOfWeekMapUS, userAnswer,
+                        d.getTime().toString(), dayOfWeek, hour);
+            }
+
+            if("IN".equals(userAnswer.getLocationCountry())) {
+                aggregateAnswer(dailyMapIN, hourlyMapIN, dayOfWeekMapIN, userAnswer,
+                        d.getTime().toString(), dayOfWeek, hour);
             }
         }
 
         DemographicsSurveyAnswersByPeriod result = new DemographicsSurveyAnswersByPeriod();
-        result.setHourly(getData(hourlyMap));
-        result.setDaily(getData(dailyMap));
-        result.setWeekly(getData(dayOfWeekMap));
+        Map<String, DemographicsSurveyAnswers> hourlyResult = new HashMap<String, DemographicsSurveyAnswers>();
+        hourlyResult.put("all", getData(hourlyMap));
+        hourlyResult.put("us", getData(hourlyMapUS));
+        hourlyResult.put("in", getData(hourlyMapIN));
+
+        Map<String, DemographicsSurveyAnswers> dailyResult = new HashMap<String, DemographicsSurveyAnswers>();
+        dailyResult.put("all", getData(dailyMap));
+        dailyResult.put("us", getData(dailyMapUS));
+        dailyResult.put("in", getData(dailyMapIN));
+
+        Map<String, DemographicsSurveyAnswers> dayOfWeekResult = new HashMap<String, DemographicsSurveyAnswers>();
+        dayOfWeekResult.put("all", getData(dayOfWeekMap));
+        dayOfWeekResult.put("us", getData(dayOfWeekMapUS));
+        dayOfWeekResult.put("in", getData(dayOfWeekMapIN));
+        result.setHourly(hourlyResult);
+        result.setDaily(dailyResult);
+        result.setWeekly(dayOfWeekResult);
         return result;
+    }
+
+    private void aggregateAnswer(Map<String, List<UserAnswer>> dailyMap, Map<String, List<UserAnswer>> hourlyMap,
+            Map<String, List<UserAnswer>> dayOfWeekMap, UserAnswer userAnswer, String date, String dayOfWeek,
+            String hour) {
+        if(dailyMap.containsKey(date)) {
+            List<UserAnswer> list = dailyMap.get(date);
+            list.add(userAnswer);
+        } else {
+            List<UserAnswer> newList = new ArrayList<UserAnswer>();
+            newList.add(userAnswer);
+            dailyMap.put(date, newList);
+        }
+
+        dayOfWeekMap.get(dayOfWeek).add(userAnswer);
+
+        if(hourlyMap.containsKey(hour)) {
+            List<UserAnswer> list = hourlyMap.get(hour);
+            list.add(userAnswer);
+        } else {
+            List<UserAnswer> newList = new ArrayList<UserAnswer>();
+            newList.add(userAnswer);
+            hourlyMap.put(hour, newList);
+        }
     }
 
     private DemographicsSurveyAnswers getData(Map<String, List<UserAnswer>> answers){
@@ -345,7 +384,7 @@ public class SurveyService {
                 inc("householdIncome", userAnswer.getAnswers(), byHouseholdIncomeMap, labels);
             }
         }
-        
+
         toPercentage(byCountry);
         toPercentage(byYearOfBirth);
         toPercentage(byGender);
@@ -366,14 +405,13 @@ public class SurveyService {
         }
 
         if(labels.get("countries") != null) {
-            Iterator<String> countryLabelsIterator = countryLabels.iterator();
-            while (countryLabelsIterator.hasNext()) {
-                String label = countryLabelsIterator.next();
-                if(!labels.get("countries").contains(label)) {
-                    countryLabelsIterator.remove();
+            Set<String> existingCountries = new LinkedHashSet<String>();
+            for(String label : countryLabels) {
+                if(labels.get("countries").contains(label)) {
+                    existingCountries.add(label);
                 }
             }
-            labels.put("countries", countryLabels);
+            labels.put("countries", existingCountries);
         }
 
         result.setLabels(labels);

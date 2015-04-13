@@ -1,33 +1,34 @@
 package com.ipeirotis.dto;
 
+import java.util.Map;
+
 public class DemographicsSurveyAnswersByPeriod {
 
-    private DemographicsSurveyAnswers hourly;
-    private DemographicsSurveyAnswers daily;
-    private DemographicsSurveyAnswers weekly;
+    private Map<String, DemographicsSurveyAnswers> hourly;
+    private Map<String, DemographicsSurveyAnswers> daily;
+    private Map<String, DemographicsSurveyAnswers> weekly;
 
-    public DemographicsSurveyAnswers getHourly() {
+    public Map<String, DemographicsSurveyAnswers> getHourly() {
         return hourly;
     }
 
-    public void setHourly(DemographicsSurveyAnswers hourly) {
+    public void setHourly(Map<String, DemographicsSurveyAnswers> hourly) {
         this.hourly = hourly;
     }
 
-    public DemographicsSurveyAnswers getDaily() {
+    public Map<String, DemographicsSurveyAnswers> getDaily() {
         return daily;
     }
 
-    public void setDaily(DemographicsSurveyAnswers daily) {
+    public void setDaily(Map<String, DemographicsSurveyAnswers> daily) {
         this.daily = daily;
     }
 
-    public DemographicsSurveyAnswers getWeekly() {
+    public Map<String, DemographicsSurveyAnswers> getWeekly() {
         return weekly;
     }
 
-    public void setWeekly(DemographicsSurveyAnswers weekly) {
+    public void setWeekly(Map<String, DemographicsSurveyAnswers> weekly) {
         this.weekly = weekly;
     }
-
 }

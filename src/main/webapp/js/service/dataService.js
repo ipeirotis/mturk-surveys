@@ -7,7 +7,7 @@ angular.module('mturk').factory('dataService', ['$http', '$cacheFactory', functi
 	        var key = from + '_' + to;
 	        var fromCache = cache.get(key);
             if(!fromCache) {
-                $http.get(this.getApiUrl() + '/survey/demographics/answers?from=' + from + '&to=' + to)
+                $http.get(this.getApiUrl() + '/survey/demographics/aggregatedAnswers?from=' + from + '&to=' + to)
                 .success(function(response) {
                     cache.put(key, response);
                 

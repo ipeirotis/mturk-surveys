@@ -5,7 +5,7 @@ angular.module('mturk').controller('ChartController',
     $scope.from = new Date();
     $scope.from.setMonth(new Date().getMonth() - 1);
     $scope.to = new Date();
-    $scope.activePill = 'hourlyChartPill';
+    $scope.activePill = 'dailyChartPill';
     $scope.chartIds = ['hourlyChart', 'dailyChart', 'weeklyChart'];
     $scope.drawnCharts = [];
     $scope.visibleChart = 'dailyChart';
@@ -44,7 +44,8 @@ angular.module('mturk').controller('ChartController',
         });
 
         if(drawn == false){
-            populate($scope[chart], $scope.response, chart.substr(0, chart.length-5), $routeParams.id);
+            populate($scope[chart], $scope.response, chart.substr(0, chart.length-5),
+                    $routeParams.country, $routeParams.id);
         }
     };
 
@@ -85,31 +86,32 @@ angular.module('mturk').controller('ChartController',
         };
     };
 
-    function populate(chart, data, type, id) {
+    function populate(chart, data, type, country, id) {
         var rows = new Array();
-        for (var propName in data[type][id]) {
+        for (var propName in data[type][country][id]) {
             var row = {c:[{v: (type == 'hourly' || type == 'weekly')? propName : new Date(propName)}]};
-            var i = data[type][id][propName];
-            angular.forEach(data[type].labels[id], function(label){
-                var val = i[label] ? i[label] : 0;
-                row.c.push({v: parseFloat(val).toFixed(2)});
-                row.c.push({v: label + ': ' + parseFloat(val).toFixed(2) + '%'});
+            var i = data[type][country][id][propName];
+            angular.forEach(data[type][country].labels[id], function(label){
+                var val = i[label] ? parseFloat(i[label]) : 0;
+                row.c.push({v: val});
+                row.c.push({v: label + ': ' + val.toFixed(2) + '%'});
             });
             rows.push(row);
         };
-
-        var cols = new Array();
-        if(type == 'hourly' || type == 'weekly') {
-            cols.push({label: "Date", type: "string"});
-        } else {
-            cols.push({label: "Date", type: "date"});
+        if(rows.length > 0) {
+            var cols = new Array();
+            if(type == 'hourly' || type == 'weekly') {
+                cols.push({label: "Date", type: "string"});
+            } else {
+                cols.push({label: "Date", type: "date"});
+            }
+            angular.forEach(data[type][country].labels[id], function(label){
+                cols.push({label: label, type: "number"});
+                cols.push({type:'string', role:'tooltip'});
+            });
+            chart.data.cols = cols;
+            chart.data.rows= rows;
         }
-        angular.forEach(data[type].labels[id], function(label){
-            cols.push({label: label, type: "number"});
-            cols.push({type:'string', role:'tooltip'});
-        });
-        chart.data.cols = cols;
-        chart.data.rows= rows;
     };
 
     $scope.chartReady = function(chart) {
