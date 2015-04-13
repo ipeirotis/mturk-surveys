@@ -48,16 +48,18 @@ public class CreateHITServlet extends HttpServlet {
                 response.sendError(404, error);
             } else {
                 double balance = getAccountBalanceService.getBalance(production);
-                if(balance < survey.getReward()*survey.getMaxAssignments()) {
+                if(balance < 10.0) {
                     MailUtil.send(String.format("Your balance is too low (%.2f)", balance),
                             "mturk-surveys", "ipeirotis@gmail.com",
                             "mturk-surveys", "ipeirotis@gmail.com");
+                    logger.warning(String.format("Balance is too low (%.2f)", balance));
+                } else {
+                    HIT hit = createHITService.createHIT(production, survey);
+                    response.setContentType("text/plain");
+                    String responseText = "created HIT with id: " + hit.getHITId();
+                    logger.info(responseText);
+                    response.getWriter().println(responseText);
                 }
-                HIT hit = createHITService.createHIT(production, survey);
-                response.setContentType("text/plain");
-                String responseText = "created HIT with id: " + hit.getHITId();
-                logger.info(responseText);
-                response.getWriter().println(responseText);
             }
         } catch (MturkException e) {
             logger.log(Level.SEVERE, "Error creating HIT", e);
