@@ -28,7 +28,7 @@
             </a>
         </div>
 		<div class="row">
-			<div class="col-md-3">
+			<div class="col-md-2">
 				<ul class="nav nav-pills nav-stacked" navpills>
 					<li data-match-route="/gender/all"><a ng-href="#/gender/all">Gender</a></li>
                     <li data-match-route="/gender/us"><a ng-href="#/gender/us" class="nav-with-country">Gender (US)</a></li>
@@ -46,9 +46,10 @@
                     <li data-match-route="/householdIncome/us"><a ng-href="#/householdIncome/us" class="nav-with-country">Household Income (US)</a></li>
                     <li data-match-route="/householdIncome/in"><a ng-href="#/householdIncome/in" class="nav-with-country">Household Income (India)</a></li>
                     <li data-match-route="/countries/all"><a ng-href="#/countries/all">Countries</a></li>
+                    <li data-match-route="/api"><a ng-href="https://apis-explorer.appspot.com/apis-explorer/?base=https://mturk-surveys.appspot.com/_ah/api#p/survey/v1/survey.listAnswers">API</a></li>
 				</ul>
 			</div>
-			<div class="col-md-9" ng-view></div>
+			<div class="col-md-10" ng-view></div>
 		</div>
 	</div>
     <footer id="footer">
