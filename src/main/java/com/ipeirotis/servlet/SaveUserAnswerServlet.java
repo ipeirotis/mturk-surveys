@@ -49,6 +49,8 @@ public class SaveUserAnswerServlet extends HttpServlet {
         userAnswer.setLocationRegion(region);
         userAnswerService.save(userAnswer);
 
+        AddHitCreationDateToUserAnswerServlet.queueTask("/tasks/addHitCreationTime", userAnswer.getHitId());
+
         PrintWriter out = response.getWriter();
         String responseObject = gson.toJson(userAnswer);
 

@@ -14,11 +14,13 @@ public class UserAnswer {
 
     @Id
     private Long id;
-    private String answer;//TODO: remove after migration
+    private String answer;// TODO: remove after migration
     private Map<String, String> answers;
     @Index
     private Date date;
+    @Index
     private String hitId;
+    private Date hitCreationDate;
     @Index
     private String surveyId;
     @Index
@@ -44,6 +46,14 @@ public class UserAnswer {
         this.answer = answer;
     }
 
+    public Map<String, String> getAnswers() {
+        return answers;
+    }
+
+    public void setAnswers(Map<String, String> answers) {
+        this.answers = answers;
+    }
+
     public Date getDate() {
         return date;
     }
@@ -58,6 +68,14 @@ public class UserAnswer {
 
     public void setHitId(String hitId) {
         this.hitId = hitId;
+    }
+
+    public Date getHitCreationDate() {
+        return hitCreationDate;
+    }
+
+    public void setHitCreationDate(Date hitCreationDate) {
+        this.hitCreationDate = hitCreationDate;
     }
 
     public String getSurveyId() {
@@ -106,14 +124,6 @@ public class UserAnswer {
 
     public void setLocationCity(String locationCity) {
         this.locationCity = locationCity;
-    }
-
-    public Map<String, String> getAnswers() {
-        return answers;
-    }
-
-    public void setAnswers(Map<String, String> answers) {
-        this.answers = answers;
     }
 
 }

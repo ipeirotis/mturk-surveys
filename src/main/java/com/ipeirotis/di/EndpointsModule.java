@@ -8,8 +8,10 @@ import com.google.inject.Singleton;
 import com.googlecode.objectify.ObjectifyFilter;
 import com.ipeirotis.endpoints.MturkEndpoint;
 import com.ipeirotis.endpoints.SurveyEndpoint;
+import com.ipeirotis.servlet.AddHitCreationDateToUserAnswerServlet;
 import com.ipeirotis.servlet.ApproveAssignmentsServlet;
 import com.ipeirotis.servlet.CreateHITServlet;
+import com.ipeirotis.servlet.DisposeHITsServlet;
 import com.ipeirotis.servlet.GetUserAnswerServlet;
 import com.ipeirotis.servlet.MergeAnswersServlet;
 import com.ipeirotis.servlet.SaveUserAnswerServlet;
@@ -24,8 +26,10 @@ public class EndpointsModule extends GuiceSystemServiceServletModule {
         serve("/saveAnswer").with(SaveUserAnswerServlet.class);
         serve("/getAnswer").with(GetUserAnswerServlet.class);
         serve("/tasks/createHIT").with(CreateHITServlet.class);
+        serve("/tasks/disposeHITs").with(DisposeHITsServlet.class);
         serve("/tasks/approveAssignments").with(ApproveAssignmentsServlet.class);
         serve("/tasks/mergeAnswers").with(MergeAnswersServlet.class);
+        serve("/tasks/addHitCreationTime").with(AddHitCreationDateToUserAnswerServlet.class);
 
         Set<Class<?>> serviceClasses = new HashSet<Class<?>>();
         serviceClasses.add(MturkEndpoint.class);

@@ -5,4 +5,9 @@
     <description>Create Demographics HIT</description>
     <schedule>every 15 minutes</schedule>
   </cron>
+  <cron>
+    <url>/tasks/disposeHITs</url>
+    <description>Dispose HITs</description>
+    <schedule>every day 03:00</schedule>
+  </cron>
 </cronentries>

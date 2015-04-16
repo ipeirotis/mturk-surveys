@@ -31,6 +31,10 @@ public class UserAnswerService {
         userAnswerDao.save(userAnswer);
     }
 
+    public UserAnswer get(String hitId) {
+        return userAnswerDao.getByProperty("hitId", hitId);
+    }
+
     public void save(List<UserAnswer> userAnswers) {
         userAnswerDao.save(userAnswers);
     }

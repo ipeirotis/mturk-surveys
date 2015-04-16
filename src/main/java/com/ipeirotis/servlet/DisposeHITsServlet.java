@@ -3,7 +3,8 @@ package com.ipeirotis.servlet;
 import static com.ipeirotis.ofy.OfyService.ofy;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -22,47 +23,48 @@ import com.google.inject.Singleton;
 import com.googlecode.objectify.cmd.Query;
 import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.exception.MturkException;
-import com.ipeirotis.mturk.requester.Assignment;
-import com.ipeirotis.service.mturk.ApproveAssignmentService;
-import com.ipeirotis.service.mturk.GetAssignmentsForHITService;
+import com.ipeirotis.service.mturk.DisposeHITService;
 
 @Singleton
-public class ApproveAssignmentsServlet extends HttpServlet {
+public class DisposeHITsServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
-    private static final Logger logger = Logger.getLogger(ApproveAssignmentsServlet.class.getName());
+    private static final Logger logger = Logger.getLogger(DisposeHITsServlet.class.getName());
 
-    private ApproveAssignmentService approveAssignmentService;
-    private GetAssignmentsForHITService getAssignmentsForHITService;
+    private DisposeHITService disposeHITService;
 
     @Inject
-    public ApproveAssignmentsServlet(ApproveAssignmentService approveAssignmentService,
-            GetAssignmentsForHITService getAssignmentsForHITService){
-        this.approveAssignmentService = approveAssignmentService;
-        this.getAssignmentsForHITService = getAssignmentsForHITService;
+    public DisposeHITsServlet(DisposeHITService disposeHITService) {
+        this.disposeHITService = disposeHITService;
     }
 
     public void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         String cursor = request.getParameter("cursor");
         String sched = request.getParameter("sched");
-        
+
         if(sched == null) {
-            String nextPageToken = approve(cursor);
+            String nextPageToken = dispose(cursor);
             if(nextPageToken != null) {
-                queueTask("/tasks/approveAssignments", nextPageToken);
+                queueTask("/tasks/disposeHITs", nextPageToken);
             }
         } else {
-            queueTask("/tasks/approveAssignments", null);
+            queueTask("/tasks/disposeHITs", null);
         }
     }
 
-    public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    private String dispose(String cursorString) {
+        Calendar endCal = Calendar.getInstance();
+        endCal.setTime(new Date());
+        endCal.set(Calendar.HOUR_OF_DAY, 0);
+        endCal.set(Calendar.MINUTE, 0);
+        endCal.set(Calendar.SECOND, 0);
+        
+        Calendar startCal = Calendar.getInstance();
+        startCal.setTime(endCal.getTime());
+        startCal.add(Calendar.DAY_OF_MONTH, -1);
 
-    }
-
-    
-    private String approve(String cursorString) {
-        Query<UserAnswer> query = ofy().load().type(UserAnswer.class).limit(30);
+        Query<UserAnswer> query = ofy().load().type(UserAnswer.class)
+                .filter("date >=", startCal.getTime()).filter("date <", endCal.getTime()).limit(30);
 
         if (cursorString != null) {
             query = query.startAt(Cursor.fromWebSafeString(cursorString));
@@ -74,10 +76,8 @@ public class ApproveAssignmentsServlet extends HttpServlet {
         while (iterator.hasNext()) {
             UserAnswer userAnswer = iterator.next();
             try {
-                List<Assignment> assignments = getAssignmentsForHITService.getAssignments(true, userAnswer.getHitId());
-                for(Assignment assignment: assignments) {
-                    approveAssignmentService.approveAssignment(true, assignment.getAssignmentId());
-                }
+                disposeHITService.disposeHIT(true, userAnswer.getHitId());
+                logger.log(Level.INFO, String.format("Disposed HIT %s", userAnswer.getHitId()));
             } catch (MturkException e) {
                 logger.log(Level.WARNING, e.getMessage());
             }
