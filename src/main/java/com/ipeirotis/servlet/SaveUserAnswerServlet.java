@@ -33,6 +33,7 @@ public class SaveUserAnswerServlet extends HttpServlet {
         UserAnswer userAnswer = gson.fromJson(request.getParameter("userAnswer"), UserAnswer.class);
         if(userAnswer == null) {
             response.sendError(400);
+            return;
         }
 
         String country = request.getHeader("X-AppEngine-Country");
