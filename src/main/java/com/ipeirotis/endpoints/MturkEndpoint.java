@@ -13,6 +13,8 @@ import com.google.api.server.spi.config.Nullable;
 import com.google.api.server.spi.response.BadRequestException;
 import com.google.api.server.spi.response.InternalServerErrorException;
 import com.google.api.server.spi.response.NotFoundException;
+import com.google.api.server.spi.response.UnauthorizedException;
+import com.google.appengine.api.users.User;
 import com.google.inject.Inject;
 import com.ipeirotis.endpoints.response.StringResponse;
 import com.ipeirotis.entity.Survey;
@@ -28,6 +30,7 @@ import com.ipeirotis.service.mturk.GetAccountBalanceService;
 import com.ipeirotis.service.mturk.GetAssignmentsForHITService;
 import com.ipeirotis.service.mturk.GetHITService;
 import com.ipeirotis.service.mturk.SearchHITsService;
+import com.ipeirotis.util.Security;
 
 @Api(name = "mturk", description = "The API for mturk", version = "v1")
 public class MturkEndpoint {
@@ -62,8 +65,9 @@ public class MturkEndpoint {
     }
     
     @ApiMethod(name = "getHIT", path = "getHIT/{id}", httpMethod = HttpMethod.GET)
-    public HIT getHIT(@Named("id") String id, @Nullable @Named("production") Boolean production)
-            throws BadRequestException {
+    public HIT getHIT(@Named("id") String id, @Nullable @Named("production") Boolean production,
+            User user) throws BadRequestException, UnauthorizedException {
+        Security.verifyAuthenticatedUser(user);
         try {
             return getHITService.getHIT(production, id);
         } catch (MturkException e) {
@@ -72,7 +76,9 @@ public class MturkEndpoint {
     }
 
     @ApiMethod(name = "searhHITs", path = "searhHITs", httpMethod = HttpMethod.GET)
-    public List<HIT> searhHITs(@Nullable @Named("production") Boolean production) throws BadRequestException {
+    public List<HIT> searhHITs(@Nullable @Named("production") Boolean production,
+            User user) throws BadRequestException, UnauthorizedException {
+        Security.verifyAuthenticatedUser(user);
         try {
             return searchHITsService.searchHITs(production);
         } catch (MturkException e) {
@@ -81,8 +87,10 @@ public class MturkEndpoint {
     }
 
     @ApiMethod(name = "createHIT", path = "createHIT/{surveyId}", httpMethod = HttpMethod.POST)
-    public StringResponse createHIT(@Named("surveyId") String surveyId, @Nullable @Named("production") Boolean production)
-            throws InternalServerErrorException, NotFoundException {
+    public StringResponse createHIT(@Named("surveyId") String surveyId,
+            @Nullable @Named("production") Boolean production, User user)
+            throws InternalServerErrorException, NotFoundException, UnauthorizedException {
+        Security.verifyAuthenticatedUser(user);
         try {
             Survey survey = surveyService.get(surveyId);
             if(survey == null) {
@@ -97,8 +105,10 @@ public class MturkEndpoint {
     }
 
     @ApiMethod(name = "disableHIT", path = "disableHIT/{id}", httpMethod = HttpMethod.GET)
-    public StringResponse disableHIT(@Named("id") String id, @Nullable @Named("production") Boolean production)
-            throws BadRequestException {
+    public StringResponse disableHIT(@Named("id") String id,
+            @Nullable @Named("production") Boolean production, User user)
+            throws BadRequestException, UnauthorizedException {
+        Security.verifyAuthenticatedUser(user);
         try {
             disableHITService.disableHIT(production, id);
             return new StringResponse(String.format("HIT %s disabled successfully", id));
@@ -108,8 +118,10 @@ public class MturkEndpoint {
     }
 
     @ApiMethod(name = "disposeHIT", path = "disposeHIT/{id}", httpMethod = HttpMethod.GET)
-    public StringResponse disposeHIT(@Named("id") String id, @Nullable @Named("production") Boolean production)
-            throws BadRequestException {
+    public StringResponse disposeHIT(@Named("id") String id,
+            @Nullable @Named("production") Boolean production, User user)
+            throws BadRequestException, UnauthorizedException {
+        Security.verifyAuthenticatedUser(user);
         try {
             disposeHITService.disposeHIT(production, id);
             return new StringResponse(String.format("HIT %s disposed successfully", id));
@@ -119,8 +131,9 @@ public class MturkEndpoint {
     }
 
     @ApiMethod(name = "getBalance", path = "getBalance", httpMethod = HttpMethod.GET)
-    public StringResponse getBalance(@Nullable @Named("production") Boolean production)
-            throws BadRequestException {
+    public StringResponse getBalance(@Nullable @Named("production") Boolean production,
+            User user) throws BadRequestException, UnauthorizedException {
+        Security.verifyAuthenticatedUser(user);
         try {
             return new StringResponse(String.format("Your balance: %.2f", getAccountBalanceService.getBalance(production)));
         } catch (MturkException e) {
@@ -129,8 +142,10 @@ public class MturkEndpoint {
     }
 
     @ApiMethod(name = "getAssignmentsForHIT", path = "getAssignmentsForHIT/{hitId}", httpMethod = HttpMethod.GET)
-    public List<Assignment> getAssignmentsForHIT(@Named("hitId") String hitId, @Nullable @Named("production") Boolean production)
-            throws BadRequestException {
+    public List<Assignment> getAssignmentsForHIT(@Named("hitId") String hitId,
+            @Nullable @Named("production") Boolean production, User user) throws BadRequestException,
+            UnauthorizedException {
+        Security.verifyAuthenticatedUser(user);
         try {
             return getAssignmentsForHITService.getAssignments(production, hitId);
         } catch (MturkException e) {
@@ -140,8 +155,9 @@ public class MturkEndpoint {
 
     @ApiMethod(name = "approveAssignment", path = "approveAssignment/{assignmentId}", httpMethod = HttpMethod.GET)
     public StringResponse approveAssignment(@Named("assignmentId") String assignmentId, 
-            @Nullable @Named("production") Boolean production)
-            throws BadRequestException {
+            @Nullable @Named("production") Boolean production, User user) throws BadRequestException,
+            UnauthorizedException {
+        Security.verifyAuthenticatedUser(user);
         try {
             approveAssignmentService.approveAssignment(production, assignmentId);
             return new StringResponse(String.format("Assignment %s approved successfully", assignmentId));
