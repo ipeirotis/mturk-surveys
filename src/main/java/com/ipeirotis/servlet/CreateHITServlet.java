@@ -8,6 +8,10 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.google.appengine.api.taskqueue.Queue;
+import com.google.appengine.api.taskqueue.QueueFactory;
+import com.google.appengine.api.taskqueue.RetryOptions;
+import com.google.appengine.api.taskqueue.TaskOptions;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.ipeirotis.entity.Survey;
@@ -63,12 +67,22 @@ public class CreateHITServlet extends HttpServlet {
             }
         } catch (MturkException e) {
             logger.log(Level.SEVERE, "Error creating HIT", e);
+            queueTask(surveyId, production);
             response.sendError(500, e.getMessage());
         }
     }
 
-    public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    public void queueTask(String surveyId, boolean production) {
+        TaskOptions taskOptions = TaskOptions.Builder
+                .withMethod(TaskOptions.Method.GET)
+                .url("/tasks/createHIT")
+                .retryOptions(RetryOptions.Builder.withTaskRetryLimit(0));
 
+        taskOptions.param("surveyId", surveyId);
+        taskOptions.param("production", String.valueOf(production));
+
+        Queue queue = QueueFactory.getDefaultQueue();
+        queue.add(taskOptions);
     }
 
 }
