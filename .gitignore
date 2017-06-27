@@ -17,3 +17,15 @@ local_db.bin
 .classpath
 .project
 .settings/
+
+.idea/
+target/
+classes/
+bin/
+test-output/
+
+*.iml
+*.ipr
+*.iws
+*.launch
+*.log
