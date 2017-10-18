@@ -3,6 +3,7 @@ package com.ipeirotis.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Date;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import javax.servlet.http.HttpServlet;
@@ -34,6 +35,10 @@ public class SaveUserAnswerServlet extends HttpServlet {
         if(userAnswer == null) {
             response.sendError(400);
             return;
+        }
+
+        for(Map.Entry<String, String> entry : userAnswer.getAnswers().entrySet()) {
+            logger.info(entry.getKey() + " - " + entry.getValue());
         }
 
         String country = request.getHeader("X-AppEngine-Country");

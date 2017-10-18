@@ -22,25 +22,6 @@
 		<url-pattern>/*</url-pattern>
 	</filter-mapping>
 
-    <servlet>
-        <servlet-name>SystemServiceServlet</servlet-name>
-        <servlet-class>
-          com.google.api.server.spi.SystemServiceServlet
-        </servlet-class>
-        <init-param>
-          <param-name>services</param-name>
-          <param-value>
-            com.ipeirotis.endpoints.SurveyEndpoint,
-            com.ipeirotis.endpoints.MturkEndpoint
-          </param-value>
-        </init-param>
-    </servlet>
-    
-    <servlet-mapping>
-        <servlet-name>SystemServiceServlet</servlet-name>
-        <url-pattern>/_ah/spi/*</url-pattern>
-    </servlet-mapping>
-
     <security-constraint>
         <web-resource-collection>
             <web-resource-name>tasks</web-resource-name>
