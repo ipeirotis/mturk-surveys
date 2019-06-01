@@ -8,9 +8,6 @@ import com.ipeirotis.endpoints.MturkEndpoint;
 import com.ipeirotis.endpoints.SurveyEndpoint;
 import com.ipeirotis.servlet.*;
 
-import java.util.HashSet;
-import java.util.Set;
-
 public class MturkEndpointsModule extends EndpointsModule {
     @Override
     protected void configureServlets() {
@@ -20,8 +17,9 @@ public class MturkEndpointsModule extends EndpointsModule {
         filter("/*").through(ObjectifyFilter.class);
         serve("/saveAnswer").with(SaveUserAnswerServlet.class);
         serve("/getAnswer").with(GetUserAnswerServlet.class);
+        serve("/getBalance").with(GetAccountBalanceServlet.class);
         serve("/tasks/createHIT").with(CreateHITServlet.class);
-        serve("/tasks/disposeHITs").with(DisposeHITsServlet.class);
+        serve("/tasks/deleteHITs").with(DeleteHITsServlet.class);
         serve("/tasks/approveAssignments").with(ApproveAssignmentsServlet.class);
         serve("/tasks/mergeAnswers").with(MergeAnswersServlet.class);
         serve("/tasks/addHitCreationTime").with(AddHitCreationDateToUserAnswerServlet.class);

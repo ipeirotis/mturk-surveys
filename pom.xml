@@ -11,7 +11,7 @@
 
     <properties>
         <appengine.app.version>1</appengine.app.version>
-        <appengine.target.version>1.9.57</appengine.target.version>
+        <appengine.target.version>1.9.74</appengine.target.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -72,6 +72,12 @@
             <artifactId>gson</artifactId>
             <version>2.3</version>
         </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>mturk</artifactId>
+            <version>2.5.49</version>
+        </dependency>
+
 
         <!-- Test Dependencies -->
         <dependency>

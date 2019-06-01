@@ -4,8 +4,9 @@
     <version>1</version>
     <threadsafe>true</threadsafe>
     <system-properties>
-        <property name="AWS_ACCESS_KEY_ID" value=""/>
-        <property name="AWS_SECRET_KEY" value=""/>
+        <property name="aws.accessKeyId" value=""/>
+        <property name="aws.secretAccessKey" value=""/>
+        <property name="aws.region" value="us-east-1"/>
         <property name="java.util.logging.config.file" value="WEB-INF/logging.properties"/>
     </system-properties>
 

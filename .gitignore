@@ -1,31 +1,28 @@
-*.class
+# Eclipse files
+.project
+.classpath
+.settings
+.metadata
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+# IntelliJ IDEA
+.Idea
+*.iml
+.idea/
 
-# Package Files #
-*.jar
-*.war
-*.ear
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-
+# Target folders
 target/
+build/
+out/
+dist/
+
+# Secrets
+client-secret.json
+
+# Local databases
 local_db.bin
 
-.classpath
-.project
-.settings/
-
-.idea/
-target/
-classes/
-bin/
-test-output/
-
-*.iml
-*.ipr
-*.iws
-*.launch
-*.log
+# Gradle, Node, Bower, etc
+.gradle/
+bower_components/
+node_modules/
+package-lock.json

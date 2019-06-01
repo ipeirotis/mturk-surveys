@@ -31,8 +31,7 @@ public class GetUserAnswerServlet extends HttpServlet {
         this.userAnswerService = userAnswerService;
     }
 
-    public void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws IOException {
+    public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String callback = request.getParameter("callback");
         String workerId = request.getParameter("workerId");
         String surveyId = request.getParameter("surveyId");
