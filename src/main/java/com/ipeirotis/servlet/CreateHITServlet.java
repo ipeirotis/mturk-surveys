@@ -46,11 +46,12 @@ public class CreateHITServlet extends HttpServlet {
                 response.sendError(404, error);
             } else {
                 double balance = mturkService.getAccountBalance(production);
-                if(balance < 10.0) {
+                // if(balance < 10.0) {
                     MailUtil.send(String.format("Your balance is too low (%.2f)", balance),
                             "mturk-surveys", "ipeirotis@gmail.com",
                             "mturk-surveys", "ipeirotis@gmail.com");
                     logger.warning(String.format("Balance is too low (%.2f)", balance));
+                /*
                 } else {
                     HIT hit = mturkService.createHIT(production, survey);
                     response.setContentType("text/plain");
@@ -59,6 +60,7 @@ public class CreateHITServlet extends HttpServlet {
                     logger.info(responseText);
                     response.getWriter().println(responseText);
                 }
+                */
             }
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error creating HIT", e);
