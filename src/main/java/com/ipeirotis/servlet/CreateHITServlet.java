@@ -51,7 +51,7 @@ public class CreateHITServlet extends HttpServlet {
                 //            "mturk-surveys", "ipeirotis@gmail.com",
                 //            "mturk-surveys", "ipeirotis@gmail.com");
                 //    logger.warning(String.format("Balance is too low (%.2f)", balance));
-                /
+                //
                 //} else {
                     HIT hit = mturkService.createHIT(production, survey);
                     response.setContentType("text/plain");
