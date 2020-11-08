@@ -160,7 +160,7 @@
             $languagesSpoken.chosen({width: '100%'});
 
             if(workerId) {
-                $.get('https://mturk-surveys.appspot.com/getAnswer?workerId=' + workerId + '&surveyId=${surveyId}',
+                $.get('https://mturk-demographics.appspot.com/getAnswer?workerId=' + workerId + '&surveyId=${surveyId}',
                         function(response) {
                             if(response) {
                                 $('#answer-date').text(response.date);
@@ -211,7 +211,7 @@
 
                     $.ajax({
                         type : 'GET',
-                        url : 'https://mturk-surveys.appspot.com/saveAnswer?userAnswer='
+                        url : 'https://mturk-demographics.appspot.com/saveAnswer?userAnswer='
                                 + encodeURIComponent(JSON.stringify(params)),
                         dataType: 'jsonp'
                     }).done(function(data) {

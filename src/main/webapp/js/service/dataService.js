@@ -24,7 +24,7 @@ angular.module('mturk').factory('dataService', ['$http', '$cacheFactory', functi
 	    getApiUrl: function(){
 			return window.location.host.indexOf('localhost', 0) == 0 ? 
 			    'http://localhost:8080/_ah/api/survey/v1' : 
-			    'https://mturk-surveys.appspot.com/_ah/api/survey/v1';
+			    'https://mturk-demographics.appspot.com/_ah/api/survey/v1';
 	    }
 	};
 }]);

@@ -1,0 +1,13 @@
+indexes:
+- kind: UserAnswer
+  properties:
+  - direction: asc
+    name: surveyId
+  - direction: asc
+    name: date
+- kind: UserAnswer
+  properties:
+  - direction: asc
+    name: surveyId
+  - direction: desc
+    name: date
