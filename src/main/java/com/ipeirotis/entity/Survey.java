@@ -19,6 +19,8 @@ public class Survey {
     private Integer maxAssignments;
     private String htmlQuestion;
     @Ignore
+    private Boolean production;
+    @Ignore
     private String template;
     @Ignore
     private List<Question> questions;
@@ -71,6 +73,14 @@ public class Survey {
         this.htmlQuestion = htmlQuestion;
     }
 
+    public Boolean getProduction() {
+        return production;
+    }
+
+    public void setProduction(Boolean production) {
+        this.production = production;
+    }
+
     public String getTemplate() {
         return template;
     }
@@ -86,5 +96,4 @@ public class Survey {
     public void setQuestions(List<Question> questions) {
         this.questions = questions;
     }
-
 }

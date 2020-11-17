@@ -2,6 +2,7 @@ package com.ipeirotis.service;
 
 import com.ipeirotis.entity.Survey;
 import com.ipeirotis.util.SafeDecimalFormat;
+import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.mturk.MTurkClient;
 import software.amazon.awssdk.services.mturk.MTurkClientBuilder;
 import software.amazon.awssdk.services.mturk.model.*;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+@Service
 public class MturkService {
 
     private static final Logger logger = Logger.getLogger(MturkService.class.getName());
@@ -47,10 +49,10 @@ public class MturkService {
         return response.hit();
     }
 
-    public void deleteHIT(Boolean production, String hitId) {
+    public DeleteHitResponse deleteHIT(Boolean production, String hitId) {
         MTurkClient client = getClient(production);
         DeleteHitRequest.Builder requestBuilder = DeleteHitRequest.builder().hitId(hitId);
-        client.deleteHIT(requestBuilder.build());
+        return client.deleteHIT(requestBuilder.build());
     }
 
     public List<Assignment> listAssignmentsForHit(Boolean production, String hitId) {

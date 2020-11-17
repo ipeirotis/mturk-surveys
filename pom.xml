@@ -5,11 +5,17 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>war</packaging>
     <version>1.0-SNAPSHOT</version>
-
     <groupId>com.ipeirotis</groupId>
     <artifactId>mturk-surveys</artifactId>
 
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.3.5.RELEASE</version>
+    </parent>
+
     <properties>
+        <spring.version>2.3.5.RELEASE</spring.version>
         <appengine.app.version>1</appengine.app.version>
         <appengine.target.version>1.9.82</appengine.target.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -22,19 +28,22 @@
             <version>${appengine.target.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.google.endpoints</groupId>
-            <artifactId>endpoints-framework</artifactId>
-            <version>2.2.1</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <version>${spring.version}</version>
+            <!-- Exclude Tomcat so that it doesn't conflict w/ Jetty server -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-tomcat</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
-        <dependency>
-            <groupId>com.google.endpoints</groupId>
-            <artifactId>endpoints-framework-guice</artifactId>
-            <version>2.2.1</version>
-        </dependency>
+
         <dependency>
             <groupId>javax.servlet</groupId>
-            <artifactId>servlet-api</artifactId>
-            <version>2.5</version>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>4.0.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -55,29 +64,23 @@
         <dependency>
             <groupId>com.googlecode.objectify</groupId>
             <artifactId>objectify</artifactId>
-            <version>5.1</version>
-        </dependency>
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-            <version>1</version>
-        </dependency>
-        <dependency>
-            <groupId>com.google.inject.extensions</groupId>
-            <artifactId>guice-servlet</artifactId>
-            <version>4.0</version>
+            <version>6.0.6</version>
         </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.3</version>
+            <version>2.8.6</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>mturk</artifactId>
             <version>2.5.49</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.freemarker</groupId>
+            <artifactId>freemarker</artifactId>
+            <version>2.3.20</version>
+        </dependency>
 
         <!-- Test Dependencies -->
         <dependency>
@@ -104,15 +107,22 @@
             <version>${appengine.target.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.freemarker</groupId>
-            <artifactId>freemarker</artifactId>
-            <version>2.3.20</version>
-        </dependency>
     </dependencies>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <!-- Import dependency management from Spring Boot -->
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <build>
-        <outputDirectory>${project.build.directory}/${project.build.finalName}/WEB-INF/classes</outputDirectory>
         <plugins>
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
@@ -123,8 +133,8 @@
                     <aggregations>
                         <aggregation>
                             <insertNewLine>true</insertNewLine>
-                            <output>${basedir}/target/${project.artifactId}-${project.version}/js/script.js</output>
-                            <inputDir>${basedir}/src/main/webapp/js</inputDir>
+                            <output>${basedir}/target/${project.artifactId}-${project.version}/WEB-INF/classes/static/js/script.js</output>
+                            <inputDir>${basedir}/src/main/resources/static/js</inputDir>
                             <includes>
                                 <include>**/*.js</include>
                             </includes>
@@ -148,6 +158,20 @@
                 </executions>
             </plugin>
             <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring.version}</version>
+            </plugin>
+            <plugin>
+                <groupId>com.google.cloud.tools</groupId>
+                <artifactId>appengine-maven-plugin</artifactId>
+                <version>2.4.0</version>
+                <configuration>
+                    <projectId>mturk-demographics</projectId>
+                    <version>1</version>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <version>3.7.0</version>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -156,58 +180,10 @@
                     <target>1.8</target>
                 </configuration>
             </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
                 <version>3.3.1</version>
-                <configuration>
-                    <webResources>
-                        <resources>
-                            <directory>${basedir}/src/main/webapp/WEB-INF</directory>
-                            <filtering>true</filtering>
-                            <targetPath>WEB-INF</targetPath>
-                        </resources>
-                    </webResources>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>com.google.cloud.tools</groupId>
-                <artifactId>appengine-maven-plugin</artifactId>
-                <version>2.2.0</version>
-                <configuration>
-                    <projectId>mturk-demographics</projectId>
-                    <version>1</version>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>com.google.cloud.tools</groupId>
-                <artifactId>endpoints-framework-maven-plugin</artifactId>
-                <version>1.0.0</version>
-                <configuration>
-                    <hostname>http://mturk-demographics.appspot.com</hostname>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <version>2.6</version>
-                <executions>
-                    <execution>
-                        <phase>compile</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${project.build.directory}/${project.build.finalName}</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>src/main/webapp</directory>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

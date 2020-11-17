@@ -1,7 +1,6 @@
 package com.ipeirotis.ofy;
 
-import static com.ipeirotis.ofy.OfyService.ofy;
-
+import static com.googlecode.objectify.ObjectifyService.ofy;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;

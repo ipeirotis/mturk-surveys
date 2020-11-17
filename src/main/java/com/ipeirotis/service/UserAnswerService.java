@@ -1,31 +1,27 @@
 package com.ipeirotis.service;
 
-import static com.ipeirotis.ofy.OfyService.ofy;
+import com.google.cloud.datastore.Cursor;
+import com.google.cloud.datastore.QueryResults;
+import com.googlecode.objectify.cmd.Query;
+import com.ipeirotis.dao.UserAnswerDao;
+import com.ipeirotis.entity.UserAnswer;
+import com.ipeirotis.ofy.ListByCursorResult;
+import com.ipeirotis.util.MD5;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import static com.googlecode.objectify.ObjectifyService.ofy;
 
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.google.api.server.spi.response.CollectionResponse;
-import com.google.appengine.api.datastore.Cursor;
-import com.google.appengine.api.datastore.QueryResultIterator;
-import com.google.inject.Inject;
-import com.googlecode.objectify.cmd.Query;
-import com.ipeirotis.dao.UserAnswerDao;
-import com.ipeirotis.entity.UserAnswer;
-import com.ipeirotis.util.MD5;
-
+@Service
 public class UserAnswerService {
 
     private static final String DEMOGRAPHICS_SURVEY_ID = "demographics";
 
+    @Autowired
     private UserAnswerDao userAnswerDao;
-
-    @Inject
-    public UserAnswerService(UserAnswerDao userAnswerDao) {
-        this.userAnswerDao = userAnswerDao;
-    }
 
     public void save(UserAnswer userAnswer) {
         userAnswerDao.save(userAnswer);
@@ -43,13 +39,13 @@ public class UserAnswerService {
         return userAnswerDao.query(params).list();
     }
 
-    public CollectionResponse<UserAnswer> list(String cursorString, Integer limit) throws NoSuchAlgorithmException {
+    public ListByCursorResult<UserAnswer> list(String cursorString, Integer limit) {
         List<UserAnswer> result = new ArrayList<UserAnswer>();
         Query<UserAnswer> query = ofy().load().type(UserAnswer.class)
                 .filter("surveyId", DEMOGRAPHICS_SURVEY_ID).order("-date");
 
         if(cursorString != null) {
-            query = query.startAt(Cursor.fromWebSafeString(cursorString));
+            query = query.startAt(Cursor.fromUrlSafe(cursorString));
         }
 
         if(limit != null) {
@@ -57,7 +53,7 @@ public class UserAnswerService {
         }
 
         boolean cont = false;
-        QueryResultIterator<UserAnswer> iterator = query.iterator();
+        QueryResults<UserAnswer> iterator = query.iterator();
 
         while (iterator.hasNext()) {
             UserAnswer userAnswer = iterator.next();
@@ -71,10 +67,10 @@ public class UserAnswerService {
         }
 
         if(cont) {
-            Cursor cursor = iterator.getCursor();
-            return CollectionResponse.<UserAnswer> builder().setItems(result).setNextPageToken(cursor.toWebSafeString()).build();
+            Cursor cursor = iterator.getCursorAfter();
+            return new ListByCursorResult<UserAnswer>().setItems(result).setNextPageToken(cursor.toUrlSafe());
         } else {
-            return CollectionResponse.<UserAnswer> builder().setItems(result).build();
+            return new ListByCursorResult<UserAnswer>().setItems(result);
         }
     }
 }

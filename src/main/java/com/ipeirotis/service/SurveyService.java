@@ -19,11 +19,10 @@ import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.ipeirotis.exception.ResourceNotFoundException;
+import com.ipeirotis.exception.ValidationException;
 import org.apache.commons.lang3.StringUtils;
 
-import com.google.api.server.spi.response.BadRequestException;
-import com.google.api.server.spi.response.NotFoundException;
-import com.google.inject.Inject;
 import com.ipeirotis.dao.QuestionDao;
 import com.ipeirotis.dao.SurveyDao;
 import com.ipeirotis.dto.DemographicsSurveyAnswers;
@@ -38,7 +37,10 @@ import com.ipeirotis.util.SafeDateFormat;
 
 import freemarker.template.Configuration;
 import freemarker.template.Template;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
+@Service
 public class SurveyService {
 
     private static final Logger logger = Logger.getLogger(SurveyService.class.getName());
@@ -65,19 +67,14 @@ public class SurveyService {
 
     private DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
 
+    @Autowired
     private SurveyDao surveyDao;
+    @Autowired
     private QuestionDao questionDao;
+    @Autowired
     private UserAnswerService userAnswerService;
 
-    @Inject
-    public SurveyService(SurveyDao surveyDao, QuestionDao questionDao,
-            UserAnswerService userAnswerService) {
-        this.surveyDao = surveyDao;
-        this.questionDao = questionDao;
-        this.userAnswerService = userAnswerService;
-    }
-
-    public Survey create(Survey survey, Boolean production) throws BadRequestException {
+    public Survey create(Survey survey) throws ValidationException {
         validate(survey);
 
         if(survey.getQuestions() != null && survey.getQuestions().size() > 0) {
@@ -93,7 +90,7 @@ public class SurveyService {
             } catch (UnsupportedEncodingException e1) {
                 model.put("surveyId", survey.getId());
             }
-            if(production != null && production) {
+            if(survey.getProduction() != null && survey.getProduction()) {
                 model.put("endpoint", "https://www.mturk.com");
             } else {
                 model.put("endpoint", "https://workersandbox.mturk.com");
@@ -108,7 +105,7 @@ public class SurveyService {
                 template.process(model, writer);
             } catch (Exception e) {
                 logger.log(Level.SEVERE, e.getMessage(), e);
-                throw new BadRequestException(
+                throw new ResourceNotFoundException(
                         String.format("Error reading template: %s", survey.getTemplate()));
             }
 
@@ -135,7 +132,7 @@ public class SurveyService {
         return survey;
     }
 
-    public void delete(String id) throws NotFoundException {
+    public void delete(String id) throws ResourceNotFoundException {
         Survey survey = surveyDao.get(id);
         if(survey != null) {
             surveyDao.delete(survey);
@@ -144,11 +141,11 @@ public class SurveyService {
                 questionDao.delete(questions);
             }
         } else {
-            throw new NotFoundException(String.format("Survey with id=%s doesn't exist", id));
+            throw new ResourceNotFoundException(String.format("Survey with id=%s doesn't exist", id));
         }
     }
 
-    private void validate(Survey survey) throws BadRequestException {
+    private void validate(Survey survey) throws ValidationException {
         List<String> errors = new ArrayList<String>();
 
         if(StringUtils.isBlank(survey.getId())) {
@@ -212,7 +209,7 @@ public class SurveyService {
             }
         }
         if (!errors.isEmpty()) {
-            throw new BadRequestException(
+            throw new ValidationException(
                     String.format("Error saving survey: %s", StringUtils.join(errors, ", ")));
         }
     }
@@ -228,8 +225,7 @@ public class SurveyService {
         return userAnswerService.query(params);
     }
 
-    public DemographicsSurveyAnswersByPeriod getDemographicsAnswers(String from, String to)
-            throws ParseException {
+    public DemographicsSurveyAnswersByPeriod getDemographicsAnswers(String from, String to) throws ParseException {
         Map<String, List<UserAnswer>> hourlyMap = new HashMap<String, List<UserAnswer>>();
         Map<String, List<UserAnswer>> hourlyMapUS = new HashMap<String, List<UserAnswer>>();
         Map<String, List<UserAnswer>> hourlyMapIN = new HashMap<String, List<UserAnswer>>();
