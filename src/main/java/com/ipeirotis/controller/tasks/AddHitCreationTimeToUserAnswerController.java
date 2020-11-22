@@ -1,6 +1,7 @@
 package com.ipeirotis.controller.tasks;
 
 import com.ipeirotis.entity.UserAnswer;
+import com.ipeirotis.exception.ResourceNotFoundException;
 import com.ipeirotis.service.MturkService;
 import com.ipeirotis.service.UserAnswerService;
 import com.ipeirotis.util.TaskUtils;
@@ -28,8 +29,14 @@ public class AddHitCreationTimeToUserAnswerController {
 	public void addHitCreationTime(@RequestParam String hitId) {
 		HIT hit = mturkService.getHIT(true, hitId);
 
-		if(hit != null) {
-			UserAnswer userAnswer = userAnswerService.get(hitId);
+		if(hit == null) {
+			throw new ResourceNotFoundException(String.format("HIT %s doesn't exist", hitId));
+		}
+
+		UserAnswer userAnswer = userAnswerService.get(hitId);
+		if(userAnswer == null) {
+			throw new ResourceNotFoundException(String.format("User answer for HIT %s doesn't exist", hitId));
+		} else {
 			userAnswer.setHitCreationDate(Date.from(hit.creationTime()));
 			userAnswerService.save(userAnswer);
 		}

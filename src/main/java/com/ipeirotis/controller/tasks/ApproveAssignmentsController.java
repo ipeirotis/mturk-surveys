@@ -5,7 +5,6 @@ import com.google.cloud.datastore.QueryResults;
 import com.googlecode.objectify.cmd.Query;
 import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.service.MturkService;
-import com.ipeirotis.service.UserAnswerService;
 import com.ipeirotis.util.TaskUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,11 +25,9 @@ public class ApproveAssignmentsController {
 
 	@Autowired
 	private MturkService mturkService;
-	@Autowired
-	private UserAnswerService userAnswerService;
 
 	@GetMapping({"/approveAssignments"})
-	public void approveAssignments(@RequestParam String cursor, @RequestParam String sched) {
+	public void approveAssignments(@RequestParam(required = false) String cursor, @RequestParam(required = false) String sched) {
 		if(!"true".equals(sched)) {
 			String nextPageToken = approve(cursor);
 			if(nextPageToken != null) {

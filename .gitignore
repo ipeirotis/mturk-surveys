@@ -9,6 +9,10 @@
 *.iml
 .idea/
 
+#VS code
+.vscode/
+.factorypath
+
 # Target folders
 target/
 build/

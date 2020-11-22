@@ -9,9 +9,7 @@ import software.amazon.awssdk.services.mturk.model.*;
 
 import java.net.URI;
 import java.text.NumberFormat;
-import java.text.ParseException;
 import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @Service
@@ -28,19 +26,6 @@ public class MturkService {
     private static final long DEFAULT_FRAME_HEIGHT = 450L; // px
     private static final String CDATA_HEADER = "<![CDATA[";
     private static final String CDATA_FOOTER = "]]>";
-
-    public double getAccountBalance(Boolean production) {
-        MTurkClient client = getClient(production);
-        GetAccountBalanceRequest.Builder requestBuilder = GetAccountBalanceRequest.builder();
-        GetAccountBalanceResponse response = client.getAccountBalance(requestBuilder.build());
-
-        try {
-            return numberFormat.parse(response.availableBalance()).doubleValue();
-        } catch (ParseException e) {
-            logger.log(Level.WARNING, e.getMessage(), e);
-            return 0;
-        }
-    }
 
     public HIT getHIT(Boolean production, String hitId) {
         MTurkClient client = getClient(production);

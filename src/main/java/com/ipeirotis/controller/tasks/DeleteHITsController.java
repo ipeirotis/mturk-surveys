@@ -5,14 +5,12 @@ import com.google.cloud.datastore.QueryResults;
 import com.googlecode.objectify.cmd.Query;
 import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.service.MturkService;
-import com.ipeirotis.service.UserAnswerService;
 import com.ipeirotis.util.TaskUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import software.amazon.awssdk.services.mturk.model.DeleteHitResponse;
 
 import java.util.Calendar;
 import java.util.Date;
@@ -31,11 +29,9 @@ public class DeleteHITsController {
 
 	@Autowired
 	private MturkService mturkService;
-	@Autowired
-	private UserAnswerService userAnswerService;
 
 	@GetMapping({"/deleteHITs"})
-	public void deleteHITs(@RequestParam String cursor, @RequestParam String sched) {
+	public void deleteHITs(@RequestParam(required = false) String cursor, @RequestParam(required = false) String sched) {
 		if(!"true".equals(sched)) {
 			String nextPageToken = delete(cursor);
 			if(nextPageToken != null) {

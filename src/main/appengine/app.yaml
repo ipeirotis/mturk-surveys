@@ -1,0 +1,13 @@
+runtime: java11
+
+instance_class: F2
+
+env_variables:
+  AWS_ACCESS_KEY_ID: ""
+  AWS_SECRET_ACCESS_KEY: ""
+  AWS_REGION: "us-east-1"
+
+handlers:
+  - url: /.*
+    secure: always
+    script: auto
