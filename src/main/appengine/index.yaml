@@ -11,9 +11,3 @@ indexes:
     name: surveyId
   - direction: desc
     name: date
-- kind: DemographicsRollup
-  properties:
-  - direction: asc
-    name: granularity
-  - direction: asc
-    name: date

@@ -5,7 +5,6 @@ import java.util.Map;
 import com.googlecode.objectify.annotation.Cache;
 import com.googlecode.objectify.annotation.Entity;
 import com.googlecode.objectify.annotation.Id;
-import com.googlecode.objectify.annotation.Index;
 
 /**
  * Pre-aggregated demographics counts for a week or month.
@@ -15,6 +14,7 @@ import com.googlecode.objectify.annotation.Index;
  *
  * ID format: "weekly:2024-01-01" or "monthly:2024-01-01"
  * (period start date in yyyy-MM-dd).
+ * Queries use key-based range filters on the ID, so no property indexes are needed.
  */
 @Entity
 @Cache
@@ -23,11 +23,9 @@ public class DemographicsRollup {
     @Id
     private String id;
 
-    @Index
     private String granularity; // "weekly" or "monthly"
 
-    @Index
-    private String date; // period start in yyyy-MM-dd, for range queries
+    private String date; // period start in yyyy-MM-dd
 
     private int totalResponses;
 
