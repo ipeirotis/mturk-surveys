@@ -32,13 +32,13 @@ These are low-risk version bumps with no expected API changes.
 
 The largest effort. Spring Boot 3 requires Java 17+ and the `jakarta.*` namespace.
 
-- **T4.1** — Update `pom.xml` compiler source/target from 11 to 21
-- **T4.2** — Update `app.yaml` runtime from `java11` to `java21`
-- **T4.3** — Upgrade Spring Boot from 2.3.5 to 3.4.x
-- **T4.4** — Migrate all `javax.*` imports to `jakarta.*` (servlet API, JSTL, etc.)
-- **T4.5** — Update Jetty starter version to match Spring Boot 3.4.x
-- **T4.6** — Verify Objectify filter registration works with new servlet API
-- **T4.7** — Build and smoke-test the migrated application
+- [x] **T4.1** — Update `pom.xml` compiler source/target from 17 to 21 *(completed)*
+- [x] **T4.2** — Update `app.yaml` runtime from `java17` to `java21` *(completed)*
+- [x] **T4.3** — Upgrade Spring Boot from 2.3.5 to 3.4.1 *(completed — parent POM updated, removed redundant `spring.version` property and `dependencyManagement` section)*
+- [x] **T4.4** — Migrate all `javax.*` imports to `jakarta.*` *(completed — `SaveUserAnswerController.java` updated; removed unused JSTL dependency)*
+- [x] **T4.5** — Update Jetty starter version to match Spring Boot 3.4.x *(completed — now managed by parent, removed explicit version)*
+- [x] **T4.6** — Verify Objectify filter registration works with new servlet API *(completed — switched from deprecated `ObjectifyFilter` to `ObjectifyService.Filter` which implements `jakarta.servlet.Filter`)*
+- [x] **T4.7** — Build and smoke-test the migrated application *(completed — `mvn clean install` succeeds)*
 
 ## Track 5: AWS SDK Update
 
@@ -82,8 +82,8 @@ Incremental improvements to the demographics dashboard charts, from quick wins w
 | T3.4 | Commons Codec | ~~1.2~~ **1.17.1** | 1.17+ | 3 ✅ |
 | T3.5 | FreeMarker | ~~2.3.20~~ **2.3.33** | 2.3.33+ | 3 ✅ |
 | T3.6 | appengine-maven-plugin | ~~2.4.0~~ **2.8.1** | 2.8.1 | 3 ✅ |
-| T4.3 | Spring Boot | 2.3.5 | 3.4.x | 4 |
-| T4.5 | Jetty (via Spring Boot) | 2.4.0 | managed | 4 |
+| T4.3 | Spring Boot | ~~2.3.5~~ **3.4.1** | 3.4.x | 4 ✅ |
+| T4.5 | Jetty (via Spring Boot) | ~~2.4.0~~ **managed** | managed | 4 ✅ |
 | T5.1 | AWS MTurk SDK | 2.5.49 | 2.34.x | 5 |
 | T6.1 | google-cloud-tasks | 1.30.8 | 2.85+ | 6 |
 

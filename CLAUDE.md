@@ -4,17 +4,17 @@
 
 **mturk-surveys** is a Java Spring Boot web application that runs continuous demographic surveys of Amazon Mechanical Turk workers. It creates HITs (Human Intelligence Tasks) on MTurk, collects worker responses, and provides aggregated demographics analytics through a web dashboard.
 
-Deployed on **Google App Engine** (Java 11 runtime) with **Google Cloud Datastore** for persistence.
+Deployed on **Google App Engine** (Java 21 runtime) with **Google Cloud Datastore** for persistence.
 
 ## Tech Stack
 
-- **Backend:** Java 11, Spring Boot 2.3.5, Jetty (not Tomcat)
-- **ORM:** Objectify 6.0.6 (Google Cloud Datastore)
+- **Backend:** Java 21, Spring Boot 3.4.1, Jetty (not Tomcat)
+- **ORM:** Objectify 6.1.3 (Google Cloud Datastore)
 - **Cloud:** Google App Engine, Google Cloud Tasks
 - **AWS:** MTurk SDK 2.5.49
 - **Frontend:** AngularJS 1.2.15, Bootstrap 3.1.1, Google Charts
 - **Build:** Maven, YUI Compressor (JS/CSS minification)
-- **Templating:** FreeMarker 2.3.20
+- **Templating:** FreeMarker 2.3.33
 
 ## Build & Run Commands
 
@@ -30,6 +30,20 @@ mvn appengine:deploy
 ```
 
 There are **no tests** configured in this project. No linter or formatter is set up.
+
+### Maven Proxy / Network Issues
+
+Maven 3.9+ uses Apache HttpClient by default for dependency resolution, which may fail with proxy authentication (407 errors) or DNS resolution failures in restricted network environments. If `mvn clean install` fails with network errors:
+
+1. **Create `~/.m2/settings.xml`** with proxy credentials (host, port, username, password) matching your environment's proxy settings.
+2. **Use the Wagon transport** by passing `-Dmaven.resolver.transport=wagon` to Maven. The Wagon HTTP transport handles HTTPS proxy authentication correctly, whereas the default Apache resolver transport may not.
+3. **Unset `JAVA_TOOL_OPTIONS`** proxy flags to avoid conflicts between JVM-level and Maven-level proxy settings.
+
+Example build command for proxied environments:
+
+```bash
+JAVA_TOOL_OPTIONS="" mvn clean install -Dmaven.resolver.transport=wagon
+```
 
 ## Project Structure
 
@@ -121,6 +135,7 @@ src/main/appengine/
 - **CI/CD pipeline** configured via GitHub Actions (`.github/workflows/ci.yml` and `deploy.yml`)
 - No test framework is present — be careful when modifying business logic
 - **YUI Compressor plugin** was upgraded from 1.3.2 to 1.5.1 to fix Maven 3.9+ compatibility (see TASKS.md T0.1)
+- **Spring Boot 3.4.1 / Jakarta namespace:** The project uses `jakarta.*` imports (not `javax.*`). Objectify 6.1.3 ships with both — use `ObjectifyService.Filter` (jakarta) not the deprecated `ObjectifyFilter` (javax)
 
 ## Task Progress
 
@@ -131,7 +146,7 @@ See [TASKS.md](TASKS.md) for the full task list. Summary:
 - [x] **Track 1** — CI/CD Pipeline (T1.1–T1.3)
 - [ ] **Track 2** — Configuration & Security (T2.1–T2.2 done, T2.3–T2.4 remaining)
 - [x] **Track 3** — Dependency Updates (T3.1–T3.5 completed)
-- [ ] **Track 4** — Java 21 + Spring Boot 3.x Migration (T4.1–T4.7)
+- [x] **Track 4** — Java 21 + Spring Boot 3.x Migration (T4.1–T4.7 completed)
 - [ ] **Track 5** — AWS SDK Update (T5.1–T5.3)
 - [ ] **Track 6** — Google Cloud Libraries Update (T6.1–T6.3)
 - [ ] **Track 7** — Frontend Modernization (T7.1–T7.3)
