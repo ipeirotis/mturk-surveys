@@ -84,6 +84,55 @@ Incremental improvements to the demographics dashboard charts, from quick wins w
 - **T7.15** — **Response time trends** — Plot median time between HIT creation (`hitCreationDate`) and answer submission (`date`). Shows labor market responsiveness. Display as a line chart with percentile bands (25th, 50th, 75th).
 - **T7.16** — **Summary statistics cards** — Add a dashboard header with key metrics: total responses in the selected period, top 5 countries, median age bracket, most common income bracket. Display as Bootstrap cards/badges above the chart area.
 
+## Track 8: Data Access & API Quality
+
+Improvements to make the API more useful for data analysis and programmatic access. All changes are additive — no existing response shapes modified.
+
+### Completed
+
+- [x] **T8.1** — **CORS Support** — Created `CorsConfig.java` implementing `WebMvcConfigurer` to allow cross-origin `GET/POST/OPTIONS` requests on `/api/**` endpoints. Required for external API consumers (Jupyter notebooks, scripts, SPAs). *(completed)*
+- [x] **T8.2** — **OpenAPI/Swagger Documentation** — Added `springdoc-openapi-starter-webmvc-ui` dependency. Auto-generates interactive API docs at `/swagger-ui.html` and machine-readable spec at `/v3/api-docs`. Created `OpenApiConfig.java` with API metadata. Added `@Operation` and `@Parameter` annotations to all `SurveyController` endpoints. Only public `/api/**` endpoints are included (internal `/tasks/**` excluded via `springdoc.paths-to-match`). *(completed)*
+- [x] **T8.3** — **Raw Counts Endpoint** — Added `GET /api/survey/demographics/counts?from=MM/dd/yyyy&to=MM/dd/yyyy` returning raw count data (not percentages) from pre-computed `DemographicsSnapshot` entities. Response includes per-day breakdowns and summed totals. Created `DemographicsCountsResponse` DTO with `DailyCount` inner class. *(completed)*
+- [x] **T8.4** — **CSV Export Endpoint** — Added `GET /api/survey/demographics/answers/csv?from=MM/dd/yyyy&to=MM/dd/yyyy` for downloading raw individual-level data. Uses `StreamingResponseBody` to avoid memory issues. Includes all 9 survey questions: `yearOfBirth`, `gender`, `maritalStatus`, `householdSize`, `householdIncome`, `educationalLevel`, `timeSpentOnMturk`, `weeklyIncomeFromMturk`, `languagesSpoken`. Date range capped at 366 days. Worker IDs MD5-hashed, IPs stripped. *(completed)*
+- [x] **T8.5** — **Enhanced Filtering on Raw Answers** — Added optional `from` and `to` date range parameters to `GET /api/survey/demographics/answers`. Made `cursor` and `limit` optional (default limit=100). Backward compatible — omitting parameters produces identical behavior to previous version. *(completed)*
+- [x] **T8.6** — **BigQuery Public Dataset Export** — Created `BigQueryExportService` and `BigQueryExportController` following the existing cron + Cloud Tasks pattern. Daily cron at 05:00 UTC exports yesterday's data. Includes `exportDateToBigQuery` for single dates and `backfillBigQuery` for historical data (recursive subdivision, same pattern as `SnapshotController`). BigQuery table includes all 9 survey fields plus metadata (date, worker_id, country, region, city, hit_id). Dataset is made publicly readable (`allUsers`). Export is idempotent (deletes existing rows for a date before inserting). *(completed)*
+
+### BigQuery Table Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `date` | TIMESTAMP | When the response was submitted |
+| `worker_id` | STRING | MD5-hashed worker ID (privacy) |
+| `country` | STRING | Detailed country code from App Engine geolocation (e.g. US, IN, GB) |
+| `region` | STRING | Worker's region |
+| `city` | STRING | Worker's city |
+| `hit_id` | STRING | MTurk HIT ID |
+| `year_of_birth` | STRING | Survey answer |
+| `gender` | STRING | Survey answer |
+| `marital_status` | STRING | Survey answer |
+| `household_size` | STRING | Survey answer |
+| `household_income` | STRING | Survey answer |
+| `educational_level` | STRING | Survey answer |
+| `time_spent_on_mturk` | STRING | Survey answer |
+| `weekly_income_from_mturk` | STRING | Survey answer |
+| `languages_spoken` | STRING | Comma-separated language codes |
+
+### Environment Setup (Manual)
+
+- App Engine service account needs `roles/bigquery.dataEditor` on the dataset
+- Dataset `demographics` in project `mturk-demographics` will be auto-created on first export
+- To backfill all historical data: `GET /tasks/backfillBigQuery?from=01/01/2015&to=03/09/2026`
+
+### Note: Missing Survey Fields in Snapshot Aggregation
+
+The survey collects 9 questions but `DemographicsSnapshot` only aggregates 6 (plus country). Fields not in snapshots:
+- `educationalLevel`
+- `timeSpentOnMturk`
+- `weeklyIncomeFromMturk`
+- `languagesSpoken` (multi-select)
+
+The BigQuery export (T8.6) and CSV export (T8.4) include all 9 fields since they read raw `UserAnswer` data.
+
 ---
 
 ## Dependency Summary

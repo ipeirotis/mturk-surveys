@@ -1,6 +1,7 @@
 package com.ipeirotis.service;
 
 import com.ipeirotis.dao.DemographicsSnapshotDao;
+import com.ipeirotis.dto.DemographicsCountsResponse;
 import com.ipeirotis.dto.DemographicsSurveyAnswers;
 import com.ipeirotis.dto.DemographicsSurveyAnswersByPeriod;
 import com.ipeirotis.entity.DemographicsSnapshot;
@@ -257,6 +258,54 @@ public class DemographicsSnapshotService {
         filterIncomeLabels(labels);
         result.setLabels(labels);
         return result;
+    }
+
+    /**
+     * Get raw count data from pre-computed snapshots for a date range.
+     */
+    public DemographicsCountsResponse getCounts(String from, String to) {
+        List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(from, to);
+
+        List<DemographicsCountsResponse.DailyCount> days = new ArrayList<>();
+        int totalResponses = 0;
+        Map<String, Integer> totalCountries = new HashMap<>();
+        Map<String, Integer> totalYearOfBirth = new HashMap<>();
+        Map<String, Integer> totalGender = new HashMap<>();
+        Map<String, Integer> totalMaritalStatus = new HashMap<>();
+        Map<String, Integer> totalHouseholdSize = new HashMap<>();
+        Map<String, Integer> totalHouseholdIncome = new HashMap<>();
+
+        for (DemographicsSnapshot snap : snapshots) {
+            DemographicsCountsResponse.DailyCount day = new DemographicsCountsResponse.DailyCount();
+            day.setDate(snap.getDate());
+            day.setTotalResponses(snap.getTotalResponses());
+            day.setCountries(snap.getCountries());
+            day.setYearOfBirth(snap.getYearOfBirth());
+            day.setGender(snap.getGender());
+            day.setMaritalStatus(snap.getMaritalStatus());
+            day.setHouseholdSize(snap.getHouseholdSize());
+            day.setHouseholdIncome(snap.getHouseholdIncome());
+            days.add(day);
+
+            totalResponses += snap.getTotalResponses();
+            mergeCounts(snap.getCountries(), totalCountries);
+            mergeCounts(snap.getYearOfBirth(), totalYearOfBirth);
+            mergeCounts(snap.getGender(), totalGender);
+            mergeCounts(snap.getMaritalStatus(), totalMaritalStatus);
+            mergeCounts(snap.getHouseholdSize(), totalHouseholdSize);
+            mergeCounts(snap.getHouseholdIncome(), totalHouseholdIncome);
+        }
+
+        DemographicsCountsResponse response = new DemographicsCountsResponse();
+        response.setDays(days);
+        response.setTotalResponses(totalResponses);
+        response.setTotalCountries(totalCountries);
+        response.setTotalYearOfBirth(totalYearOfBirth);
+        response.setTotalGender(totalGender);
+        response.setTotalMaritalStatus(totalMaritalStatus);
+        response.setTotalHouseholdSize(totalHouseholdSize);
+        response.setTotalHouseholdIncome(totalHouseholdIncome);
+        return response;
     }
 
     // --- Helper methods ---
