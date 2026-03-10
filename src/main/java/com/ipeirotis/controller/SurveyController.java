@@ -27,7 +27,7 @@ public class SurveyController {
 	}
 
 	@GetMapping({"/demographics/aggregatedAnswers"})
-	public DemographicsSurveyAnswersByPeriod getSurveyAggregatedAnswers(@RequestParam String from, String to) throws ParseException {
+	public DemographicsSurveyAnswersByPeriod getSurveyAggregatedAnswers(@RequestParam String from, @RequestParam String to) throws ParseException {
 		return surveyService.getDemographicsAnswers(from, to);
 	}
 
