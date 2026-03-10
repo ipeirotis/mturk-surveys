@@ -81,6 +81,10 @@
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-tasks</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-secretmanager</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
