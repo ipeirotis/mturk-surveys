@@ -1,7 +1,7 @@
 <div class="row">
 	<div class="col-md-3">
 		<p class="input-group">
-			<input type="text" class="form-control input-sm" datepicker-popup="MM/dd/yyyy" ng-model="from" is-open="openedFrom" 
+			<input type="text" class="form-control input-sm" datepicker-popup="MM/dd/yyyy" ng-model="from" is-open="openedFrom"
 			datepicker-options="dateOptions" show-weeks="false" show-button-bar="false" close-text="Close" />
 			<span class="input-group-btn">
 			<button type="button" class="btn btn-default btn-sm" ng-click="openFromPicker($event)"><i class="glyphicon glyphicon-calendar"></i></button>
@@ -10,7 +10,7 @@
 	</div>
 	<div class="col-md-3">
 		<p class="input-group">
-			<input type="text" class="form-control input-sm" datepicker-popup="MM/dd/yyyy" ng-model="to" is-open="openedTo" 
+			<input type="text" class="form-control input-sm" datepicker-popup="MM/dd/yyyy" ng-model="to" is-open="openedTo"
 			datepicker-options="dateOptions" show-weeks="false" show-button-bar="false" close-text="Close" />
 			<span class="input-group-btn">
 			<button type="button" class="btn btn-default btn-sm" ng-click="openToPicker($event)"><i class="glyphicon glyphicon-calendar"></i></button>
@@ -23,6 +23,6 @@
   <li class="active"><a href="" id="dailyChartPill" ng-click="draw('dailyChart')">daily</a></li>
   <li><a href="" id="weeklyChartPill" ng-click="draw('weeklyChart')">day of week</a></li>
 </ul>
-<div google-chart chart="hourlyChart" id="hourlyChart" style="display:none;width:100%;height:500px;" on-ready="chartReady('hourlyChart')"/>
-<div google-chart chart="dailyChart" id="dailyChart" style="display:block;width:100%;height:500px;" on-ready="chartReady('dailyChart')"/>
-<div google-chart chart="weeklyChart" id="weeklyChart" style="display:none;width:100%;height:500px;" on-ready="chartReady('weeklyChart')"/>
+<div id="hourlyChart" style="display:none;width:100%;height:500px;" chartjs-chart="hourlyChart"></div>
+<div id="dailyChart" style="display:block;width:100%;height:500px;" chartjs-chart="dailyChart"></div>
+<div id="weeklyChart" style="display:none;width:100%;height:500px;" chartjs-chart="weeklyChart"></div>

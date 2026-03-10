@@ -10,9 +10,9 @@ angular.module('mturk').controller('ChartController',
     $scope.drawnCharts = [];
     $scope.visibleChart = 'dailyChart';
 
-    $scope.hourlyChart = initChart();
-    $scope.dailyChart = initChart();
-    $scope.weeklyChart = initChart();
+    $scope.hourlyChart = {};
+    $scope.dailyChart = {};
+    $scope.weeklyChart = {};
 
     $scope.$watch('from+to', function(newValue, oldValue) {
         if($scope.from && $scope.to){
@@ -36,21 +36,18 @@ angular.module('mturk').controller('ChartController',
             if($scope.visibleChart != chartId){
                 $('#'+chartId).css({display:'none'});
             } else {
-                if(drawn == false){
-                    $('#'+chartId).css({visibility:'hidden'});
-                }
                 $('#'+chartId).css({display:'block'});
             }
         });
 
         if(drawn == false){
-            populate($scope[chart], $scope.response, chart.substr(0, chart.length-5),
+            populate($scope, chart, $scope.response, chart.substr(0, chart.length-5),
                     $routeParams.country, $routeParams.id);
         }
     };
 
     $scope.load = function(){
-        dataService.loadDemographicsSurvey($filter('date')($scope.from, 'MM/dd/yyyy'), 
+        dataService.loadDemographicsSurvey($filter('date')($scope.from, 'MM/dd/yyyy'),
                 $filter('date')($scope.to, 'MM/dd/yyyy'), function(response){
             $scope.response = response;
             $scope.drawnCharts = [];
@@ -74,80 +71,53 @@ angular.module('mturk').controller('ChartController',
         $scope.openedTo = true;
     };
 
-    function initChart(){
-        return {
-            type: 'ColumnChart',
-            options: {
-                bar: { groupWidth: '75%'},
-                isStacked: true,
-                vAxis: {
-                    minValue: 0,
-                    maxValue: 100,
-                    viewWindow: { min: 0, max: 100 },
-                    format: '#\'%\'',
-                    gridlines: { color: '#e0e0e0', count: 5 },
-                    textStyle: { fontSize: 11, color: '#666' }
-                },
-                hAxis: {
-                    textStyle: { fontSize: 11, color: '#666' },
-                    slantedText: true,
-                    slantedTextAngle: 45
-                },
-                legend: { position: 'top', alignment: 'center', textStyle: { fontSize: 12 } },
-                chartArea: { left: 60, top: 40, width: '85%', height: '65%' },
-                tooltip: { textStyle: { fontSize: 12 } },
-                animation: { startup: true, duration: 300, easing: 'out' }
-            },
-            data: {"cols": [], "rows": []}
-        };
-    };
+    function populate(scope, chartName, data, type, country, id) {
+        var periodData = data[type][country][id];
+        var labelSet = data[type][country].labels[id];
 
-    function populate(chart, data, type, country, id) {
-        var rows = new Array();
-        for (var propName in data[type][country][id]) {
-            var row = {c:[{v: (type == 'hourly' || type == 'weekly')? propName : new Date(propName)}]};
-            var i = data[type][country][id][propName];
-            angular.forEach(data[type][country].labels[id], function(label){
-                var val = i[label] ? parseFloat(i[label]) : 0;
-                row.c.push({v: val});
-                row.c.push({v: label + ': ' + val.toFixed(2) + '%'});
-            });
-            rows.push(row);
-        };
-        if(rows.length > 0) {
-            var cols = new Array();
-            if(type == 'hourly' || type == 'weekly') {
-                cols.push({label: "Date", type: "string"});
-            } else {
-                cols.push({label: "Date", type: "date"});
-            }
-            angular.forEach(data[type][country].labels[id], function(label){
-                cols.push({label: label, type: "number"});
-                cols.push({type:'string', role:'tooltip'});
-            });
-            chart.data.cols = cols;
-            chart.data.rows= rows;
+        if (!periodData || !labelSet) {
+            return;
         }
-    };
 
-    $scope.chartReady = function(chart) {
-        $('#'+chart).css({visibility:'visible'});
-        fixGoogleChartsBarsBootstrap();
-    };
+        // Build sorted list of period keys
+        var periods = [];
+        for (var propName in periodData) {
+            periods.push(propName);
+        }
+        if (periods.length === 0) {
+            return;
+        }
 
-    function fixGoogleChartsBarsBootstrap() {
-        // Google charts uses <img height="12px">, which is incompatible with Twitter
-        // * bootstrap in responsive mode, which inserts a css rule for: img { height: auto; }.
-        // *
-        // * The fix is to use inline style width attributes, ie <img style="height: 12px;">.
-        // * BUT we can't change the way Google Charts renders its bars. Nor can we change
-        // * the Twitter bootstrap CSS and remain future proof.
-        // *
-        // * Instead, this function can be called after a Google charts render to "fix" the
-        // * issue by setting the style attributes dynamically.
+        // Sort periods
+        if (type === 'daily') {
+            periods.sort(function(a, b) { return new Date(a) - new Date(b); });
+        } else if (type === 'hourly') {
+            periods.sort(function(a, b) { return parseInt(a) - parseInt(b); });
+        }
+        // weekly: keep original order (Sun-Sat)
 
-       $(".google-visualization-table-table img[width]").each(function(index, img) {
-           $(img).css("width", $(img).attr("width")).css("height", $(img).attr("height"));
-       });
-    };
+        // Format labels for display
+        var chartLabels = [];
+        for (var p = 0; p < periods.length; p++) {
+            if (type === 'daily') {
+                var d = new Date(periods[p]);
+                chartLabels.push((d.getMonth()+1) + '/' + d.getDate() + '/' + d.getFullYear());
+            } else {
+                chartLabels.push(periods[p]);
+            }
+        }
+
+        // Build datasets: one per demographic label
+        var datasets = [];
+        angular.forEach(labelSet, function(label) {
+            var values = [];
+            for (var pp = 0; pp < periods.length; pp++) {
+                var entry = periodData[periods[pp]];
+                values.push(entry[label] ? parseFloat(entry[label]) : 0);
+            }
+            datasets.push({ label: label, data: values });
+        });
+
+        scope[chartName] = { labels: chartLabels, datasets: datasets };
+    }
 }]);
