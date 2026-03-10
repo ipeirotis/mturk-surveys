@@ -19,6 +19,18 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>libraries-bom</artifactId>
+                <version>26.51.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -68,7 +80,6 @@
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-tasks</artifactId>
-            <version>2.85.0</version>
         </dependency>
     </dependencies>
 
