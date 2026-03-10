@@ -1,9 +1,9 @@
 angular.module('mturk').controller('ChartController',
-    ['$scope', '$filter', '$routeParams', 'dataService', 'dateFilterState',
-    function ($scope, $filter, $routeParams, dataService, dateFilterState) {
+    ['$scope', '$filter', '$routeParams', '$timeout', 'dataService', 'dateFilterState',
+    function ($scope, $filter, $routeParams, $timeout, dataService, dateFilterState) {
 
-    $scope.from = dateFilterState.from;
-    $scope.to = dateFilterState.to;
+    $scope.from = new Date(dateFilterState.from.getTime());
+    $scope.to = new Date(dateFilterState.to.getTime());
     $scope.activePill = 'dailyChartPill';
     $scope.chartIds = ['hourlyChart', 'dailyChart', 'weeklyChart'];
     $scope.drawnCharts = [];
@@ -37,13 +37,16 @@ angular.module('mturk').controller('ChartController',
         $scope.drawnCharts = kept;
     };
 
-    $scope.$watch('from+to', function(newValue, oldValue) {
-        if($scope.from && $scope.to){
-            dateFilterState.from = $scope.from;
-            dateFilterState.to = $scope.to;
-            $scope.load();
-        }
-    });
+    $scope.load = function(){
+        dataService.loadDemographicsSurvey($filter('date')($scope.from, 'MM/dd/yyyy'),
+                $filter('date')($scope.to, 'MM/dd/yyyy'), function(response){
+            $scope.response = response;
+            $scope.drawnCharts = [];
+            $scope.draw($scope.visibleChart);
+        }, function(error){
+            console.log(error);
+        });
+    };
 
     $scope.draw = function(chart){
         $scope.visibleChart = chart;
@@ -71,16 +74,25 @@ angular.module('mturk').controller('ChartController',
         }
     };
 
-    $scope.load = function(){
-        dataService.loadDemographicsSurvey($filter('date')($scope.from, 'MM/dd/yyyy'),
-                $filter('date')($scope.to, 'MM/dd/yyyy'), function(response){
-            $scope.response = response;
-            $scope.drawnCharts = [];
-            $scope.draw($scope.visibleChart);
-        }, function(error){
-            console.log(error);
-        });
-    };
+    // Perform the initial data load with the persisted dates immediately,
+    // before the datepicker-popup directive has a chance to interfere.
+    $scope.load();
+
+    // Wait for the datepicker-popup directive to finish initializing before
+    // enabling the watch.  The datepicker creates an isolate scope and its
+    // link phase can momentarily reset the ng-model values, which would
+    // overwrite the persisted dateFilterState with defaults.
+    var watchEnabled = false;
+    $timeout(function() { watchEnabled = true; });
+
+    $scope.$watch('from+to', function(newValue, oldValue) {
+        if(!watchEnabled) return;
+        if($scope.from && $scope.to){
+            dateFilterState.from = $scope.from;
+            dateFilterState.to = $scope.to;
+            $scope.load();
+        }
+    });
 
     $scope.openFromPicker = function($event) {
         $event.preventDefault();
