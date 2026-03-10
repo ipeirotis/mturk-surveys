@@ -10,6 +10,7 @@ import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -48,7 +49,9 @@ public class DemographicsSnapshotService {
 
     /**
      * Build and save a snapshot for the given date from raw UserAnswer data.
+     * Evicts all cached chart/aggregated/counts data since the underlying data has changed.
      */
+    @CacheEvict(value = {"chartData", "aggregatedAnswers", "counts"}, allEntries = true)
     public DemographicsSnapshot buildSnapshot(String dateStr) throws ParseException {
         Calendar dateFrom = Calendar.getInstance();
         DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");

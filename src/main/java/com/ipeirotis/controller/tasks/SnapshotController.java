@@ -14,12 +14,31 @@ import java.text.ParseException;
 import java.util.Calendar;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 @RestController
 public class SnapshotController {
 
+    private static final Logger logger = Logger.getLogger(SnapshotController.class.getName());
+
     @Autowired
     private DemographicsSnapshotService snapshotService;
+
+    /**
+     * Cron-triggered: pre-warms the chartData cache for the full date range.
+     * Runs after the daily snapshot so the cache includes yesterday's data.
+     */
+    @GetMapping("/tasks/warmChartCache")
+    public Map<String, Object> warmChartCache() {
+        DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
+        String from = "03/26/2015";
+        String to = df.format(new java.util.Date());
+        long start = System.currentTimeMillis();
+        snapshotService.getChartData(from, to);
+        long elapsed = System.currentTimeMillis() - start;
+        logger.info("Chart cache warmed for " + from + " to " + to + " in " + elapsed + "ms");
+        return Map.of("status", "ok", "from", from, "to", to, "elapsedMs", elapsed);
+    }
 
     /**
      * Cron-triggered: snapshot yesterday's demographics data.

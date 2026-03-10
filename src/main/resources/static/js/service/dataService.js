@@ -21,7 +21,7 @@ angular.module('mturk').factory('dataService', ['$http', '$cacheFactory', functi
 	        var key = 'chart_' + from + '_' + to;
 	        var fromCache = chartDataCache.get(key);
             if(!fromCache) {
-                $http.get(this.getApiUrl() + '/survey/demographics/chartData?from=' + from + '&to=' + to)
+                $http.get(this.getApiUrl() + '/survey/demographics/chartData?from=' + from + '&to=' + to, { timeout: 300000 })
                 .success(function(response) {
                     chartDataCache.put(key, response);
                     if(angular.isFunction(success)){

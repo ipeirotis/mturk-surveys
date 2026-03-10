@@ -130,6 +130,11 @@ body {
     height: 500px;
 }
 
+.volume-chart-container {
+    width: 100%;
+    height: 150px;
+}
+
 /* Chart pills spacing */
 .chart-pills {
     margin-bottom: 10px;
@@ -170,6 +175,10 @@ body {
         height: 350px;
     }
 
+    .volume-chart-container {
+        height: 120px;
+    }
+
     .stat-value {
         font-size: 16px;
     }
@@ -182,6 +191,10 @@ body {
 @media (max-width: 767px) {
     .chart-container {
         height: 280px;
+    }
+
+    .volume-chart-container {
+        height: 100px;
     }
 
     .display-mode-btns {
