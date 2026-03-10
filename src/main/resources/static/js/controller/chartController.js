@@ -17,6 +17,13 @@ angular.module('mturk').controller('ChartController',
 
     $scope.setDisplayMode = function(mode) {
         $scope.displayMode = mode;
+        // Stamp displayMode into each chart data object so the directive's
+        // deep watch on chartData picks up the change and re-renders.
+        angular.forEach($scope.chartIds, function(chartName) {
+            if ($scope[chartName] && $scope[chartName].labels) {
+                $scope[chartName].displayMode = mode;
+            }
+        });
     };
 
     $scope.$watch('from+to', function(newValue, oldValue) {
@@ -123,6 +130,6 @@ angular.module('mturk').controller('ChartController',
             datasets.push({ label: label, data: values });
         });
 
-        scope[chartName] = { labels: chartLabels, datasets: datasets };
+        scope[chartName] = { labels: chartLabels, datasets: datasets, displayMode: scope.displayMode };
     }
 }]);
