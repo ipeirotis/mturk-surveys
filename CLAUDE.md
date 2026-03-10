@@ -148,5 +148,5 @@ See [TASKS.md](TASKS.md) for the full task list. Summary:
 - [x] **Track 3** — Dependency Updates (T3.1–T3.5 completed)
 - [x] **Track 4** — Java 21 + Spring Boot 3.x Migration (T4.1–T4.7 completed)
 - [x] **Track 5** — AWS SDK Update (T5.1–T5.3 completed)
-- [ ] **Track 6** — Google Cloud Libraries Update (T6.1–T6.3)
+- [x] **Track 6** — Google Cloud Libraries Update (T6.1–T6.3 completed)
 - [ ] **Track 7** — Frontend Modernization (T7.1–T7.3)
