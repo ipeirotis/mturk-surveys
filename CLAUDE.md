@@ -4,7 +4,7 @@
 
 **mturk-surveys** is a Java Spring Boot web application that runs continuous demographic surveys of Amazon Mechanical Turk workers. It creates HITs (Human Intelligence Tasks) on MTurk, collects worker responses, and provides aggregated demographics analytics through a web dashboard.
 
-Deployed on **Google App Engine** (Java 21 runtime) with **Google Cloud Datastore** for persistence.
+Deployed on **Google App Engine** (Java 21 runtime) with **Google Cloud Datastore** for persistence. The demographics survey has been running since **2015** — there is no useful data before that year.
 
 ## Tech Stack
 
