@@ -70,6 +70,20 @@ Incremental improvements to the demographics dashboard charts, from quick wins w
 - **T7.7** — **Add summary statistics panel** — Show key metrics above the chart: total responses in the selected period, percentage from US, most common demographic values, and trend direction (up/down arrows comparing to the previous period).
 - **T7.8** — **Make the dashboard fully responsive** — Current layout breaks on mobile (fixed `col-md-2` sidebar, fixed chart heights). Use responsive chart sizing, a collapsible sidebar menu on small screens, and percentage-based chart dimensions.
 
+### API & Data Pipeline Optimization (T7.9–T7.10)
+
+- [x] **T7.9** — **Remove US-specific filtering from API and frontend** — Removed separate US-only aggregation maps from `SurveyService`, simplified `DemographicsSurveyAnswersByPeriod` from `Map<String, DemographicsSurveyAnswers>` to direct `DemographicsSurveyAnswers` fields, removed US nav links and `/:country` route segment from frontend. *(completed)*
+- [x] **T7.10** — **Pre-compute demographics aggregations** — Added `DemographicsSnapshot` Objectify entity that stores pre-aggregated daily/hourly/weekly counts per demographic dimension. Added `DemographicsSnapshotService` for building snapshots from raw data and assembling API responses from snapshots. Added cron job (`/tasks/snapshotDemographics`) running daily at 04:00, and a backfill endpoint (`/tasks/backfillSnapshots?from=MM/dd/yyyy&to=MM/dd/yyyy`) for historical data. *(completed)*
+
+### New Visualizations (T7.11–T7.16)
+
+- **T7.11** — **Response volume chart** — Add a line chart showing the raw count of survey responses per day/hour/week, not just percentages. Reveals activity spikes (holidays, weekends) and HIT traction trends. Data is already available in `DemographicsSnapshot.totalResponses` and `hourlyTotals`.
+- **T7.12** — **Geographic heatmap** — Replace the binary "US vs Others" country breakdown with a world choropleth map (using D3.js or a lightweight SVG map library). Show all countries with color intensity proportional to response count. Requires expanding `incCountries()` to store full country codes instead of bucketing.
+- **T7.13** — **Cross-tabulation / demographic intersections** — Show how demographics correlate (e.g., income distribution broken down by gender, age distribution by country). Add a new API endpoint returning two-dimensional pivot tables. Display as grouped bar charts or heatmap grids.
+- **T7.14** — **Worker retention / return rate** — Track unique vs repeat workers over time using hashed `workerId`. Add a line chart of "new workers vs returning workers per week" to reveal workforce dynamics.
+- **T7.15** — **Response time trends** — Plot median time between HIT creation (`hitCreationDate`) and answer submission (`date`). Shows labor market responsiveness. Display as a line chart with percentile bands (25th, 50th, 75th).
+- **T7.16** — **Summary statistics cards** — Add a dashboard header with key metrics: total responses in the selected period, top 5 countries, median age bracket, most common income bracket. Display as Bootstrap cards/badges above the chart area.
+
 ---
 
 ## Dependency Summary

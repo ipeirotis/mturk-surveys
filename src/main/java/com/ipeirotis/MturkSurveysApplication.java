@@ -1,6 +1,7 @@
 package com.ipeirotis;
 
 import com.googlecode.objectify.ObjectifyService;
+import com.ipeirotis.entity.DemographicsSnapshot;
 import com.ipeirotis.entity.Question;
 import com.ipeirotis.entity.Survey;
 import com.ipeirotis.entity.UserAnswer;
@@ -17,6 +18,7 @@ public class MturkSurveysApplication {
 
     static {
         classes = new HashSet<>();
+        classes.add(DemographicsSnapshot.class);
         classes.add(Question.class);
         classes.add(Survey.class);
         classes.add(UserAnswer.class);

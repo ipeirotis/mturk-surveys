@@ -226,15 +226,11 @@ public class SurveyService {
 
     public DemographicsSurveyAnswersByPeriod getDemographicsAnswers(String from, String to) throws ParseException {
         Map<String, List<UserAnswer>> hourlyMap = new HashMap<String, List<UserAnswer>>();
-        Map<String, List<UserAnswer>> hourlyMapUS = new HashMap<String, List<UserAnswer>>();
         Map<String, List<UserAnswer>> dailyMap = new HashMap<String, List<UserAnswer>>();
-        Map<String, List<UserAnswer>> dailyMapUS = new HashMap<String, List<UserAnswer>>();
         Map<String, List<UserAnswer>> dayOfWeekMap = new LinkedHashMap<String, List<UserAnswer>>();
-        Map<String, List<UserAnswer>> dayOfWeekMapUS = new LinkedHashMap<String, List<UserAnswer>>();
 
         for(String day : days) {
             dayOfWeekMap.put(day, new ArrayList<UserAnswer>());
-            dayOfWeekMapUS.put(day, new ArrayList<UserAnswer>());
         }
 
         Calendar dateFrom = Calendar.getInstance();
@@ -270,28 +266,12 @@ public class SurveyService {
 
             aggregateAnswer(dailyMap, hourlyMap, dayOfWeekMap, userAnswer,
                     d.getTime().toString(), dayOfWeek, hour);
-
-            if("US".equals(userAnswer.getLocationCountry())) {
-                aggregateAnswer(dailyMapUS, hourlyMapUS, dayOfWeekMapUS, userAnswer,
-                        d.getTime().toString(), dayOfWeek, hour);
-            }
         }
 
         DemographicsSurveyAnswersByPeriod result = new DemographicsSurveyAnswersByPeriod();
-        Map<String, DemographicsSurveyAnswers> hourlyResult = new HashMap<String, DemographicsSurveyAnswers>();
-        hourlyResult.put("all", getData(hourlyMap));
-        hourlyResult.put("us", getData(hourlyMapUS));
-
-        Map<String, DemographicsSurveyAnswers> dailyResult = new HashMap<String, DemographicsSurveyAnswers>();
-        dailyResult.put("all", getData(dailyMap));
-        dailyResult.put("us", getData(dailyMapUS));
-
-        Map<String, DemographicsSurveyAnswers> dayOfWeekResult = new HashMap<String, DemographicsSurveyAnswers>();
-        dayOfWeekResult.put("all", getData(dayOfWeekMap));
-        dayOfWeekResult.put("us", getData(dayOfWeekMapUS));
-        result.setHourly(hourlyResult);
-        result.setDaily(dailyResult);
-        result.setWeekly(dayOfWeekResult);
+        result.setHourly(getData(hourlyMap));
+        result.setDaily(getData(dailyMap));
+        result.setWeekly(getData(dayOfWeekMap));
         return result;
     }
 
