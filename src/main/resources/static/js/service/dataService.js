@@ -1,3 +1,12 @@
+angular.module('mturk').factory('dateFilterState', function() {
+    var defaultFrom = new Date();
+    defaultFrom.setMonth(defaultFrom.getMonth() - 3);
+    return {
+        from: defaultFrom,
+        to: new Date()
+    };
+});
+
 angular.module('mturk').factory('dataService', ['$http', '$cacheFactory', function($http, $cacheFactory) {
 
     var cache = $cacheFactory('demographicsCache');
