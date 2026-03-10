@@ -1,9 +1,11 @@
 package com.ipeirotis.controller.tasks;
 
+import com.googlecode.objectify.Key;
 import com.googlecode.objectify.cmd.Query;
 import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
+import com.ipeirotis.util.TaskUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -257,6 +259,107 @@ public class DiagnosticController {
 		logger.info("Diagnostic range results: total(with)=" + total
 				+ " total(without)=" + totalNoSurveyFilter
 				+ " discrepancies=" + discrepancies.size());
+		return result;
+	}
+
+	/**
+	 * Re-index UserAnswer entities by loading via the surveyId single-property
+	 * index (bypassing the date index) and re-saving them. Re-saving forces
+	 * Datastore to rebuild all property indexes including date.
+	 *
+	 * Uses cursor-based pagination with continuation via Cloud Tasks to handle
+	 * large datasets without timing out.
+	 *
+	 * Example: /tasks/reindexUserAnswers?from=10/01/2020&to=12/31/2022
+	 * With cursor: /tasks/reindexUserAnswers?from=10/01/2020&to=12/31/2022&cursor=...
+	 */
+	@GetMapping("/tasks/reindexUserAnswers")
+	public Map<String, Object> reindexUserAnswers(
+			@RequestParam String from, @RequestParam String to,
+			@RequestParam(required = false) String cursor) throws ParseException {
+
+		DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
+
+		Calendar start = Calendar.getInstance();
+		start.setTime(df.parse(from));
+		CalendarUtils.truncateToDay(start);
+
+		Calendar end = Calendar.getInstance();
+		end.setTime(df.parse(to));
+		CalendarUtils.truncateToDay(end);
+		end.add(Calendar.DAY_OF_MONTH, 1); // exclusive end
+
+		Date fromDate = start.getTime();
+		Date toDate = end.getTime();
+
+		// Query by surveyId only (single-property index) — deliberately
+		// avoids the date index which may be corrupt.
+		// Process BATCH_LIMIT entities per invocation, then continue via Cloud Task.
+		int BATCH_LIMIT = 5000;
+
+		Query<UserAnswer> q = ofy().load().type(UserAnswer.class)
+				.filter("surveyId", "demographics")
+				.limit(BATCH_LIMIT);
+
+		if (cursor != null) {
+			q = q.startAt(com.google.cloud.datastore.Cursor.fromUrlSafe(cursor));
+		}
+
+		int resaved = 0;
+		int scanned = 0;
+		int skippedOutOfRange = 0;
+		List<UserAnswer> batch = new ArrayList<>();
+		String nextCursor = null;
+
+		com.google.cloud.datastore.QueryResults<UserAnswer> iterator = q.iterator();
+		while (iterator.hasNext()) {
+			UserAnswer ua = iterator.next();
+			scanned++;
+
+			if (ua.getDate() == null
+					|| ua.getDate().before(fromDate)
+					|| !ua.getDate().before(toDate)) {
+				skippedOutOfRange++;
+				continue;
+			}
+
+			batch.add(ua);
+			if (batch.size() >= 25) {
+				ofy().save().entities(batch).now();
+				resaved += batch.size();
+				batch.clear();
+			}
+		}
+
+		if (!batch.isEmpty()) {
+			ofy().save().entities(batch).now();
+			resaved += batch.size();
+		}
+
+		// If we processed the full batch limit, there may be more entities
+		if (scanned >= BATCH_LIMIT) {
+			nextCursor = iterator.getCursorAfter().toUrlSafe();
+
+			// Enqueue continuation task
+			Map<String, String> params = new LinkedHashMap<>();
+			params.put("from", from);
+			params.put("to", to);
+			params.put("cursor", nextCursor);
+			TaskUtils.queueTask("/tasks/reindexUserAnswers", params);
+		}
+
+		logger.info("Re-index batch: scanned=" + scanned + " resaved=" + resaved
+				+ " skippedOutOfRange=" + skippedOutOfRange
+				+ " hasMore=" + (nextCursor != null));
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("status", "ok");
+		result.put("scanned", scanned);
+		result.put("resaved", resaved);
+		result.put("skippedOutOfRange", skippedOutOfRange);
+		result.put("continuationEnqueued", nextCursor != null);
+		result.put("from", from);
+		result.put("to", to);
 		return result;
 	}
 }
