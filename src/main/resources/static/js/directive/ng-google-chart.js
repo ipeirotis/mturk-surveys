@@ -30,11 +30,25 @@
                             return buildVolumeConfig(data);
                         }
                         var isArea = data.displayMode === 'area';
+                        var isLine = data.displayMode === 'line';
                         var datasets = [];
                         for (var i = 0; i < data.datasets.length; i++) {
                             var ds = data.datasets[i];
                             var color = palette[i % palette.length];
-                            if (isArea) {
+                            if (isLine) {
+                                datasets.push({
+                                    label: ds.label,
+                                    data: ds.data,
+                                    borderColor: color,
+                                    backgroundColor: color,
+                                    borderWidth: 2,
+                                    fill: false,
+                                    tension: 0.3,
+                                    pointRadius: 2,
+                                    pointHitRadius: 8,
+                                    pointBackgroundColor: color
+                                });
+                            } else if (isArea) {
                                 datasets.push({
                                     label: ds.label,
                                     data: ds.data,
@@ -60,8 +74,15 @@
                         var countsPerPeriod = data.countsPerPeriod;
                         var demographicField = data.demographicField;
 
+                        var stacked = !isLine;
+                        var chartType = (isArea || isLine) ? 'line' : 'bar';
+
+                        // For line mode, use 'nearest' interaction so hovering
+                        // highlights only the closest line instead of all series.
+                        var interactionMode = isLine ? 'nearest' : 'index';
+
                         return {
-                            type: isArea ? 'line' : 'bar',
+                            type: chartType,
                             data: {
                                 labels: data.labels,
                                 datasets: datasets
@@ -69,6 +90,10 @@
                             options: {
                                 responsive: true,
                                 maintainAspectRatio: false,
+                                interaction: {
+                                    mode: interactionMode,
+                                    intersect: isLine ? true : false
+                                },
                                 animation: {
                                     duration: 300,
                                     easing: 'easeOutQuad'
@@ -119,7 +144,7 @@
                                 },
                                 scales: {
                                     x: {
-                                        stacked: true,
+                                        stacked: stacked,
                                         ticks: {
                                             font: { size: 11 },
                                             color: '#666',
@@ -128,7 +153,7 @@
                                         }
                                     },
                                     y: {
-                                        stacked: true,
+                                        stacked: stacked,
                                         min: 0,
                                         max: data.autoScaleY ? undefined : 100,
                                         ticks: {
