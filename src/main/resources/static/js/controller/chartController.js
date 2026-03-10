@@ -1,10 +1,9 @@
 angular.module('mturk').controller('ChartController',
-    ['$scope', '$filter', '$routeParams', 'dataService',
-    function ($scope, $filter, $routeParams, dataService) {
+    ['$scope', '$filter', '$routeParams', 'dataService', 'dateFilterState',
+    function ($scope, $filter, $routeParams, dataService, dateFilterState) {
 
-    $scope.from = new Date();
-    $scope.from.setMonth(new Date().getMonth() - 3);
-    $scope.to = new Date();
+    $scope.from = dateFilterState.from;
+    $scope.to = dateFilterState.to;
     $scope.activePill = 'dailyChartPill';
     $scope.chartIds = ['hourlyChart', 'dailyChart', 'weeklyChart'];
     $scope.drawnCharts = [];
@@ -40,6 +39,8 @@ angular.module('mturk').controller('ChartController',
 
     $scope.$watch('from+to', function(newValue, oldValue) {
         if($scope.from && $scope.to){
+            dateFilterState.from = $scope.from;
+            dateFilterState.to = $scope.to;
             $scope.load();
         }
     });
