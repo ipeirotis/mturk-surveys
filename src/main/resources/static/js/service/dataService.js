@@ -9,35 +9,21 @@ angular.module('mturk').factory('dateFilterState', function() {
 
 angular.module('mturk').factory('dataService', ['$http', '$cacheFactory', function($http, $cacheFactory) {
 
-    var cache = $cacheFactory('demographicsCache');
-    var countsCache = $cacheFactory('countsCache');
+    var chartDataCache = $cacheFactory('chartDataCache');
 
 	return {
-	    loadDemographicsSurvey: function(from, to, success, error) {
-	        var key = from + '_' + to;
-	        var fromCache = cache.get(key);
+	    /**
+	     * Combined endpoint: loads both aggregated percentages and raw counts
+	     * in a single XHR (halves Datastore reads).
+	     * Callback receives { aggregated: {...}, counts: {...} }.
+	     */
+	    loadChartData: function(from, to, success, error) {
+	        var key = 'chart_' + from + '_' + to;
+	        var fromCache = chartDataCache.get(key);
             if(!fromCache) {
-                $http.get(this.getApiUrl() + '/survey/demographics/aggregatedAnswers?from=' + from + '&to=' + to)
+                $http.get(this.getApiUrl() + '/survey/demographics/chartData?from=' + from + '&to=' + to)
                 .success(function(response) {
-                    cache.put(key, response);
-
-                    if(angular.isFunction(success)){
-                        success(response);
-                    }
-                }).error(error);
-            } else {
-                if(angular.isFunction(success)){
-                    success(fromCache);
-                }
-            }
-	    },
-	    loadDemographicsCounts: function(from, to, success, error) {
-	        var key = 'counts_' + from + '_' + to;
-	        var fromCache = countsCache.get(key);
-            if(!fromCache) {
-                $http.get(this.getApiUrl() + '/survey/demographics/counts?from=' + from + '&to=' + to)
-                .success(function(response) {
-                    countsCache.put(key, response);
+                    chartDataCache.put(key, response);
                     if(angular.isFunction(success)){
                         success(response);
                     }

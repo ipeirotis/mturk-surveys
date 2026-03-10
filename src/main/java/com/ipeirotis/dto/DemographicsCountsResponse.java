@@ -8,11 +8,14 @@ import java.util.Map;
 @Schema(description = "Raw count data from pre-computed daily demographics snapshots")
 public class DemographicsCountsResponse {
 
-	@Schema(description = "Per-day breakdown of demographics counts")
+	@Schema(description = "Per-period breakdown of demographics counts (daily, weekly, or monthly depending on range)")
 	private List<DailyCount> days;
 
 	@Schema(description = "Total responses across all days in the range")
 	private int totalResponses;
+
+	@Schema(description = "Granularity of the 'days' field: daily, weekly, or monthly")
+	private String granularity;
 
 	@Schema(description = "Country counts summed across all days")
 	private Map<String, Integer> totalCountries;
@@ -129,6 +132,14 @@ public class DemographicsCountsResponse {
 
 	public void setTotalLanguagesSpoken(Map<String, Integer> totalLanguagesSpoken) {
 		this.totalLanguagesSpoken = totalLanguagesSpoken;
+	}
+
+	public String getGranularity() {
+		return granularity;
+	}
+
+	public void setGranularity(String granularity) {
+		this.granularity = granularity;
 	}
 
 	@Schema(description = "Demographics counts for a single day")
