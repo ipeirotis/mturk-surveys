@@ -10,6 +10,10 @@ public class DemographicsSurveyAnswers {
     private Map<String, Map<String, Float>> maritalStatus;
     private Map<String, Map<String, Float>> householdSize;
     private Map<String, Map<String, Float>> householdIncome;
+    private Map<String, Map<String, Float>> educationalLevel;
+    private Map<String, Map<String, Float>> timeSpentOnMturk;
+    private Map<String, Map<String, Float>> weeklyIncomeFromMturk;
+    private Map<String, Map<String, Float>> languagesSpoken;
     private Map<String, Set<String>> labels;
 
     public Map<String, Map<String, Float>> getCountries() {
@@ -59,6 +63,38 @@ public class DemographicsSurveyAnswers {
     public void setHouseholdIncome(
             Map<String, Map<String, Float>> householdIncome) {
         this.householdIncome = householdIncome;
+    }
+
+    public Map<String, Map<String, Float>> getEducationalLevel() {
+        return educationalLevel;
+    }
+
+    public void setEducationalLevel(Map<String, Map<String, Float>> educationalLevel) {
+        this.educationalLevel = educationalLevel;
+    }
+
+    public Map<String, Map<String, Float>> getTimeSpentOnMturk() {
+        return timeSpentOnMturk;
+    }
+
+    public void setTimeSpentOnMturk(Map<String, Map<String, Float>> timeSpentOnMturk) {
+        this.timeSpentOnMturk = timeSpentOnMturk;
+    }
+
+    public Map<String, Map<String, Float>> getWeeklyIncomeFromMturk() {
+        return weeklyIncomeFromMturk;
+    }
+
+    public void setWeeklyIncomeFromMturk(Map<String, Map<String, Float>> weeklyIncomeFromMturk) {
+        this.weeklyIncomeFromMturk = weeklyIncomeFromMturk;
+    }
+
+    public Map<String, Map<String, Float>> getLanguagesSpoken() {
+        return languagesSpoken;
+    }
+
+    public void setLanguagesSpoken(Map<String, Map<String, Float>> languagesSpoken) {
+        this.languagesSpoken = languagesSpoken;
     }
 
     public Map<String, Set<String>> getLabels() {

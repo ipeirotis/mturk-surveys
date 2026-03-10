@@ -75,6 +75,11 @@ Incremental improvements to the demographics dashboard charts, from quick wins w
 - [x] **T7.9** — **Remove US-specific filtering from API and frontend** — Removed separate US-only aggregation maps from `SurveyService`, simplified `DemographicsSurveyAnswersByPeriod` from `Map<String, DemographicsSurveyAnswers>` to direct `DemographicsSurveyAnswers` fields, removed US nav links and `/:country` route segment from frontend. *(completed)*
 - [x] **T7.10** — **Pre-compute demographics aggregations** — Added `DemographicsSnapshot` Objectify entity that stores pre-aggregated daily/hourly/weekly counts per demographic dimension. Added `DemographicsSnapshotService` for building snapshots from raw data and assembling API responses from snapshots. Added cron job (`/tasks/snapshotDemographics`) running daily at 04:00, and a backfill endpoint (`/tasks/backfillSnapshots?from=MM/dd/yyyy&to=MM/dd/yyyy`) for historical data. *(completed)*
 
+### Dashboard Data Completeness (T7.17–T7.18)
+
+- [x] **T7.17** — **Add missing demographics to snapshot aggregation and dashboard** — Added `educationalLevel`, `timeSpentOnMturk`, `weeklyIncomeFromMturk`, and `languagesSpoken` to `DemographicsSnapshot` entity, `DemographicsSnapshotService` aggregation, `DemographicsSurveyAnswers` and `DemographicsCountsResponse` DTOs, and frontend sidebar navigation. Languages (multi-select) are split on commas and counted individually. Requires snapshot backfill to populate new fields for historical data. *(completed)*
+- [x] **T7.18** — **Add Data Access links to dashboard sidebar** — Added a "Data Access" section below the demographics nav pills with links to the REST API docs (Swagger UI), CSV export endpoint, and BigQuery public dataset. *(completed)*
+
 ### New Visualizations (T7.11–T7.16)
 
 - **T7.11** — **Response volume chart** — Add a line chart showing the raw count of survey responses per day/hour/week, not just percentages. Reveals activity spikes (holidays, weekends) and HIT traction trends. Data is already available in `DemographicsSnapshot.totalResponses` and `hourlyTotals`.
@@ -123,15 +128,10 @@ Improvements to make the API more useful for data analysis and programmatic acce
 - Dataset `demographics` in project `mturk-demographics` will be auto-created on first export
 - To backfill all historical data: `GET /tasks/backfillBigQuery?from=01/01/2015&to=03/09/2026`
 
-### Note: Missing Survey Fields in Snapshot Aggregation
+### Note: Snapshot Backfill Required
 
-The survey collects 9 questions but `DemographicsSnapshot` only aggregates 6 (plus country). Fields not in snapshots:
-- `educationalLevel`
-- `timeSpentOnMturk`
-- `weeklyIncomeFromMturk`
-- `languagesSpoken` (multi-select)
-
-The BigQuery export (T8.6) and CSV export (T8.4) include all 9 fields since they read raw `UserAnswer` data.
+After deploying T7.17, run a snapshot backfill to populate the 4 new demographic fields for historical data:
+`GET /tasks/backfillSnapshots?from=01/01/2015&to=03/10/2026`
 
 ---
 

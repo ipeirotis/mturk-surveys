@@ -72,3 +72,22 @@ body {
 .nav .nav-with-country {
     font-size: 12px;
 }
+
+.sidebar-heading {
+    font-size: 11px;
+    color: #888;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+}
+
+.sidebar-links > li > a {
+    font-size: 12px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+}
+
+.sidebar-links > li > a > .glyphicon {
+    margin-right: 4px;
+}
