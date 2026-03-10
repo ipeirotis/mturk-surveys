@@ -69,6 +69,20 @@
 		</div>
 	</div>
 </div>
+<!-- Loading / Error -->
+<div class="row" ng-if="loading">
+	<div class="col-xs-12 text-center" style="padding: 40px 0;">
+		<i class="glyphicon glyphicon-refresh" style="font-size: 24px; color: #999;"></i>
+		<p class="text-muted" style="margin-top: 8px;">Loading chart data...</p>
+	</div>
+</div>
+<div class="row" ng-if="loadError">
+	<div class="col-xs-12">
+		<div class="alert alert-warning" style="margin-top: 10px;">
+			<i class="glyphicon glyphicon-warning-sign"></i> {{loadError}}
+		</div>
+	</div>
+</div>
 <!-- Granularity Note -->
 <div class="row" ng-if="dailyGranularity">
 	<div class="col-xs-12">
@@ -79,13 +93,15 @@
 </div>
 <!-- Demographics Chart Container -->
 <div id="dailyChart" class="chart-container" style="display:block;" chartjs-chart="dailyChart"></div>
-<!-- Volume Chart (always visible, separate) -->
-<div class="row" style="margin-top: 20px;">
+<!-- Volume Chart (always visible, compact, aligned with chart above) -->
+<div class="row" style="margin-top: 4px;">
 	<div class="col-xs-12">
-		<h5 class="text-muted">Response Volume</h5>
-		<p class="text-muted small granularity-note" ng-if="volumeGranularity">
-			<i class="glyphicon glyphicon-info-sign"></i> {{volumeGranularity}}
+		<p class="text-muted small" style="margin: 0 0 2px 0;">
+			Response Volume
+			<span ng-if="volumeGranularity" class="granularity-note" style="margin-left: 6px;">
+				<i class="glyphicon glyphicon-info-sign"></i> {{volumeGranularity}}
+			</span>
 		</p>
 	</div>
 </div>
-<div id="volumeChart" class="chart-container" style="display:block;" chartjs-chart="volumeChart"></div>
+<div id="volumeChart" class="volume-chart-container" style="display:block;" chartjs-chart="volumeChart"></div>

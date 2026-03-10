@@ -63,17 +63,26 @@ angular.module('mturk').controller('ChartController',
         $scope.load();
     };
 
+    $scope.loading = false;
+    $scope.loadError = null;
+
     $scope.load = function(){
         var fromStr = $filter('date')($scope.from, 'MM/dd/yyyy');
         var toStr = $filter('date')($scope.to, 'MM/dd/yyyy');
 
+        $scope.loading = true;
+        $scope.loadError = null;
+
         dataService.loadChartData(fromStr, toStr, function(chartData){
+            $scope.loading = false;
             $scope.response = chartData.aggregated;
             $scope.countsData = chartData.counts;
             buildSummaryStats(chartData.counts);
             populateDailyChart($scope, $scope.response, $routeParams.id);
             populateVolumeChart($scope);
         }, function(error){
+            $scope.loading = false;
+            $scope.loadError = 'Failed to load chart data. The date range may be too large \u2014 try a shorter period.';
             console.log(error);
         });
     };
