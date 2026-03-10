@@ -6,6 +6,8 @@ import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.cloud.tasks.v2.QueueName;
 import com.google.cloud.tasks.v2.Task;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +31,8 @@ public class TaskUtils {
 			if(params != null) {
 				List<String> paramsList = new ArrayList<>();
 				for(Map.Entry<String, String> entry : params.entrySet()) {
-					paramsList.add(entry.getKey() + "=" + entry.getValue());
+					paramsList.add(URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8)
+						+ "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8));
 				}
 				url = url + "?" + String.join("&", paramsList);
 			}

@@ -64,8 +64,6 @@ public class SurveyService {
         incomeLabels.add("$100,000 or more");
     }
 
-    private DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
-
     @Autowired
     private SurveyDao surveyDao;
     @Autowired
@@ -233,6 +231,7 @@ public class SurveyService {
             dayOfWeekMap.put(day, new ArrayList<UserAnswer>());
         }
 
+        DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
         Calendar dateFrom = Calendar.getInstance();
         dateFrom.setTime(df.parse(from));
         dateFrom.set(Calendar.HOUR_OF_DAY, 0);

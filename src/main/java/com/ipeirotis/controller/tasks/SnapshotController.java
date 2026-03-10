@@ -17,8 +17,6 @@ import java.util.Map;
 @RestController
 public class SnapshotController {
 
-    private final DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
-
     @Autowired
     private DemographicsSnapshotService snapshotService;
 
@@ -29,6 +27,7 @@ public class SnapshotController {
     public Map<String, Object> snapshotYesterday() throws ParseException {
         Calendar yesterday = Calendar.getInstance();
         yesterday.add(Calendar.DAY_OF_MONTH, -1);
+        DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
         String dateStr = df.format(yesterday.getTime());
         snapshotService.buildSnapshot(dateStr);
         return Map.of("status", "ok", "date", dateStr);
@@ -51,6 +50,7 @@ public class SnapshotController {
      */
     @GetMapping("/tasks/backfillSnapshots")
     public Map<String, Object> backfill(@RequestParam String from, @RequestParam String to) throws ParseException {
+        DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
         Calendar current = Calendar.getInstance();
         current.setTime(df.parse(from));
         current.set(Calendar.HOUR_OF_DAY, 0);
