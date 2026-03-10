@@ -68,7 +68,7 @@ public class SurveyController {
 	@Operation(summary = "Get combined chart data (percentages + counts)",
 			description = "Returns both aggregated percentages and raw counts from a single Datastore query. "
 					+ "Preferred over separate aggregatedAnswers + counts calls. "
-					+ "Auto-selects granularity: daily (≤90 days), weekly (91-365), monthly (>365).")
+					+ "Auto-selects granularity: daily (≤90 days), weekly (91-730), monthly (>730).")
 	public ResponseEntity<DemographicsChartData> getChartData(
 			@Parameter(description = "Start date in MM/dd/yyyy format") @RequestParam String from,
 			@Parameter(description = "End date in MM/dd/yyyy format") @RequestParam String to) {

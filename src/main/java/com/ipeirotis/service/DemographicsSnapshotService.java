@@ -26,8 +26,8 @@ public class DemographicsSnapshotService {
     private static final String[] DAYS = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     private static final Set<String> INCOME_LABELS = new LinkedHashSet<>();
 
-    private static final int WEEKLY_THRESHOLD = 90;
-    private static final int MONTHLY_THRESHOLD = 365;
+    private static final int WEEKLY_THRESHOLD = 90;    // >90 days → weekly
+    private static final int MONTHLY_THRESHOLD = 730;  // >2 years → monthly
 
     static {
         INCOME_LABELS.add("Less than $10,000");
