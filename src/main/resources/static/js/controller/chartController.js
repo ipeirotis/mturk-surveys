@@ -17,13 +17,25 @@ angular.module('mturk').controller('ChartController',
 
     $scope.setDisplayMode = function(mode) {
         $scope.displayMode = mode;
-        // Stamp displayMode into each chart data object so the directive's
-        // deep watch on chartData picks up the change and re-renders.
-        angular.forEach($scope.chartIds, function(chartName) {
-            if ($scope[chartName] && $scope[chartName].labels) {
-                $scope[chartName].displayMode = mode;
+        // Re-render the currently visible chart by assigning a new object
+        // reference so AngularJS change detection reliably fires the
+        // directive's deep watch (mutating a property on the same reference
+        // can be missed by the = binding watcher in AngularJS 1.2.x).
+        var name = $scope.visibleChart;
+        if ($scope[name] && $scope[name].labels) {
+            var copy = angular.copy($scope[name]);
+            copy.displayMode = mode;
+            $scope[name] = copy;
+        }
+        // Mark non-visible charts as not-drawn so they pick up the new
+        // displayMode when the user switches tabs.
+        var kept = [];
+        for (var i = 0; i < $scope.drawnCharts.length; i++) {
+            if ($scope.drawnCharts[i] === name) {
+                kept.push(name);
             }
-        });
+        }
+        $scope.drawnCharts = kept;
     };
 
     $scope.$watch('from+to', function(newValue, oldValue) {
