@@ -45,6 +45,24 @@ public class BigQueryExportService {
 
 		List<UserAnswer> answers = surveyService.listAnswersByDateRange(dateFrom.getTime(), dateTo.getTime());
 
+		// Diagnostic logging: count by surveyId to detect null/mismatched surveyId
+		int nullSurveyIdCount = 0;
+		int demographicsCount = 0;
+		int otherSurveyIdCount = 0;
+		for (UserAnswer ua : answers) {
+			if (ua.getSurveyId() == null) {
+				nullSurveyIdCount++;
+			} else if ("demographics".equals(ua.getSurveyId())) {
+				demographicsCount++;
+			} else {
+				otherSurveyIdCount++;
+			}
+		}
+		logger.info("BigQuery export for " + dateStr + ": total=" + answers.size()
+				+ " demographics=" + demographicsCount
+				+ " nullSurveyId=" + nullSurveyIdCount
+				+ " otherSurveyId=" + otherSurveyIdCount);
+
 		if (answers.isEmpty()) {
 			logger.info("No responses found for " + dateStr + ", skipping BigQuery export");
 			return 0;
