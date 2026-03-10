@@ -37,6 +37,10 @@ public class DemographicsCountsResponse {
 	private Map<String, Integer> totalWeeklyIncomeFromMturk;
 	@Schema(description = "Languages spoken counts summed across all days")
 	private Map<String, Integer> totalLanguagesSpoken;
+	@Schema(description = "Detailed country counts (ISO codes) summed across all days")
+	private Map<String, Integer> totalCountriesDetailed;
+	@Schema(description = "US state counts (2-letter codes) summed across all days")
+	private Map<String, Integer> totalUsStates;
 
 	public List<DailyCount> getDays() {
 		return days;
@@ -134,6 +138,22 @@ public class DemographicsCountsResponse {
 		this.totalLanguagesSpoken = totalLanguagesSpoken;
 	}
 
+	public Map<String, Integer> getTotalCountriesDetailed() {
+		return totalCountriesDetailed;
+	}
+
+	public void setTotalCountriesDetailed(Map<String, Integer> totalCountriesDetailed) {
+		this.totalCountriesDetailed = totalCountriesDetailed;
+	}
+
+	public Map<String, Integer> getTotalUsStates() {
+		return totalUsStates;
+	}
+
+	public void setTotalUsStates(Map<String, Integer> totalUsStates) {
+		this.totalUsStates = totalUsStates;
+	}
+
 	public String getGranularity() {
 		return granularity;
 	}
@@ -158,6 +178,8 @@ public class DemographicsCountsResponse {
 		private Map<String, Integer> timeSpentOnMturk;
 		private Map<String, Integer> weeklyIncomeFromMturk;
 		private Map<String, Integer> languagesSpoken;
+		private Map<String, Integer> countriesDetailed;
+		private Map<String, Integer> usStates;
 
 		public String getDate() {
 			return date;
@@ -253,6 +275,22 @@ public class DemographicsCountsResponse {
 
 		public void setLanguagesSpoken(Map<String, Integer> languagesSpoken) {
 			this.languagesSpoken = languagesSpoken;
+		}
+
+		public Map<String, Integer> getCountriesDetailed() {
+			return countriesDetailed;
+		}
+
+		public void setCountriesDetailed(Map<String, Integer> countriesDetailed) {
+			this.countriesDetailed = countriesDetailed;
+		}
+
+		public Map<String, Integer> getUsStates() {
+			return usStates;
+		}
+
+		public void setUsStates(Map<String, Integer> usStates) {
+			this.usStates = usStates;
 		}
 	}
 }

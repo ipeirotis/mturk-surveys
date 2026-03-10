@@ -8,10 +8,11 @@ angular.module('mturk').directive('navpills', ['$location',
 	      }, function (newValue, oldValue) {
 	        $('li[data-match-route]', element).each(function (k, li) {
 	          var $li = angular.element(li), pattern = $li.attr('data-match-route'), regexp = new RegExp('^' + pattern + '$', ['i']);
+	          var $a = $li.find('a');
 	          if (regexp.test(newValue)) {
-	            $li.addClass('active');
+	            $a.addClass('active');
 	          } else {
-	            $li.removeClass('active');
+	            $a.removeClass('active');
 	          }
 	        });
 	      });

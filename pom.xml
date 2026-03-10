@@ -99,39 +99,6 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>net.alchim31.maven</groupId>
-                <artifactId>yuicompressor-maven-plugin</artifactId>
-                <version>1.5.1</version>
-                <configuration>
-                    <preProcessAggregates>true</preProcessAggregates>
-                    <aggregations>
-                        <aggregation>
-                            <insertNewLine>true</insertNewLine>
-                            <output>${basedir}/target/classes/static/js/script.js</output>
-                            <inputDir>${basedir}/src/main/resources/static/js</inputDir>
-                            <includes>
-                                <include>**/*.js</include>
-                            </includes>
-                        </aggregation>
-                    </aggregations>
-                    <excludes>
-                        <exclude>**/*.js</exclude>
-                        <exclude>**/*.css</exclude>
-                    </excludes>
-                    <jswarn>false</jswarn>
-                    <nosuffix>false</nosuffix>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>compress_js_css</id>
-                        <phase>process-resources</phase>
-                        <goals>
-                            <goal>compress</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>

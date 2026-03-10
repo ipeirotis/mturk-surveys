@@ -2,14 +2,17 @@
   cursor: pointer;
 }
 
-.nav-pills > li > a {
-	padding-top: 4px;
-	padding-bottom: 4px;
+.nav-pills .nav-link {
+	padding: 4px 10px;
 	margin-top: 2px;
 	margin-bottom: 2px;
-	-webkit-border-radius: 4px;
-	-moz-border-radius: 4px;
 	border-radius: 4px;
+	font-size: 13px;
+	color: #333;
+}
+
+.nav-pills .nav-link.active {
+	background-color: #337ab7;
 }
 
 .content {
@@ -20,16 +23,10 @@
 	font: normal 16px Verdana, Tahoma;
 	background-color: #f9edbe;
 	border: 1px solid #F0C36D;
-	-moz-border-radius: 2px;
-	-webkit-border-radius: 2px;
-	-webkit-box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 	border-radius: 2px;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 	line-height: 18px;
-	padding-top: 2px;
-	padding-bottom: 2px;
-	padding-left: 5px;
-	padding-right: 5px;
+	padding: 2px 5px;
 	text-align: center;
 	vertical-align: middle;
 	position: absolute;
@@ -51,7 +48,6 @@ html {
 }
 
 body {
-	/* Margin bottom by footer height */
 	margin-bottom: 60px;
 }
 
@@ -82,13 +78,13 @@ body {
     letter-spacing: 0.5px;
 }
 
-.sidebar-links > li > a {
+.sidebar-links .nav-link {
     font-size: 12px;
     padding-top: 3px;
     padding-bottom: 3px;
 }
 
-.sidebar-links > li > a > .glyphicon {
+.sidebar-links .nav-link > .bi {
     margin-right: 4px;
 }
 
@@ -135,7 +131,6 @@ body {
     height: 150px;
 }
 
-/* Chart pills spacing */
 .chart-pills {
     margin-bottom: 10px;
 }
@@ -149,6 +144,71 @@ body {
     color: #888;
 }
 
+/* Choropleth map */
+.choropleth-container {
+    width: 100%;
+    min-height: 500px;
+    position: relative;
+}
+
+.choropleth-container svg {
+    width: 100%;
+    height: auto;
+}
+
+.choropleth-tooltip {
+    position: absolute;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+    white-space: nowrap;
+}
+
+.choropleth-legend {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    color: #666;
+}
+
+.choropleth-legend .legend-bar {
+    height: 10px;
+    flex: 1;
+    margin: 0 6px;
+    border-radius: 2px;
+}
+
+/* Bootstrap 3 compat for ui-bootstrap datepicker */
+.btn-default {
+    color: #333;
+    background-color: #fff;
+    border-color: #ccc;
+}
+.btn-default:hover {
+    background-color: #e6e6e6;
+    border-color: #adadad;
+}
+
+.input-group-btn {
+    display: contents;
+}
+
+/* ui-bootstrap datepicker uses glyphicons internally */
+.glyphicon {
+    display: inline-block;
+    font-family: 'bootstrap-icons';
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+}
+.glyphicon-chevron-left::before { content: "\F284"; }
+.glyphicon-chevron-right::before { content: "\F285"; }
+
 /* Mobile sidebar toggle */
 .sidebar-toggle {
     display: none;
@@ -157,7 +217,6 @@ body {
     text-align: left;
 }
 
-/* Responsive: small screens */
 @media (max-width: 991px) {
     .sidebar-toggle {
         display: block;
@@ -167,7 +226,7 @@ body {
         display: none;
     }
 
-    .sidebar-collapse.in {
+    .sidebar-collapse.show {
         display: block;
     }
 
@@ -185,6 +244,10 @@ body {
 
     .stat-label {
         font-size: 10px;
+    }
+
+    .choropleth-container {
+        min-height: 300px;
     }
 }
 
@@ -218,5 +281,9 @@ body {
 
     .stat-value {
         font-size: 14px;
+    }
+
+    .choropleth-container {
+        min-height: 220px;
     }
 }
