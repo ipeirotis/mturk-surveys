@@ -47,7 +47,7 @@ angular.module('mturk').controller('ChartController',
 
         if(drawn == false){
             populate($scope, chart, $scope.response, chart.substr(0, chart.length-5),
-                    $routeParams.country, $routeParams.id);
+                    $routeParams.id);
         }
     };
 
@@ -76,9 +76,9 @@ angular.module('mturk').controller('ChartController',
         $scope.openedTo = true;
     };
 
-    function populate(scope, chartName, data, type, country, id) {
-        var periodData = data[type][country][id];
-        var labelSet = data[type][country].labels[id];
+    function populate(scope, chartName, data, type, id) {
+        var periodData = data[type][id];
+        var labelSet = data[type].labels[id];
 
         if (!periodData || !labelSet) {
             return;

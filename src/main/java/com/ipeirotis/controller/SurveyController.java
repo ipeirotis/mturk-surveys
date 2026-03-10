@@ -5,12 +5,14 @@ import com.ipeirotis.entity.Survey;
 import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.exception.ResourceNotFoundException;
 import com.ipeirotis.ofy.ListByCursorResult;
+import com.ipeirotis.service.DemographicsSnapshotService;
 import com.ipeirotis.service.SurveyService;
 import com.ipeirotis.service.UserAnswerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.ParseException;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/survey")
@@ -20,6 +22,8 @@ public class SurveyController {
 	private SurveyService surveyService;
 	@Autowired
 	private UserAnswerService userAnswerService;
+	@Autowired
+	private DemographicsSnapshotService snapshotService;
 
 	@GetMapping({"/demographics/answers"})
 	public ListByCursorResult<UserAnswer> getSurveyAnswers(@RequestParam String cursor, @RequestParam Integer limit) {
@@ -27,8 +31,8 @@ public class SurveyController {
 	}
 
 	@GetMapping({"/demographics/aggregatedAnswers"})
-	public DemographicsSurveyAnswersByPeriod getSurveyAggregatedAnswers(@RequestParam String from, @RequestParam String to) throws ParseException {
-		return surveyService.getDemographicsAnswers(from, to);
+	public DemographicsSurveyAnswersByPeriod getSurveyAggregatedAnswers(@RequestParam String from, @RequestParam String to) {
+		return snapshotService.getAggregatedAnswers(from, to);
 	}
 
 	@GetMapping("/{surveyId}")

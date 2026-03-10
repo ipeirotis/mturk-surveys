@@ -5,3 +5,6 @@ cron:
 - url: '/tasks/deleteHITs'
   schedule: 'every day 03:00'
   description: 'Delete HITs'
+- url: '/tasks/snapshotDemographics'
+  schedule: 'every day 04:00'
+  description: 'Snapshot yesterday demographics data'
