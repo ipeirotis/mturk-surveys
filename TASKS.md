@@ -1,10 +1,14 @@
 # TASKS.md
 
+## Track 0: Build Fixes
+
+- [x] **T0.1** — Upgrade `yuicompressor-maven-plugin` from 1.3.2 to 1.5.1 to fix `DirectoryScanner` class not found error with Maven 3.9+ *(completed)*
+
 ## Track 1: CI/CD Pipeline
 
-- **T1.1** — Create GitHub Actions workflow for building on PR/push (`mvn clean install`)
-- **T1.2** — Add GAE deploy step on push to `main` (requires GCP service account key)
-- **T1.3** — Add GitHub repository secrets documentation for `GCP_SA_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- [x] **T1.1** — Create GitHub Actions workflow for building on PR/push (`mvn clean install`) *(completed — `.github/workflows/ci.yml`)*
+- [x] **T1.2** — Add GAE deploy step on push to `main` (requires GCP service account key) *(completed — `.github/workflows/deploy.yml`)*
+- [x] **T1.3** — Add GitHub repository secrets documentation for `GCP_SA_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` *(completed — secrets injected via deploy workflow)*
 
 ## Track 2: Configuration & Security
 
@@ -22,7 +26,7 @@ These are low-risk version bumps with no expected API changes.
 - **T3.3** — Commons Lang3 3.3.2 -> 3.17+
 - **T3.4** — Commons Codec 1.2 -> 1.17+
 - **T3.5** — FreeMarker 2.3.20 -> 2.3.33+
-- **T3.6** — appengine-maven-plugin 2.4.0 -> 2.8.1
+- [x] **T3.6** — appengine-maven-plugin 2.4.0 -> 2.8.1 *(completed — fixes deploy failure with newer gcloud CLI)*
 
 ## Track 4: Java 21 + Spring Boot 3.x Migration
 
@@ -67,7 +71,7 @@ AngularJS 1.x is EOL but functional. Only pursue if the frontend needs active de
 | T3.3 | Commons Lang3 | 3.3.2 | 3.17+ | 3 |
 | T3.4 | Commons Codec | 1.2 | 1.17+ | 3 |
 | T3.5 | FreeMarker | 2.3.20 | 2.3.33+ | 3 |
-| T3.6 | appengine-maven-plugin | 2.4.0 | 2.8.1 | 3 |
+| T3.6 | appengine-maven-plugin | ~~2.4.0~~ **2.8.1** | 2.8.1 | 3 ✅ |
 | T4.3 | Spring Boot | 2.3.5 | 3.4.x | 4 |
 | T4.5 | Jetty (via Spring Boot) | 2.4.0 | managed | 4 |
 | T5.1 | AWS MTurk SDK | 2.5.49 | 2.34.x | 5 |
