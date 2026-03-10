@@ -122,35 +122,6 @@ public class DemographicsSnapshotService {
     }
 
     /**
-     * Build snapshots for a range of dates (inclusive).
-     * Returns the number of snapshots created.
-     */
-    public int backfill(String fromStr, String toStr) throws ParseException {
-        Calendar current = Calendar.getInstance();
-        current.setTime(df.parse(fromStr));
-        current.set(Calendar.HOUR_OF_DAY, 0);
-        current.set(Calendar.MINUTE, 0);
-        current.set(Calendar.SECOND, 0);
-        current.set(Calendar.MILLISECOND, 0);
-
-        Calendar end = Calendar.getInstance();
-        end.setTime(df.parse(toStr));
-        end.set(Calendar.HOUR_OF_DAY, 0);
-        end.set(Calendar.MINUTE, 0);
-        end.set(Calendar.SECOND, 0);
-        end.set(Calendar.MILLISECOND, 0);
-
-        int count = 0;
-        while (!current.after(end)) {
-            String dateStr = df.format(current.getTime());
-            buildSnapshot(dateStr);
-            current.add(Calendar.DAY_OF_MONTH, 1);
-            count++;
-        }
-        return count;
-    }
-
-    /**
      * Get aggregated answers from pre-computed snapshots.
      */
     public DemographicsSurveyAnswersByPeriod getAggregatedAnswers(String from, String to) {
