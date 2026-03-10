@@ -18,11 +18,25 @@
 		</p>
 	</div>
 </div>
-<ul class="nav nav-pills" ng-model="activePill" pills>
-  <li><a href="" id="hourlyChartPill" ng-click="draw('hourlyChart')">hourly</a></li>
-  <li class="active"><a href="" id="dailyChartPill" ng-click="draw('dailyChart')">daily</a></li>
-  <li><a href="" id="weeklyChartPill" ng-click="draw('weeklyChart')">day of week</a></li>
-</ul>
-<div id="hourlyChart" style="display:none;width:100%;height:500px;" chartjs-chart="hourlyChart"></div>
-<div id="dailyChart" style="display:block;width:100%;height:500px;" chartjs-chart="dailyChart"></div>
-<div id="weeklyChart" style="display:none;width:100%;height:500px;" chartjs-chart="weeklyChart"></div>
+<div class="row">
+	<div class="col-md-8">
+		<ul class="nav nav-pills" ng-model="activePill" pills>
+		  <li><a href="" id="hourlyChartPill" ng-click="draw('hourlyChart')">hourly</a></li>
+		  <li class="active"><a href="" id="dailyChartPill" ng-click="draw('dailyChart')">daily</a></li>
+		  <li><a href="" id="weeklyChartPill" ng-click="draw('weeklyChart')">day of week</a></li>
+		</ul>
+	</div>
+	<div class="col-md-4 text-right">
+		<div class="btn-group" style="margin-bottom:10px;">
+			<button type="button" class="btn btn-sm" ng-class="displayMode === 'bar' ? 'btn-primary' : 'btn-default'" ng-click="setDisplayMode('bar')">
+				<i class="glyphicon glyphicon-stats"></i> Bars
+			</button>
+			<button type="button" class="btn btn-sm" ng-class="displayMode === 'area' ? 'btn-primary' : 'btn-default'" ng-click="setDisplayMode('area')">
+				<i class="glyphicon glyphicon-signal"></i> Area
+			</button>
+		</div>
+	</div>
+</div>
+<div id="hourlyChart" style="display:none;width:100%;height:500px;" chartjs-chart="hourlyChart" chartjs-type="displayMode"></div>
+<div id="dailyChart" style="display:block;width:100%;height:500px;" chartjs-chart="dailyChart" chartjs-type="displayMode"></div>
+<div id="weeklyChart" style="display:none;width:100%;height:500px;" chartjs-chart="weeklyChart" chartjs-type="displayMode"></div>
