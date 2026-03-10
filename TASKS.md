@@ -89,6 +89,14 @@ Incremental improvements to the demographics dashboard charts, from quick wins w
 - **T7.15** — **Response time trends** — Plot median time between HIT creation (`hitCreationDate`) and answer submission (`date`). Shows labor market responsiveness. Display as a line chart with percentile bands (25th, 50th, 75th).
 - [x] **T7.16** — **Summary statistics cards** — Added four stat cards above the chart area showing: total responses, average responses per day, top country (with percentage), and top gender (with percentage). Cards use responsive grid (2 per row on mobile, 4 on desktop) with subtle styling. Data sourced from the counts API. *(completed)*
 
+### Other Visualization Ideas to Consider
+
+- **T7.19** — **Small multiples / sparklines** — Instead of one chart with 20+ overlapping lines (e.g., countries), show a grid of small individual charts, one per category. Each sparkline is simple and self-contained.
+- **T7.20** — **Top-N filter** — Add a slider or dropdown to show only the top N categories (e.g., top 5 countries). This dramatically reduces visual clutter in both line and bar modes.
+- **T7.21** — **Highlight on legend click** — Currently clicking a legend item toggles visibility. An enhancement would be to dim all others instead of hiding, so you can focus on one series while keeping context.
+- **T7.22** — **Pie/donut chart for latest period** — Show the most recent period's breakdown as a pie chart next to the time series. Good for a quick "current snapshot" view.
+- **T7.23** — **Heatmap view** — For fields with many categories over time (countries, income brackets), a heatmap where color intensity = percentage could be more readable than either stacked bars or spaghetti lines.
+
 ## Track 8: Data Access & API Quality
 
 Improvements to make the API more useful for data analysis and programmatic access. All changes are additive — no existing response shapes modified.

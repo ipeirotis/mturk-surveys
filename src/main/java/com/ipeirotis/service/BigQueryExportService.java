@@ -3,11 +3,13 @@ package com.ipeirotis.service;
 import com.google.cloud.bigquery.*;
 import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.util.CalendarUtils;
-import com.ipeirotis.util.MD5;
 import com.ipeirotis.util.SafeDateFormat;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -92,11 +94,17 @@ public class BigQueryExportService {
 				}
 
 				String workerId = ua.getWorkerId();
-				row.put("worker_id", workerId != null ? MD5.crypt(workerId) : null);
+				row.put("worker_id", workerId != null ? sha256Hex(workerId) : null);
+				row.put("survey_id", ua.getSurveyId());
 				row.put("country", ua.getLocationCountry());
 				row.put("region", ua.getLocationRegion());
 				row.put("city", ua.getLocationCity());
 				row.put("hit_id", ua.getHitId());
+				if (ua.getHitCreationDate() != null) {
+					row.put("hit_creation_date", isoFormat.format(ua.getHitCreationDate()));
+				}
+				String ip = ua.getIp();
+				row.put("ip_address", ip != null ? sha256Hex(ip) : null);
 
 				Map<String, String> a = ua.getAnswers();
 				if (a != null) {
@@ -125,6 +133,20 @@ public class BigQueryExportService {
 
 		logger.info("Exported " + totalExported + " rows to BigQuery for " + dateStr);
 		return totalExported;
+	}
+
+	private static String sha256Hex(String input) {
+		try {
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+			StringBuilder hex = new StringBuilder(hash.length * 2);
+			for (byte b : hash) {
+				hex.append(String.format("%02x", b));
+			}
+			return hex.toString();
+		} catch (NoSuchAlgorithmException e) {
+			throw new RuntimeException("SHA-256 not available", e);
+		}
 	}
 
 	/**
@@ -166,7 +188,9 @@ public class BigQueryExportService {
 					Field.newBuilder("date", StandardSQLTypeName.TIMESTAMP)
 							.setDescription("When the response was submitted").build(),
 					Field.newBuilder("worker_id", StandardSQLTypeName.STRING)
-							.setDescription("MD5-hashed worker ID (privacy)").build(),
+							.setDescription("SHA256-hashed worker ID (privacy)").build(),
+					Field.newBuilder("survey_id", StandardSQLTypeName.STRING)
+							.setDescription("Survey identifier").build(),
 					Field.newBuilder("country", StandardSQLTypeName.STRING)
 							.setDescription("Country code from App Engine geolocation").build(),
 					Field.newBuilder("region", StandardSQLTypeName.STRING)
@@ -175,6 +199,10 @@ public class BigQueryExportService {
 							.setDescription("City from App Engine geolocation").build(),
 					Field.newBuilder("hit_id", StandardSQLTypeName.STRING)
 							.setDescription("MTurk HIT ID").build(),
+					Field.newBuilder("hit_creation_date", StandardSQLTypeName.TIMESTAMP)
+							.setDescription("When the HIT was created on MTurk").build(),
+					Field.newBuilder("ip_address", StandardSQLTypeName.STRING)
+							.setDescription("SHA256-hashed IP address (privacy)").build(),
 					Field.newBuilder("year_of_birth", StandardSQLTypeName.STRING)
 							.setDescription("Worker's year of birth").build(),
 					Field.newBuilder("gender", StandardSQLTypeName.STRING)
