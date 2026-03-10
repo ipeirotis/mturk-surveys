@@ -1,24 +1,24 @@
 <!-- Summary Statistics Cards -->
 <div class="row stats-cards" ng-if="summaryStats">
-	<div class="col-xs-6 col-sm-3">
+	<div class="col-6 col-sm-3">
 		<div class="stat-card">
 			<div class="stat-value">{{summaryStats.totalResponses | number}}</div>
 			<div class="stat-label">Total Responses</div>
 		</div>
 	</div>
-	<div class="col-xs-6 col-sm-3">
+	<div class="col-6 col-sm-3">
 		<div class="stat-card">
 			<div class="stat-value">{{summaryStats.avgPerPeriod | number}}</div>
 			<div class="stat-label">{{summaryStats.avgLabel}}</div>
 		</div>
 	</div>
-	<div class="col-xs-6 col-sm-3">
+	<div class="col-6 col-sm-3">
 		<div class="stat-card">
 			<div class="stat-value">{{summaryStats.topCountry.label}}</div>
 			<div class="stat-label">Top Country ({{summaryStats.topCountry.pct}}%)</div>
 		</div>
 	</div>
-	<div class="col-xs-6 col-sm-3">
+	<div class="col-6 col-sm-3">
 		<div class="stat-card">
 			<div class="stat-value">{{summaryStats.topGender.label}}</div>
 			<div class="stat-label">Top Gender ({{summaryStats.topGender.pct}}%)</div>
@@ -27,81 +27,91 @@
 </div>
 <!-- Date Range Pickers -->
 <div class="row">
-	<div class="col-xs-6 col-sm-3">
-		<p class="input-group">
-			<input type="text" class="form-control input-sm" datepicker-popup="MM/dd/yyyy" ng-model="from" is-open="openedFrom"
+	<div class="col-6 col-sm-3">
+		<div class="input-group input-group-sm">
+			<input type="text" class="form-control" datepicker-popup="MM/dd/yyyy" ng-model="from" is-open="openedFrom"
 			datepicker-options="dateOptions" min-date="minDate" max-date="to" show-weeks="false" show-button-bar="false" close-text="Close" />
-			<span class="input-group-btn">
-			<button type="button" class="btn btn-default btn-sm" ng-click="openFromPicker($event)"><i class="glyphicon glyphicon-calendar"></i></button>
-			</span>
-		</p>
+			<button type="button" class="btn btn-outline-secondary" ng-click="openFromPicker($event)"><i class="bi bi-calendar"></i></button>
+		</div>
 	</div>
-	<div class="col-xs-6 col-sm-3">
-		<p class="input-group">
-			<input type="text" class="form-control input-sm" datepicker-popup="MM/dd/yyyy" ng-model="to" is-open="openedTo"
+	<div class="col-6 col-sm-3">
+		<div class="input-group input-group-sm">
+			<input type="text" class="form-control" datepicker-popup="MM/dd/yyyy" ng-model="to" is-open="openedTo"
 			datepicker-options="dateOptions" min-date="from" max-date="maxDate" show-weeks="false" show-button-bar="false" close-text="Close" />
-			<span class="input-group-btn">
-			<button type="button" class="btn btn-default btn-sm" ng-click="openToPicker($event)"><i class="glyphicon glyphicon-calendar"></i></button>
-			</span>
-		</p>
+			<button type="button" class="btn btn-outline-secondary" ng-click="openToPicker($event)"><i class="bi bi-calendar"></i></button>
+		</div>
 	</div>
-	<div class="col-xs-6 col-sm-3">
+	<div class="col-6 col-sm-3">
 		<button type="button" class="btn btn-primary btn-sm" ng-click="applyDateRange()">
-			<i class="glyphicon glyphicon-refresh"></i> Update
+			<i class="bi bi-arrow-clockwise"></i> Update
 		</button>
 	</div>
 </div>
-<!-- Display Mode -->
-<div class="row">
-	<div class="col-xs-12 col-sm-8">
+<!-- Display Mode (hidden for map views) -->
+<div class="row" ng-if="!isMapView">
+	<div class="col-12 col-sm-8">
 	</div>
-	<div class="col-xs-12 col-sm-4 text-right display-mode-btns">
+	<div class="col-12 col-sm-4 text-end display-mode-btns">
 		<div class="btn-group">
-			<button type="button" class="btn btn-sm" ng-class="displayMode === 'bar' ? 'btn-primary' : 'btn-default'" ng-click="setDisplayMode('bar')">
-				<i class="glyphicon glyphicon-stats"></i> Bars
+			<button type="button" class="btn btn-sm" ng-class="displayMode === 'bar' ? 'btn-primary' : 'btn-outline-secondary'" ng-click="setDisplayMode('bar')">
+				<i class="bi bi-bar-chart-fill"></i> Bars
 			</button>
-			<button type="button" class="btn btn-sm" ng-class="displayMode === 'area' ? 'btn-primary' : 'btn-default'" ng-click="setDisplayMode('area')">
-				<i class="glyphicon glyphicon-signal"></i> Area
+			<button type="button" class="btn btn-sm" ng-class="displayMode === 'area' ? 'btn-primary' : 'btn-outline-secondary'" ng-click="setDisplayMode('area')">
+				<i class="bi bi-graph-up"></i> Area
 			</button>
-			<button type="button" class="btn btn-sm" ng-class="displayMode === 'line' ? 'btn-primary' : 'btn-default'" ng-click="setDisplayMode('line')">
-				<i class="glyphicon glyphicon-equalizer"></i> Line
+			<button type="button" class="btn btn-sm" ng-class="displayMode === 'line' ? 'btn-primary' : 'btn-outline-secondary'" ng-click="setDisplayMode('line')">
+				<i class="bi bi-graph-down"></i> Line
 			</button>
 		</div>
 	</div>
 </div>
 <!-- Loading / Error -->
 <div class="row" ng-if="loading">
-	<div class="col-xs-12 text-center" style="padding: 40px 0;">
-		<i class="glyphicon glyphicon-refresh" style="font-size: 24px; color: #999;"></i>
+	<div class="col-12 text-center" style="padding: 40px 0;">
+		<i class="bi bi-arrow-clockwise" style="font-size: 24px; color: #999;"></i>
 		<p class="text-muted" style="margin-top: 8px;">Loading chart data...</p>
 	</div>
 </div>
 <div class="row" ng-if="loadError">
-	<div class="col-xs-12">
+	<div class="col-12">
 		<div class="alert alert-warning" style="margin-top: 10px;">
-			<i class="glyphicon glyphicon-warning-sign"></i> {{loadError}}
+			<i class="bi bi-exclamation-triangle"></i> {{loadError}}
 		</div>
 	</div>
 </div>
 <!-- Granularity Note -->
-<div class="row" ng-if="dailyGranularity">
-	<div class="col-xs-12">
+<div class="row" ng-if="dailyGranularity && !isMapView">
+	<div class="col-12">
 		<p class="text-muted small granularity-note">
-			<i class="glyphicon glyphicon-info-sign"></i> {{dailyGranularity}}
+			<i class="bi bi-info-circle"></i> {{dailyGranularity}}
 		</p>
 	</div>
+</div>
+<!-- Map View -->
+<div ng-if="isMapView && !loading">
+	<div class="row" ng-if="mapNormalized !== undefined">
+		<div class="col-12 text-end" style="margin-bottom: 8px;">
+			<div class="btn-group btn-group-sm" ng-if="routeId === 'usStates'">
+				<button type="button" class="btn" ng-class="mapNormalized ? 'btn-primary' : 'btn-outline-secondary'" ng-click="setMapNormalized(true)">Per Capita</button>
+				<button type="button" class="btn" ng-class="!mapNormalized ? 'btn-primary' : 'btn-outline-secondary'" ng-click="setMapNormalized(false)">Raw Counts</button>
+			</div>
+		</div>
+	</div>
+	<div choropleth-map map-data="mapData" map-type="mapType" normalized="mapNormalized" class="choropleth-container"></div>
 </div>
 <!-- Demographics Chart Container -->
-<div id="dailyChart" class="chart-container" style="display:block;" chartjs-chart="dailyChart"></div>
-<!-- Volume Chart (always visible, compact, aligned with chart above) -->
-<div class="row" style="margin-top: 4px;">
-	<div class="col-xs-12">
-		<p class="text-muted small" style="margin: 0 0 2px 0;">
-			Response Volume
-			<span ng-if="volumeGranularity" class="granularity-note" style="margin-left: 6px;">
-				<i class="glyphicon glyphicon-info-sign"></i> {{volumeGranularity}}
-			</span>
-		</p>
+<div ng-if="!isMapView">
+	<div id="dailyChart" class="chart-container" style="display:block;" chartjs-chart="dailyChart"></div>
+	<!-- Volume Chart -->
+	<div class="row" style="margin-top: 4px;">
+		<div class="col-12">
+			<p class="text-muted small" style="margin: 0 0 2px 0;">
+				Response Volume
+				<span ng-if="volumeGranularity" class="granularity-note" style="margin-left: 6px;">
+					<i class="bi bi-info-circle"></i> {{volumeGranularity}}
+				</span>
+			</p>
+		</div>
 	</div>
+	<div id="volumeChart" class="volume-chart-container" style="display:block;" chartjs-chart="volumeChart"></div>
 </div>
-<div id="volumeChart" class="volume-chart-container" style="display:block;" chartjs-chart="volumeChart"></div>

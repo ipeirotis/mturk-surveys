@@ -2,6 +2,7 @@ angular.module('mturk').controller('ChartController',
     ['$scope', '$filter', '$routeParams', '$timeout', 'dataService', 'dateFilterState',
     function ($scope, $filter, $routeParams, $timeout, dataService, dateFilterState) {
 
+    var MAP_VIEWS = { 'worldMap': 'world', 'usStates': 'us' };
     var MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     // Date validation limits
@@ -23,6 +24,13 @@ angular.module('mturk').controller('ChartController',
     $scope.countsData = null;
     $scope.summaryStats = null;
     $scope.granularityNote = null;
+
+    // Map view state
+    $scope.routeId = $routeParams.id;
+    $scope.isMapView = !!MAP_VIEWS[$routeParams.id];
+    $scope.mapType = MAP_VIEWS[$routeParams.id] || null;
+    $scope.mapData = null;
+    $scope.mapNormalized = ($routeParams.id === 'usStates') ? true : undefined;
 
     // --- Label formatting helpers ---
 
@@ -56,6 +64,10 @@ angular.module('mturk').controller('ChartController',
         }
     };
 
+    $scope.setMapNormalized = function(val) {
+        $scope.mapNormalized = val;
+    };
+
     // Apply date range manually (Update button)
     $scope.applyDateRange = function() {
         dateFilterState.from = $scope.from;
@@ -78,14 +90,28 @@ angular.module('mturk').controller('ChartController',
             $scope.response = chartData.aggregated;
             $scope.countsData = chartData.counts;
             buildSummaryStats(chartData.counts);
-            populateDailyChart($scope, $scope.response, $routeParams.id);
-            populateVolumeChart($scope);
+
+            if ($scope.isMapView) {
+                populateMapData(chartData.counts);
+            } else {
+                populateDailyChart($scope, $scope.response, $routeParams.id);
+                populateVolumeChart($scope);
+            }
         }, function(error){
             $scope.loading = false;
             $scope.loadError = 'Failed to load chart data. The date range may be too large \u2014 try a shorter period.';
             console.log(error);
         });
     };
+
+    function populateMapData(counts) {
+        if (!counts) return;
+        if ($scope.mapType === 'us') {
+            $scope.mapData = counts.totalUsStates || {};
+        } else {
+            $scope.mapData = counts.totalCountriesDetailed || {};
+        }
+    }
 
     function buildSummaryStats(counts) {
         if (!counts) return;

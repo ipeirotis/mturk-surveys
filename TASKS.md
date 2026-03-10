@@ -57,8 +57,8 @@ The largest effort. Spring Boot 3 requires Java 17+ and the `jakarta.*` namespac
 AngularJS 1.x is EOL but functional. Only pursue if the frontend needs active development.
 
 - **T7.1** — Evaluate migration path (Angular 17+, React, or plain JS)
-- **T7.2** — Update Bootstrap 3.1.1 to Bootstrap 5.x
-- **T7.3** — Replace YUI Compressor with a modern bundler (esbuild, Vite)
+- [x] **T7.2** — **Update Bootstrap 3.1.1 to Bootstrap 5.3.3** — Replaced Bootstrap 3 CDN with Bootstrap 5.3.3, added Bootstrap Icons 1.11.3. Updated all CSS classes (`col-xs-*` → `col-*`, `btn-default` → `btn-outline-secondary`, `glyphicon` → `bi`, `text-right` → `text-end`, sidebar collapse `in` → `show`). Added CSS compatibility layer for ui-bootstrap datepicker (maps `.glyphicon-chevron-*` to Bootstrap Icons font, `.btn-default` and `.input-group-btn` shims). Updated nav-pills directive to toggle `.active` on `<a>` instead of `<li>`. *(completed)*
+- [x] **T7.3** — **Replace YUI Compressor with individual script loading** — Removed the unmaintained `yuicompressor-maven-plugin` from pom.xml. JS files are now loaded individually in `index.html` (no bundling step needed). This simplifies the build, improves debuggability, and eliminates the last non-standard Maven plugin. *(completed)*
 
 ### Visualization Improvements (T7.4–T7.8)
 
@@ -83,7 +83,7 @@ Incremental improvements to the demographics dashboard charts, from quick wins w
 ### New Visualizations (T7.11–T7.16)
 
 - [x] **T7.11** — **Response volume chart** — Added a "Volume" tab to the chart pills that shows a filled line chart of daily response counts. Uses the `/api/survey/demographics/counts` endpoint (loaded in parallel with aggregated answers). Chart has its own styling (no legend, y-axis labeled "Responses", smooth line with small data points). *(completed)*
-- **T7.12** — **Geographic heatmap** — Replace the binary "US vs Others" country breakdown with a world choropleth map (using D3.js or a lightweight SVG map library). Show all countries with color intensity proportional to response count. Requires expanding `incCountries()` to store full country codes instead of bucketing.
+- [x] **T7.12** — **Geographic choropleth maps** — Added world map and US states choropleth views using D3.js v7 + TopoJSON. World map shows response counts by country (ISO codes) with blue color scale. US states map shows per-capita response rates (per million residents, 2020 Census) with yellow-red scale, with a toggle for raw counts. Backend: added `countriesDetailed` (full ISO country codes) and `usStates` (2-letter state codes) fields to `DemographicsSnapshot`, `DemographicsRollup`, and all DTOs/builders. State data comes from App Engine's `X-AppEngine-Region` header (already stored in `UserAnswer.locationRegion`). Requires snapshot backfill to populate new fields for historical data. *(completed)*
 - **T7.13** — **Cross-tabulation / demographic intersections** — Show how demographics correlate (e.g., income distribution broken down by gender, age distribution by country). Add a new API endpoint returning two-dimensional pivot tables. Display as grouped bar charts or heatmap grids.
 - **T7.14** — **Worker retention / return rate** — Track unique vs repeat workers over time using hashed `workerId`. Add a line chart of "new workers vs returning workers per week" to reveal workforce dynamics.
 - **T7.15** — **Response time trends** — Plot median time between HIT creation (`hitCreationDate`) and answer submission (`date`). Shows labor market responsiveness. Display as a line chart with percentile bands (25th, 50th, 75th).

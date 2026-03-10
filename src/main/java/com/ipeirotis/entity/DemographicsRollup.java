@@ -39,6 +39,8 @@ public class DemographicsRollup {
     private Map<String, Integer> timeSpentOnMturk;
     private Map<String, Integer> weeklyIncomeFromMturk;
     private Map<String, Integer> languagesSpoken;
+    private Map<String, Integer> countriesDetailed;
+    private Map<String, Integer> usStates;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -81,4 +83,10 @@ public class DemographicsRollup {
 
     public Map<String, Integer> getLanguagesSpoken() { return languagesSpoken; }
     public void setLanguagesSpoken(Map<String, Integer> languagesSpoken) { this.languagesSpoken = languagesSpoken; }
+
+    public Map<String, Integer> getCountriesDetailed() { return countriesDetailed; }
+    public void setCountriesDetailed(Map<String, Integer> countriesDetailed) { this.countriesDetailed = countriesDetailed; }
+
+    public Map<String, Integer> getUsStates() { return usStates; }
+    public void setUsStates(Map<String, Integer> usStates) { this.usStates = usStates; }
 }

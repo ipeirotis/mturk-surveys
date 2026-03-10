@@ -34,6 +34,8 @@ public class DemographicsSnapshot {
     private Map<String, Integer> timeSpentOnMturk;
     private Map<String, Integer> weeklyIncomeFromMturk;
     private Map<String, Integer> languagesSpoken;
+    private Map<String, Integer> countriesDetailed;
+    private Map<String, Integer> usStates;
 
     // Hourly breakdown: hour (0-23) -> count
     private Map<String, Integer> hourlyTotals;
@@ -250,5 +252,21 @@ public class DemographicsSnapshot {
 
     public void setDayOfWeek(String dayOfWeek) {
         this.dayOfWeek = dayOfWeek;
+    }
+
+    public Map<String, Integer> getCountriesDetailed() {
+        return countriesDetailed;
+    }
+
+    public void setCountriesDetailed(Map<String, Integer> countriesDetailed) {
+        this.countriesDetailed = countriesDetailed;
+    }
+
+    public Map<String, Integer> getUsStates() {
+        return usStates;
+    }
+
+    public void setUsStates(Map<String, Integer> usStates) {
+        this.usStates = usStates;
     }
 }

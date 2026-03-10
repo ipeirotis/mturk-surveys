@@ -99,6 +99,8 @@ public class DemographicsSnapshotService {
         Map<String, Integer> timeSpentOnMturk = new HashMap<>();
         Map<String, Integer> weeklyIncomeFromMturk = new HashMap<>();
         Map<String, Integer> languagesSpoken = new HashMap<>();
+        Map<String, Integer> countriesDetailed = new HashMap<>();
+        Map<String, Integer> usStates = new HashMap<>();
 
         Map<String, Integer> hourlyTotals = new HashMap<>();
         Map<String, Integer> hourlyCountries = new HashMap<>();
@@ -119,6 +121,8 @@ public class DemographicsSnapshotService {
 
             // Daily totals
             incrementCountry(ua.getLocationCountry(), countries);
+            incrementCountryDetailed(ua.getLocationCountry(), countriesDetailed);
+            incrementUsState(ua.getLocationCountry(), ua.getLocationRegion(), usStates);
             incrementDemographic("yearOfBirth", ua.getAnswers(), yearOfBirth, true);
             incrementDemographic("gender", ua.getAnswers(), gender, false);
             incrementDemographic("maritalStatus", ua.getAnswers(), maritalStatus, false);
@@ -153,6 +157,8 @@ public class DemographicsSnapshotService {
         snapshot.setTimeSpentOnMturk(timeSpentOnMturk);
         snapshot.setWeeklyIncomeFromMturk(weeklyIncomeFromMturk);
         snapshot.setLanguagesSpoken(languagesSpoken);
+        snapshot.setCountriesDetailed(countriesDetailed);
+        snapshot.setUsStates(usStates);
         snapshot.setHourlyTotals(hourlyTotals);
         snapshot.setHourlyCountries(hourlyCountries);
         snapshot.setHourlyYearOfBirth(hourlyYearOfBirth);
@@ -238,6 +244,8 @@ public class DemographicsSnapshotService {
         Map<String, Integer> timeSpentOnMturk = new HashMap<>();
         Map<String, Integer> weeklyIncomeFromMturk = new HashMap<>();
         Map<String, Integer> languagesSpoken = new HashMap<>();
+        Map<String, Integer> countriesDetailed = new HashMap<>();
+        Map<String, Integer> usStates = new HashMap<>();
 
         for (DemographicsSnapshot snap : snapshots) {
             totalResponses += snap.getTotalResponses();
@@ -251,6 +259,8 @@ public class DemographicsSnapshotService {
             mergeCounts(snap.getTimeSpentOnMturk(), timeSpentOnMturk);
             mergeCounts(snap.getWeeklyIncomeFromMturk(), weeklyIncomeFromMturk);
             mergeCounts(snap.getLanguagesSpoken(), languagesSpoken);
+            mergeCounts(snap.getCountriesDetailed(), countriesDetailed);
+            mergeCounts(snap.getUsStates(), usStates);
         }
 
         DemographicsRollup rollup = new DemographicsRollup();
@@ -268,6 +278,8 @@ public class DemographicsSnapshotService {
         rollup.setTimeSpentOnMturk(timeSpentOnMturk);
         rollup.setWeeklyIncomeFromMturk(weeklyIncomeFromMturk);
         rollup.setLanguagesSpoken(languagesSpoken);
+        rollup.setCountriesDetailed(countriesDetailed);
+        rollup.setUsStates(usStates);
         return rollup;
     }
 
@@ -463,6 +475,8 @@ public class DemographicsSnapshotService {
         Map<String, Integer> totalTimeSpentOnMturk = new HashMap<>();
         Map<String, Integer> totalWeeklyIncomeFromMturk = new HashMap<>();
         Map<String, Integer> totalLanguagesSpoken = new HashMap<>();
+        Map<String, Integer> totalCountriesDetailed = new HashMap<>();
+        Map<String, Integer> totalUsStates = new HashMap<>();
 
         for (DemographicsRollup r : rollups) {
             DemographicsCountsResponse.DailyCount period = new DemographicsCountsResponse.DailyCount();
@@ -478,6 +492,8 @@ public class DemographicsSnapshotService {
             period.setTimeSpentOnMturk(r.getTimeSpentOnMturk());
             period.setWeeklyIncomeFromMturk(r.getWeeklyIncomeFromMturk());
             period.setLanguagesSpoken(r.getLanguagesSpoken());
+            period.setCountriesDetailed(r.getCountriesDetailed());
+            period.setUsStates(r.getUsStates());
             periods.add(period);
 
             totalResponses += r.getTotalResponses();
@@ -491,6 +507,8 @@ public class DemographicsSnapshotService {
             mergeCounts(r.getTimeSpentOnMturk(), totalTimeSpentOnMturk);
             mergeCounts(r.getWeeklyIncomeFromMturk(), totalWeeklyIncomeFromMturk);
             mergeCounts(r.getLanguagesSpoken(), totalLanguagesSpoken);
+            mergeCounts(r.getCountriesDetailed(), totalCountriesDetailed);
+            mergeCounts(r.getUsStates(), totalUsStates);
         }
 
         DemographicsCountsResponse response = new DemographicsCountsResponse();
@@ -507,6 +525,8 @@ public class DemographicsSnapshotService {
         response.setTotalTimeSpentOnMturk(totalTimeSpentOnMturk);
         response.setTotalWeeklyIncomeFromMturk(totalWeeklyIncomeFromMturk);
         response.setTotalLanguagesSpoken(totalLanguagesSpoken);
+        response.setTotalCountriesDetailed(totalCountriesDetailed);
+        response.setTotalUsStates(totalUsStates);
         return response;
     }
 
@@ -798,6 +818,8 @@ public class DemographicsSnapshotService {
         Map<String, Integer> totalTimeSpentOnMturk = new HashMap<>();
         Map<String, Integer> totalWeeklyIncomeFromMturk = new HashMap<>();
         Map<String, Integer> totalLanguagesSpoken = new HashMap<>();
+        Map<String, Integer> totalCountriesDetailed = new HashMap<>();
+        Map<String, Integer> totalUsStates = new HashMap<>();
 
         for (DemographicsSnapshot snap : snapshots) {
             DemographicsCountsResponse.DailyCount day = new DemographicsCountsResponse.DailyCount();
@@ -813,6 +835,8 @@ public class DemographicsSnapshotService {
             day.setTimeSpentOnMturk(snap.getTimeSpentOnMturk());
             day.setWeeklyIncomeFromMturk(snap.getWeeklyIncomeFromMturk());
             day.setLanguagesSpoken(snap.getLanguagesSpoken());
+            day.setCountriesDetailed(snap.getCountriesDetailed());
+            day.setUsStates(snap.getUsStates());
             days.add(day);
 
             totalResponses += snap.getTotalResponses();
@@ -826,6 +850,8 @@ public class DemographicsSnapshotService {
             mergeCounts(snap.getTimeSpentOnMturk(), totalTimeSpentOnMturk);
             mergeCounts(snap.getWeeklyIncomeFromMturk(), totalWeeklyIncomeFromMturk);
             mergeCounts(snap.getLanguagesSpoken(), totalLanguagesSpoken);
+            mergeCounts(snap.getCountriesDetailed(), totalCountriesDetailed);
+            mergeCounts(snap.getUsStates(), totalUsStates);
         }
 
         DemographicsCountsResponse response = new DemographicsCountsResponse();
@@ -842,6 +868,8 @@ public class DemographicsSnapshotService {
         response.setTotalTimeSpentOnMturk(totalTimeSpentOnMturk);
         response.setTotalWeeklyIncomeFromMturk(totalWeeklyIncomeFromMturk);
         response.setTotalLanguagesSpoken(totalLanguagesSpoken);
+        response.setTotalCountriesDetailed(totalCountriesDetailed);
+        response.setTotalUsStates(totalUsStates);
         return response;
     }
 
@@ -876,6 +904,8 @@ public class DemographicsSnapshotService {
         Map<String, Integer> totalTimeSpentOnMturk = new HashMap<>();
         Map<String, Integer> totalWeeklyIncomeFromMturk = new HashMap<>();
         Map<String, Integer> totalLanguagesSpoken = new HashMap<>();
+        Map<String, Integer> totalCountriesDetailed = new HashMap<>();
+        Map<String, Integer> totalUsStates = new HashMap<>();
 
         for (Map.Entry<String, List<DemographicsSnapshot>> group : groups.entrySet()) {
             DemographicsCountsResponse.DailyCount period = new DemographicsCountsResponse.DailyCount();
@@ -891,6 +921,8 @@ public class DemographicsSnapshotService {
             Map<String, Integer> pTimeSpentOnMturk = new HashMap<>();
             Map<String, Integer> pWeeklyIncomeFromMturk = new HashMap<>();
             Map<String, Integer> pLanguagesSpoken = new HashMap<>();
+            Map<String, Integer> pCountriesDetailed = new HashMap<>();
+            Map<String, Integer> pUsStates = new HashMap<>();
             int periodResponses = 0;
 
             for (DemographicsSnapshot snap : group.getValue()) {
@@ -905,6 +937,8 @@ public class DemographicsSnapshotService {
                 mergeCounts(snap.getTimeSpentOnMturk(), pTimeSpentOnMturk);
                 mergeCounts(snap.getWeeklyIncomeFromMturk(), pWeeklyIncomeFromMturk);
                 mergeCounts(snap.getLanguagesSpoken(), pLanguagesSpoken);
+                mergeCounts(snap.getCountriesDetailed(), pCountriesDetailed);
+                mergeCounts(snap.getUsStates(), pUsStates);
             }
 
             period.setTotalResponses(periodResponses);
@@ -918,6 +952,8 @@ public class DemographicsSnapshotService {
             period.setTimeSpentOnMturk(pTimeSpentOnMturk);
             period.setWeeklyIncomeFromMturk(pWeeklyIncomeFromMturk);
             period.setLanguagesSpoken(pLanguagesSpoken);
+            period.setCountriesDetailed(pCountriesDetailed);
+            period.setUsStates(pUsStates);
             periods.add(period);
 
             totalResponses += periodResponses;
@@ -931,6 +967,8 @@ public class DemographicsSnapshotService {
             mergeCounts(pTimeSpentOnMturk, totalTimeSpentOnMturk);
             mergeCounts(pWeeklyIncomeFromMturk, totalWeeklyIncomeFromMturk);
             mergeCounts(pLanguagesSpoken, totalLanguagesSpoken);
+            mergeCounts(pCountriesDetailed, totalCountriesDetailed);
+            mergeCounts(pUsStates, totalUsStates);
         }
 
         DemographicsCountsResponse response = new DemographicsCountsResponse();
@@ -947,6 +985,8 @@ public class DemographicsSnapshotService {
         response.setTotalTimeSpentOnMturk(totalTimeSpentOnMturk);
         response.setTotalWeeklyIncomeFromMturk(totalWeeklyIncomeFromMturk);
         response.setTotalLanguagesSpoken(totalLanguagesSpoken);
+        response.setTotalCountriesDetailed(totalCountriesDetailed);
+        response.setTotalUsStates(totalUsStates);
         return response;
     }
 
@@ -1040,6 +1080,18 @@ public class DemographicsSnapshotService {
     private void incrementCountry(String countryCode, Map<String, Integer> map, String hour) {
         String country = "US".equals(countryCode) ? "US" : "Others";
         map.merge(hour + ":" + country, 1, Integer::sum);
+    }
+
+    private void incrementCountryDetailed(String countryCode, Map<String, Integer> map) {
+        if (countryCode != null && !countryCode.isEmpty()) {
+            map.merge(countryCode, 1, Integer::sum);
+        }
+    }
+
+    private void incrementUsState(String countryCode, String regionCode, Map<String, Integer> map) {
+        if ("US".equals(countryCode) && regionCode != null && !regionCode.isEmpty()) {
+            map.merge(regionCode.toUpperCase(), 1, Integer::sum);
+        }
     }
 
     private void incrementDemographic(String questionId, Map<String, String> answers,

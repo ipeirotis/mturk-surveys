@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mechanical Turk Surveys</title>
 
-    <link rel="stylesheet" type="text/css" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="/css/style.css?v=20260310" />
 
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
@@ -17,9 +18,22 @@
     <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.15/angular-sanitize.js" type="text/javascript"></script>
     <script src="/lib/ui-bootstrap-tpls-0.11.0.js" type="text/javascript"></script>
 
-    <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.js" type="text/javascript"></script>
+    <script src="//cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" type="text/javascript"></script>
     <script src="//cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" type="text/javascript"></script>
-    <script type='text/javascript' src='js/script.js?v=20260310'></script>
+    <script src="//cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js" type="text/javascript"></script>
+    <script src="//cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js" type="text/javascript"></script>
+
+    <!-- App JS (loaded individually, no bundler needed) -->
+    <script src="/js/app.js" type="text/javascript"></script>
+    <script src="/js/views.js" type="text/javascript"></script>
+    <script src="/js/service/loading.js" type="text/javascript"></script>
+    <script src="/js/service/interceptor.js" type="text/javascript"></script>
+    <script src="/js/service/dataService.js" type="text/javascript"></script>
+    <script src="/js/controller/chartController.js" type="text/javascript"></script>
+    <script src="/js/directive/navpills.js" type="text/javascript"></script>
+    <script src="/js/directive/pills.js" type="text/javascript"></script>
+    <script src="/js/directive/ng-google-chart.js" type="text/javascript"></script>
+    <script src="/js/directive/choropleth.js" type="text/javascript"></script>
   </head>
 
   <body>
@@ -31,28 +45,34 @@
         </div>
 		<div class="row">
 			<div class="col-md-2">
-				<button class="btn btn-default btn-sm sidebar-toggle" type="button" onclick="var el=document.getElementById('sidebarNav');el.className=el.className.indexOf('in')>=0?'sidebar-collapse':'sidebar-collapse in';">
-					<i class="glyphicon glyphicon-menu-hamburger"></i> Menu
+				<button class="btn btn-outline-secondary btn-sm sidebar-toggle" type="button" onclick="var el=document.getElementById('sidebarNav');el.className=el.className.indexOf('show')>=0?'sidebar-collapse':'sidebar-collapse show';">
+					<i class="bi bi-list"></i> Menu
 				</button>
-				<div id="sidebarNav" class="sidebar-collapse in">
-					<ul class="nav nav-pills nav-stacked" navpills>
-                        <li data-match-route="/countries"><a ng-href="#/countries">Countries</a></li>
-						<li data-match-route="/gender"><a ng-href="#/gender">Gender</a></li>
-                        <li data-match-route="/yearOfBirth"><a ng-href="#/yearOfBirth">Year of Birth</a></li>
-                        <li data-match-route="/maritalStatus"><a ng-href="#/maritalStatus">Marital Status</a></li>
-                        <li data-match-route="/householdSize"><a ng-href="#/householdSize">Household Size</a></li>
-                        <li data-match-route="/householdIncome"><a ng-href="#/householdIncome">Household Income</a></li>
-                        <li data-match-route="/educationalLevel"><a ng-href="#/educationalLevel">Education Level</a></li>
-                        <li data-match-route="/timeSpentOnMturk"><a ng-href="#/timeSpentOnMturk">Time on MTurk</a></li>
-                        <li data-match-route="/weeklyIncomeFromMturk"><a ng-href="#/weeklyIncomeFromMturk">MTurk Income</a></li>
-                        <li data-match-route="/languagesSpoken"><a ng-href="#/languagesSpoken">Languages</a></li>
+				<div id="sidebarNav" class="sidebar-collapse show">
+					<ul class="nav nav-pills flex-column" navpills>
+                        <li class="nav-item" data-match-route="/countries"><a class="nav-link" ng-href="#/countries">Countries</a></li>
+						<li class="nav-item" data-match-route="/gender"><a class="nav-link" ng-href="#/gender">Gender</a></li>
+                        <li class="nav-item" data-match-route="/yearOfBirth"><a class="nav-link" ng-href="#/yearOfBirth">Year of Birth</a></li>
+                        <li class="nav-item" data-match-route="/maritalStatus"><a class="nav-link" ng-href="#/maritalStatus">Marital Status</a></li>
+                        <li class="nav-item" data-match-route="/householdSize"><a class="nav-link" ng-href="#/householdSize">Household Size</a></li>
+                        <li class="nav-item" data-match-route="/householdIncome"><a class="nav-link" ng-href="#/householdIncome">Household Income</a></li>
+                        <li class="nav-item" data-match-route="/educationalLevel"><a class="nav-link" ng-href="#/educationalLevel">Education Level</a></li>
+                        <li class="nav-item" data-match-route="/timeSpentOnMturk"><a class="nav-link" ng-href="#/timeSpentOnMturk">Time on MTurk</a></li>
+                        <li class="nav-item" data-match-route="/weeklyIncomeFromMturk"><a class="nav-link" ng-href="#/weeklyIncomeFromMturk">MTurk Income</a></li>
+                        <li class="nav-item" data-match-route="/languagesSpoken"><a class="nav-link" ng-href="#/languagesSpoken">Languages</a></li>
+                    </ul>
+                    <hr style="margin:10px 0;">
+                    <p class="sidebar-heading">Maps</p>
+                    <ul class="nav nav-pills flex-column" navpills>
+                        <li class="nav-item" data-match-route="/worldMap"><a class="nav-link" ng-href="#/worldMap"><i class="bi bi-globe-americas"></i> World Map</a></li>
+                        <li class="nav-item" data-match-route="/usStates"><a class="nav-link" ng-href="#/usStates"><i class="bi bi-geo-alt"></i> US States</a></li>
                     </ul>
                     <hr style="margin:10px 0;">
                     <p class="sidebar-heading">Data Access</p>
-                    <ul class="nav nav-pills nav-stacked sidebar-links">
-                        <li><a href="/api-docs" target="_blank"><i class="glyphicon glyphicon-cloud"></i> REST API Docs</a></li>
-                        <li><a href="/api-docs#/survey-controller/getDemographicsSurveyAnswersCsv" target="_blank"><i class="glyphicon glyphicon-download-alt"></i> CSV Export (API)</a></li>
-                        <li><a href="https://console.cloud.google.com/bigquery?project=mturk-demographics&d=demographics&t=responses&page=table" target="_blank"><i class="glyphicon glyphicon-hdd"></i> BigQuery Dataset</a></li>
+                    <ul class="nav nav-pills flex-column sidebar-links">
+                        <li class="nav-item"><a class="nav-link" href="/api-docs" target="_blank"><i class="bi bi-cloud"></i> REST API Docs</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/api-docs#/survey-controller/getDemographicsSurveyAnswersCsv" target="_blank"><i class="bi bi-download"></i> CSV Export (API)</a></li>
+                        <li class="nav-item"><a class="nav-link" href="https://console.cloud.google.com/bigquery?project=mturk-demographics&d=demographics&t=responses&page=table" target="_blank"><i class="bi bi-database"></i> BigQuery Dataset</a></li>
                     </ul>
 				</div>
 			</div>
