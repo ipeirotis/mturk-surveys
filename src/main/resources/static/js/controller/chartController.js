@@ -91,8 +91,17 @@ angular.module('mturk').controller('ChartController',
         if (!counts) return;
         var stats = {};
         stats.totalResponses = counts.totalResponses || 0;
-        stats.numDays = counts.days ? counts.days.length : 0;
-        stats.avgPerDay = stats.numDays > 0 ? Math.round(stats.totalResponses / stats.numDays) : 0;
+        var numPeriods = counts.days ? counts.days.length : 0;
+        stats.avgPerPeriod = numPeriods > 0 ? Math.round(stats.totalResponses / numPeriods) : 0;
+
+        var gran = counts.granularity || 'daily';
+        if (gran === 'monthly') {
+            stats.avgLabel = 'Avg / Month';
+        } else if (gran === 'weekly') {
+            stats.avgLabel = 'Avg / Week';
+        } else {
+            stats.avgLabel = 'Avg / Day';
+        }
 
         stats.topCountry = findTop(counts.totalCountries);
         stats.topGender = findTop(counts.totalGender);
