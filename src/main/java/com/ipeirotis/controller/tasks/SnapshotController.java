@@ -43,13 +43,13 @@ public class SnapshotController {
         return Map.of("status", "ok", "date", date);
     }
 
-    private static final int MAX_DAYS_PER_BATCH = 30;
+    private static final int MAX_CHUNKS = 30;
 
     /**
-     * Backfill snapshots for a date range. If the range exceeds MAX_DAYS_PER_BATCH days,
-     * it splits the range into chunks and re-enqueues each chunk as a separate
-     * backfillSnapshots Cloud Task. Only when the range is <= MAX_DAYS_PER_BATCH days
-     * does it enqueue individual snapshotDate tasks per day.
+     * Backfill snapshots for a date range. If the range exceeds MAX_CHUNKS days,
+     * it divides the range into ~MAX_CHUNKS equal sub-ranges and re-enqueues each
+     * as a backfillSnapshots Cloud Task (recursive subdivision). Only when the range
+     * is <= MAX_CHUNKS days does it enqueue individual snapshotDate tasks per day.
      * Example: /tasks/backfillSnapshots?from=01/01/2010&to=03/09/2026
      */
     @GetMapping("/tasks/backfillSnapshots")
@@ -73,13 +73,14 @@ public class SnapshotController {
         long totalDays = java.util.concurrent.TimeUnit.MILLISECONDS.toDays(
                 end.getTimeInMillis() - start.getTimeInMillis()) + 1;
 
-        if (totalDays > MAX_DAYS_PER_BATCH) {
-            // Split into chunks and re-enqueue as backfillSnapshots tasks
+        if (totalDays > MAX_CHUNKS) {
+            // Divide range into ~MAX_CHUNKS equal sub-ranges and re-enqueue
+            int daysPerChunk = (int) Math.ceil((double) totalDays / MAX_CHUNKS);
             int chunksEnqueued = 0;
             Calendar chunkStart = (Calendar) start.clone();
             while (!chunkStart.after(end)) {
                 Calendar chunkEnd = (Calendar) chunkStart.clone();
-                chunkEnd.add(Calendar.DAY_OF_MONTH, MAX_DAYS_PER_BATCH - 1);
+                chunkEnd.add(Calendar.DAY_OF_MONTH, daysPerChunk - 1);
                 if (chunkEnd.after(end)) {
                     chunkEnd = (Calendar) end.clone();
                 }
@@ -94,9 +95,9 @@ public class SnapshotController {
                 chunkStart.add(Calendar.DAY_OF_MONTH, 1);
             }
 
-            return Map.of("status", "ok", "mode", "chunked",
-                    "chunksEnqueued", chunksEnqueued, "totalDays", totalDays,
-                    "from", from, "to", to);
+            return Map.of("status", "ok", "mode", "subdivided",
+                    "chunksEnqueued", chunksEnqueued, "daysPerChunk", daysPerChunk,
+                    "totalDays", totalDays, "from", from, "to", to);
         }
 
         // Range is small enough — enqueue individual per-day tasks
