@@ -3,7 +3,7 @@ angular.module('mturk').controller('ChartController',
     function ($scope, $filter, $routeParams, dataService) {
 
     $scope.from = new Date();
-    $scope.from.setMonth(new Date().getMonth() - 1);
+    $scope.from.setMonth(new Date().getMonth() - 3);
     $scope.to = new Date();
     $scope.activePill = 'dailyChartPill';
     $scope.chartIds = ['hourlyChart', 'dailyChart', 'weeklyChart'];
@@ -78,9 +78,25 @@ angular.module('mturk').controller('ChartController',
         return {
             type: 'ColumnChart',
             options: {
-                bar: { groupWidth: '10%'},
+                bar: { groupWidth: '75%'},
                 isStacked: true,
-                vAxis: { minValue: 0, maxValue: 100, format: '#\'%\''}
+                vAxis: {
+                    minValue: 0,
+                    maxValue: 100,
+                    viewWindow: { min: 0, max: 100 },
+                    format: '#\'%\'',
+                    gridlines: { color: '#e0e0e0', count: 5 },
+                    textStyle: { fontSize: 11, color: '#666' }
+                },
+                hAxis: {
+                    textStyle: { fontSize: 11, color: '#666' },
+                    slantedText: true,
+                    slantedTextAngle: 45
+                },
+                legend: { position: 'top', alignment: 'center', textStyle: { fontSize: 12 } },
+                chartArea: { left: 60, top: 40, width: '85%', height: '65%' },
+                tooltip: { textStyle: { fontSize: 12 } },
+                animation: { startup: true, duration: 300, easing: 'out' }
             },
             data: {"cols": [], "rows": []}
         };

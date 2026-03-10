@@ -52,7 +52,6 @@ public class SurveyService {
 
     static {
         countryLabels.add("US");
-        countryLabels.add("India");
         countryLabels.add("Others");
 
         incomeLabels.add("Less than $10,000");
@@ -228,18 +227,14 @@ public class SurveyService {
     public DemographicsSurveyAnswersByPeriod getDemographicsAnswers(String from, String to) throws ParseException {
         Map<String, List<UserAnswer>> hourlyMap = new HashMap<String, List<UserAnswer>>();
         Map<String, List<UserAnswer>> hourlyMapUS = new HashMap<String, List<UserAnswer>>();
-        Map<String, List<UserAnswer>> hourlyMapIN = new HashMap<String, List<UserAnswer>>();
         Map<String, List<UserAnswer>> dailyMap = new HashMap<String, List<UserAnswer>>();
         Map<String, List<UserAnswer>> dailyMapUS = new HashMap<String, List<UserAnswer>>();
-        Map<String, List<UserAnswer>> dailyMapIN = new HashMap<String, List<UserAnswer>>();
         Map<String, List<UserAnswer>> dayOfWeekMap = new LinkedHashMap<String, List<UserAnswer>>();
         Map<String, List<UserAnswer>> dayOfWeekMapUS = new LinkedHashMap<String, List<UserAnswer>>();
-        Map<String, List<UserAnswer>> dayOfWeekMapIN = new LinkedHashMap<String, List<UserAnswer>>();
 
         for(String day : days) {
             dayOfWeekMap.put(day, new ArrayList<UserAnswer>());
             dayOfWeekMapUS.put(day, new ArrayList<UserAnswer>());
-            dayOfWeekMapIN.put(day, new ArrayList<UserAnswer>());
         }
 
         Calendar dateFrom = Calendar.getInstance();
@@ -280,28 +275,20 @@ public class SurveyService {
                 aggregateAnswer(dailyMapUS, hourlyMapUS, dayOfWeekMapUS, userAnswer,
                         d.getTime().toString(), dayOfWeek, hour);
             }
-
-            if("IN".equals(userAnswer.getLocationCountry())) {
-                aggregateAnswer(dailyMapIN, hourlyMapIN, dayOfWeekMapIN, userAnswer,
-                        d.getTime().toString(), dayOfWeek, hour);
-            }
         }
 
         DemographicsSurveyAnswersByPeriod result = new DemographicsSurveyAnswersByPeriod();
         Map<String, DemographicsSurveyAnswers> hourlyResult = new HashMap<String, DemographicsSurveyAnswers>();
         hourlyResult.put("all", getData(hourlyMap));
         hourlyResult.put("us", getData(hourlyMapUS));
-        hourlyResult.put("in", getData(hourlyMapIN));
 
         Map<String, DemographicsSurveyAnswers> dailyResult = new HashMap<String, DemographicsSurveyAnswers>();
         dailyResult.put("all", getData(dailyMap));
         dailyResult.put("us", getData(dailyMapUS));
-        dailyResult.put("in", getData(dailyMapIN));
 
         Map<String, DemographicsSurveyAnswers> dayOfWeekResult = new HashMap<String, DemographicsSurveyAnswers>();
         dayOfWeekResult.put("all", getData(dayOfWeekMap));
         dayOfWeekResult.put("us", getData(dayOfWeekMapUS));
-        dayOfWeekResult.put("in", getData(dayOfWeekMapIN));
         result.setHourly(hourlyResult);
         result.setDaily(dailyResult);
         result.setWeekly(dayOfWeekResult);
@@ -444,8 +431,6 @@ public class SurveyService {
         String country;
         if("US".equals(code)) {
             country = "US";
-        } else if("IN".equals(code)) {
-            country = "India";
         } else {
             country = "Others";
         }
