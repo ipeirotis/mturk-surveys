@@ -26,6 +26,9 @@
                     ];
 
                     function buildConfig(data) {
+                        if (data.displayMode === 'volume') {
+                            return buildVolumeConfig(data);
+                        }
                         var isArea = data.displayMode === 'area';
                         var datasets = [];
                         for (var i = 0; i < data.datasets.length; i++) {
@@ -53,6 +56,10 @@
                             }
                         }
 
+                        // Build tooltip with counts
+                        var countsPerPeriod = data.countsPerPeriod;
+                        var demographicField = data.demographicField;
+
                         return {
                             type: isArea ? 'line' : 'bar',
                             data: {
@@ -78,7 +85,31 @@
                                     tooltip: {
                                         callbacks: {
                                             label: function (context) {
-                                                return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                                                var pct = context.parsed.y.toFixed(2) + '%';
+                                                var label = context.dataset.label;
+                                                // Try to get absolute count
+                                                if (countsPerPeriod && demographicField) {
+                                                    var periodLabel = data.labels[context.dataIndex];
+                                                    var dayData = countsPerPeriod[periodLabel];
+                                                    if (dayData && dayData[demographicField]) {
+                                                        var count = dayData[demographicField][label];
+                                                        if (count !== undefined) {
+                                                            var total = dayData.totalResponses || 0;
+                                                            return label + ': ' + pct + ' (' + count.toLocaleString() + ' of ' + total.toLocaleString() + ')';
+                                                        }
+                                                    }
+                                                }
+                                                return label + ': ' + pct;
+                                            },
+                                            footer: function(tooltipItems) {
+                                                if (countsPerPeriod && tooltipItems.length > 0) {
+                                                    var periodLabel = data.labels[tooltipItems[0].dataIndex];
+                                                    var dayData = countsPerPeriod[periodLabel];
+                                                    if (dayData) {
+                                                        return 'Total: ' + (dayData.totalResponses || 0).toLocaleString() + ' responses';
+                                                    }
+                                                }
+                                                return '';
                                             }
                                         }
                                     },
@@ -110,6 +141,74 @@
                                         },
                                         grid: {
                                             color: '#e0e0e0'
+                                        }
+                                    }
+                                }
+                            }
+                        };
+                    }
+
+                    function buildVolumeConfig(data) {
+                        var ds = data.datasets[0];
+                        return {
+                            type: 'line',
+                            data: {
+                                labels: data.labels,
+                                datasets: [{
+                                    label: ds.label,
+                                    data: ds.data,
+                                    backgroundColor: '#4285F4' + '33',
+                                    borderColor: '#4285F4',
+                                    borderWidth: 2,
+                                    fill: true,
+                                    tension: 0.3,
+                                    pointRadius: 2,
+                                    pointHitRadius: 8,
+                                    pointBackgroundColor: '#4285F4'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                animation: {
+                                    duration: 300,
+                                    easing: 'easeOutQuad'
+                                },
+                                plugins: {
+                                    legend: {
+                                        display: false
+                                    },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function (context) {
+                                                return context.parsed.y.toLocaleString() + ' responses';
+                                            }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    x: {
+                                        ticks: {
+                                            font: { size: 11 },
+                                            color: '#666',
+                                            maxRotation: 45,
+                                            minRotation: 45
+                                        }
+                                    },
+                                    y: {
+                                        min: 0,
+                                        ticks: {
+                                            font: { size: 11 },
+                                            color: '#666'
+                                        },
+                                        grid: {
+                                            color: '#e0e0e0'
+                                        },
+                                        title: {
+                                            display: true,
+                                            text: 'Responses',
+                                            font: { size: 12 },
+                                            color: '#666'
                                         }
                                     }
                                 }

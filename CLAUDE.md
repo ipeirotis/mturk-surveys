@@ -178,5 +178,5 @@ See [TASKS.md](TASKS.md) for the full task list. Summary:
 - [x] **Track 4** — Java 21 + Spring Boot 3.x Migration (T4.1–T4.7 completed)
 - [x] **Track 5** — AWS SDK Update (T5.1–T5.3 completed)
 - [x] **Track 6** — Google Cloud Libraries Update (T6.1–T6.3 completed)
-- [ ] **Track 7** — Frontend Modernization (T7.1–T7.3, T7.4–T7.5 done, T7.17–T7.18 done)
+- [ ] **Track 7** — Frontend Modernization (T7.1–T7.3, T7.4–T7.6 done, T7.8 done, T7.11 done, T7.16–T7.18 done)
 - [x] **Track 8** — Data Access & API Quality (T8.1–T8.6: CORS, OpenAPI, counts endpoint, CSV export, enhanced filtering, BigQuery export)

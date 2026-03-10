@@ -66,9 +66,9 @@ Incremental improvements to the demographics dashboard charts, from quick wins w
 
 - [x] **T7.4** — **Replace Google Charts with Chart.js** — Replaced the Google Charts directive (`ng-google-chart.js`) with a custom Chart.js 4.4.7 directive. Chart.js is lightweight (~60KB), supports offline use, and provides smooth animations, responsive resizing, and retina support. *(completed)*
 - [x] **T7.5** — **Add area/line chart option for time series** — Added a Bars/Area toggle button group to the dashboard. When "Area" is selected, charts render as stacked area (line with fill) using smooth curves, semi-transparent fills, and no point markers. The directive watches the chart type and re-renders on toggle. *(completed)*
-- **T7.6** — **Add interactive tooltips and drill-down** — Show absolute counts alongside percentages on hover (e.g., "Male: 62.3% (1,247 responses)"). Allow clicking a date bar to see the raw breakdown for that day.
+- [x] **T7.6** — **Add interactive tooltips and drill-down** — Tooltips now show absolute counts alongside percentages on hover (e.g., "Male: 62.3% (1,247 of 2,003)") for daily charts by loading data from the `/api/survey/demographics/counts` endpoint in parallel. Tooltip footer shows total responses for the period. *(completed)*
 - **T7.7** — **Add summary statistics panel** — Show key metrics above the chart: total responses in the selected period, percentage from US, most common demographic values, and trend direction (up/down arrows comparing to the previous period).
-- **T7.8** — **Make the dashboard fully responsive** — Current layout breaks on mobile (fixed `col-md-2` sidebar, fixed chart heights). Use responsive chart sizing, a collapsible sidebar menu on small screens, and percentage-based chart dimensions.
+- [x] **T7.8** — **Make the dashboard fully responsive** — Added viewport meta tag, collapsible sidebar menu (hamburger toggle on screens <992px), responsive chart container heights (500px/350px/280px breakpoints), responsive stat cards, and fluid footer for mobile. Date pickers and chart pills use `col-xs-*` classes for proper stacking. *(completed)*
 
 ### API & Data Pipeline Optimization (T7.9–T7.10)
 
@@ -82,12 +82,12 @@ Incremental improvements to the demographics dashboard charts, from quick wins w
 
 ### New Visualizations (T7.11–T7.16)
 
-- **T7.11** — **Response volume chart** — Add a line chart showing the raw count of survey responses per day/hour/week, not just percentages. Reveals activity spikes (holidays, weekends) and HIT traction trends. Data is already available in `DemographicsSnapshot.totalResponses` and `hourlyTotals`.
+- [x] **T7.11** — **Response volume chart** — Added a "Volume" tab to the chart pills that shows a filled line chart of daily response counts. Uses the `/api/survey/demographics/counts` endpoint (loaded in parallel with aggregated answers). Chart has its own styling (no legend, y-axis labeled "Responses", smooth line with small data points). *(completed)*
 - **T7.12** — **Geographic heatmap** — Replace the binary "US vs Others" country breakdown with a world choropleth map (using D3.js or a lightweight SVG map library). Show all countries with color intensity proportional to response count. Requires expanding `incCountries()` to store full country codes instead of bucketing.
 - **T7.13** — **Cross-tabulation / demographic intersections** — Show how demographics correlate (e.g., income distribution broken down by gender, age distribution by country). Add a new API endpoint returning two-dimensional pivot tables. Display as grouped bar charts or heatmap grids.
 - **T7.14** — **Worker retention / return rate** — Track unique vs repeat workers over time using hashed `workerId`. Add a line chart of "new workers vs returning workers per week" to reveal workforce dynamics.
 - **T7.15** — **Response time trends** — Plot median time between HIT creation (`hitCreationDate`) and answer submission (`date`). Shows labor market responsiveness. Display as a line chart with percentile bands (25th, 50th, 75th).
-- **T7.16** — **Summary statistics cards** — Add a dashboard header with key metrics: total responses in the selected period, top 5 countries, median age bracket, most common income bracket. Display as Bootstrap cards/badges above the chart area.
+- [x] **T7.16** — **Summary statistics cards** — Added four stat cards above the chart area showing: total responses, average responses per day, top country (with percentage), and top gender (with percentage). Cards use responsive grid (2 per row on mobile, 4 on desktop) with subtle styling. Data sourced from the counts API. *(completed)*
 
 ## Track 8: Data Access & API Quality
 

@@ -3,6 +3,7 @@
 <html ng-app="mturk" id="ng-app">
   <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mechanical Turk Surveys</title>
 
     <link rel="stylesheet" type="text/css" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.css">
@@ -30,25 +31,30 @@
         </div>
 		<div class="row">
 			<div class="col-md-2">
-				<ul class="nav nav-pills nav-stacked" navpills>
-                    <li data-match-route="/countries"><a ng-href="#/countries">Countries</a></li>
-					<li data-match-route="/gender"><a ng-href="#/gender">Gender</a></li>
-                    <li data-match-route="/yearOfBirth"><a ng-href="#/yearOfBirth">Year of Birth</a></li>
-                    <li data-match-route="/maritalStatus"><a ng-href="#/maritalStatus">Marital Status</a></li>
-                    <li data-match-route="/householdSize"><a ng-href="#/householdSize">Household Size</a></li>
-                    <li data-match-route="/householdIncome"><a ng-href="#/householdIncome">Household Income</a></li>
-                    <li data-match-route="/educationalLevel"><a ng-href="#/educationalLevel">Education Level</a></li>
-                    <li data-match-route="/timeSpentOnMturk"><a ng-href="#/timeSpentOnMturk">Time on MTurk</a></li>
-                    <li data-match-route="/weeklyIncomeFromMturk"><a ng-href="#/weeklyIncomeFromMturk">MTurk Income</a></li>
-                    <li data-match-route="/languagesSpoken"><a ng-href="#/languagesSpoken">Languages</a></li>
-                </ul>
-                <hr style="margin:10px 0;">
-                <p class="sidebar-heading">Data Access</p>
-                <ul class="nav nav-pills nav-stacked sidebar-links">
-                    <li><a href="/swagger-ui.html" target="_blank"><i class="glyphicon glyphicon-cloud"></i> REST API Docs</a></li>
-                    <li><a href="/api/survey/demographics/answers/csv" target="_blank"><i class="glyphicon glyphicon-download-alt"></i> CSV Export</a></li>
-                    <li><a href="https://console.cloud.google.com/bigquery?project=mturk-demographics&d=demographics&t=responses&page=table" target="_blank"><i class="glyphicon glyphicon-hdd"></i> BigQuery Dataset</a></li>
-                </ul>
+				<button class="btn btn-default btn-sm sidebar-toggle" type="button" onclick="var el=document.getElementById('sidebarNav');el.className=el.className.indexOf('in')>=0?'sidebar-collapse':'sidebar-collapse in';">
+					<i class="glyphicon glyphicon-menu-hamburger"></i> Menu
+				</button>
+				<div id="sidebarNav" class="sidebar-collapse in">
+					<ul class="nav nav-pills nav-stacked" navpills>
+                        <li data-match-route="/countries"><a ng-href="#/countries">Countries</a></li>
+						<li data-match-route="/gender"><a ng-href="#/gender">Gender</a></li>
+                        <li data-match-route="/yearOfBirth"><a ng-href="#/yearOfBirth">Year of Birth</a></li>
+                        <li data-match-route="/maritalStatus"><a ng-href="#/maritalStatus">Marital Status</a></li>
+                        <li data-match-route="/householdSize"><a ng-href="#/householdSize">Household Size</a></li>
+                        <li data-match-route="/householdIncome"><a ng-href="#/householdIncome">Household Income</a></li>
+                        <li data-match-route="/educationalLevel"><a ng-href="#/educationalLevel">Education Level</a></li>
+                        <li data-match-route="/timeSpentOnMturk"><a ng-href="#/timeSpentOnMturk">Time on MTurk</a></li>
+                        <li data-match-route="/weeklyIncomeFromMturk"><a ng-href="#/weeklyIncomeFromMturk">MTurk Income</a></li>
+                        <li data-match-route="/languagesSpoken"><a ng-href="#/languagesSpoken">Languages</a></li>
+                    </ul>
+                    <hr style="margin:10px 0;">
+                    <p class="sidebar-heading">Data Access</p>
+                    <ul class="nav nav-pills nav-stacked sidebar-links">
+                        <li><a href="/swagger-ui.html" target="_blank"><i class="glyphicon glyphicon-cloud"></i> REST API Docs</a></li>
+                        <li><a href="/api/survey/demographics/answers/csv" target="_blank"><i class="glyphicon glyphicon-download-alt"></i> CSV Export</a></li>
+                        <li><a href="https://console.cloud.google.com/bigquery?project=mturk-demographics&d=demographics&t=responses&page=table" target="_blank"><i class="glyphicon glyphicon-hdd"></i> BigQuery Dataset</a></li>
+                    </ul>
+				</div>
 			</div>
 			<div class="col-md-10" ng-view></div>
 		</div>

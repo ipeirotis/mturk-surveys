@@ -1,5 +1,33 @@
+<!-- Summary Statistics Cards -->
+<div class="row stats-cards" ng-if="summaryStats">
+	<div class="col-xs-6 col-sm-3">
+		<div class="stat-card">
+			<div class="stat-value">{{summaryStats.totalResponses | number}}</div>
+			<div class="stat-label">Total Responses</div>
+		</div>
+	</div>
+	<div class="col-xs-6 col-sm-3">
+		<div class="stat-card">
+			<div class="stat-value">{{summaryStats.avgPerDay | number}}</div>
+			<div class="stat-label">Avg / Day</div>
+		</div>
+	</div>
+	<div class="col-xs-6 col-sm-3">
+		<div class="stat-card">
+			<div class="stat-value">{{summaryStats.topCountry.label}}</div>
+			<div class="stat-label">Top Country ({{summaryStats.topCountry.pct}}%)</div>
+		</div>
+	</div>
+	<div class="col-xs-6 col-sm-3">
+		<div class="stat-card">
+			<div class="stat-value">{{summaryStats.topGender.label}}</div>
+			<div class="stat-label">Top Gender ({{summaryStats.topGender.pct}}%)</div>
+		</div>
+	</div>
+</div>
+<!-- Date Range Pickers -->
 <div class="row">
-	<div class="col-md-3">
+	<div class="col-xs-6 col-sm-3">
 		<p class="input-group">
 			<input type="text" class="form-control input-sm" datepicker-popup="MM/dd/yyyy" ng-model="from" is-open="openedFrom"
 			datepicker-options="dateOptions" show-weeks="false" show-button-bar="false" close-text="Close" />
@@ -8,7 +36,7 @@
 			</span>
 		</p>
 	</div>
-	<div class="col-md-3">
+	<div class="col-xs-6 col-sm-3">
 		<p class="input-group">
 			<input type="text" class="form-control input-sm" datepicker-popup="MM/dd/yyyy" ng-model="to" is-open="openedTo"
 			datepicker-options="dateOptions" show-weeks="false" show-button-bar="false" close-text="Close" />
@@ -18,16 +46,18 @@
 		</p>
 	</div>
 </div>
+<!-- Chart Type Pills & Display Mode -->
 <div class="row">
-	<div class="col-xs-8 col-md-8">
-		<ul class="nav nav-pills" ng-model="activePill" pills>
+	<div class="col-xs-12 col-sm-8">
+		<ul class="nav nav-pills chart-pills" ng-model="activePill" pills>
 		  <li><a href="" id="hourlyChartPill" ng-click="draw('hourlyChart')">hourly</a></li>
 		  <li class="active"><a href="" id="dailyChartPill" ng-click="draw('dailyChart')">daily</a></li>
 		  <li><a href="" id="weeklyChartPill" ng-click="draw('weeklyChart')">day of week</a></li>
+		  <li><a href="" id="volumeChartPill" ng-click="draw('volumeChart')"><i class="glyphicon glyphicon-signal"></i> volume</a></li>
 		</ul>
 	</div>
-	<div class="col-xs-4 col-md-4 text-right">
-		<div class="btn-group" style="margin-bottom:10px;">
+	<div class="col-xs-12 col-sm-4 text-right display-mode-btns">
+		<div class="btn-group" ng-hide="visibleChart === 'volumeChart'">
 			<button type="button" class="btn btn-sm" ng-class="displayMode === 'bar' ? 'btn-primary' : 'btn-default'" ng-click="setDisplayMode('bar')">
 				<i class="glyphicon glyphicon-stats"></i> Bars
 			</button>
@@ -37,6 +67,8 @@
 		</div>
 	</div>
 </div>
-<div id="hourlyChart" style="display:none;width:100%;height:500px;" chartjs-chart="hourlyChart"></div>
-<div id="dailyChart" style="display:block;width:100%;height:500px;" chartjs-chart="dailyChart"></div>
-<div id="weeklyChart" style="display:none;width:100%;height:500px;" chartjs-chart="weeklyChart"></div>
+<!-- Chart Containers -->
+<div id="hourlyChart" class="chart-container" style="display:none;" chartjs-chart="hourlyChart"></div>
+<div id="dailyChart" class="chart-container" style="display:block;" chartjs-chart="dailyChart"></div>
+<div id="weeklyChart" class="chart-container" style="display:none;" chartjs-chart="weeklyChart"></div>
+<div id="volumeChart" class="chart-container" style="display:none;" chartjs-chart="volumeChart"></div>
