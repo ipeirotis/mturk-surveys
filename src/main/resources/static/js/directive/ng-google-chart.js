@@ -11,8 +11,7 @@
             return {
                 restrict: 'A',
                 scope: {
-                    chartData: '=chartjsChart',
-                    chartType: '=?chartjsType'
+                    chartData: '=chartjsChart'
                 },
                 link: function ($scope, $elm) {
                     var chart = null;
@@ -27,7 +26,7 @@
                     ];
 
                     function buildConfig(data) {
-                        var isArea = $scope.chartType === 'area';
+                        var isArea = data.displayMode === 'area';
                         var datasets = [];
                         for (var i = 0; i < data.datasets.length; i++) {
                             var ds = data.datasets[i];
@@ -143,12 +142,6 @@
                             $timeout(renderChart, 0);
                         }
                     }, true);
-
-                    $scope.$watch('chartType', function (newVal, oldVal) {
-                        if (newVal !== oldVal && $scope.chartData && $scope.chartData.labels && $scope.chartData.labels.length > 0) {
-                            $timeout(renderChart, 0);
-                        }
-                    });
 
                     $scope.$on('$destroy', function () {
                         if (chart) {
