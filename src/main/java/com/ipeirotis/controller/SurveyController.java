@@ -174,12 +174,6 @@ public class SurveyController {
 		}
 	}
 
-	@PostMapping
-	@Operation(summary = "Create a new survey", description = "Creates a new survey with questions and MTurk HIT configuration")
-	public Survey create(@RequestBody Survey survey) {
-		return surveyService.create(survey);
-	}
-
 	private Date parseDate(String dateStr) {
 		if (dateStr == null || dateStr.isEmpty()) return null;
 		try {
