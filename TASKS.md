@@ -6,9 +6,9 @@
 
 ## Track 1: CI/CD Pipeline
 
-- **T1.1** — Create GitHub Actions workflow for building on PR/push (`mvn clean install`)
-- **T1.2** — Add GAE deploy step on push to `main` (requires GCP service account key)
-- **T1.3** — Add GitHub repository secrets documentation for `GCP_SA_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- [x] **T1.1** — Create GitHub Actions workflow for building on PR/push (`mvn clean install`) *(completed — `.github/workflows/ci.yml`)*
+- [x] **T1.2** — Add GAE deploy step on push to `main` (requires GCP service account key) *(completed — `.github/workflows/deploy.yml`)*
+- [x] **T1.3** — Add GitHub repository secrets documentation for `GCP_SA_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` *(completed — secrets injected via deploy workflow)*
 
 ## Track 2: Configuration & Security
 
