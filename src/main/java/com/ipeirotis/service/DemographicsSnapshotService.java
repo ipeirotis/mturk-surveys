@@ -1,10 +1,12 @@
 package com.ipeirotis.service;
 
+import com.ipeirotis.dao.DemographicsRollupDao;
 import com.ipeirotis.dao.DemographicsSnapshotDao;
 import com.ipeirotis.dto.DemographicsChartData;
 import com.ipeirotis.dto.DemographicsCountsResponse;
 import com.ipeirotis.dto.DemographicsSurveyAnswers;
 import com.ipeirotis.dto.DemographicsSurveyAnswersByPeriod;
+import com.ipeirotis.entity.DemographicsRollup;
 import com.ipeirotis.entity.DemographicsSnapshot;
 import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.util.CalendarUtils;
@@ -16,6 +18,10 @@ import org.springframework.stereotype.Service;
 
 import java.text.DateFormat;
 import java.text.ParseException;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -43,6 +49,9 @@ public class DemographicsSnapshotService {
 
     @Autowired
     private DemographicsSnapshotDao snapshotDao;
+
+    @Autowired
+    private DemographicsRollupDao rollupDao;
 
     @Autowired
     private SurveyService surveyService;
@@ -162,13 +171,129 @@ public class DemographicsSnapshotService {
     }
 
     /**
+     * Build and save a weekly rollup by merging daily snapshots for the ISO week
+     * starting on the given Monday (yyyy-MM-dd format).
+     */
+    public DemographicsRollup buildWeeklyRollup(String mondayDate) {
+        LocalDate monday = LocalDate.parse(mondayDate);
+        LocalDate sunday = monday.plusDays(7);
+        DateFormat displayDf = SafeDateFormat.forPattern("MM/dd/yyyy");
+        DateFormat sortableDf = SafeDateFormat.forPattern("yyyy-MM-dd");
+
+        String fromDisplay, toDisplay;
+        try {
+            fromDisplay = displayDf.format(sortableDf.parse(monday.toString()));
+            toDisplay = displayDf.format(sortableDf.parse(sunday.toString()));
+        } catch (ParseException e) {
+            throw new RuntimeException(e);
+        }
+
+        List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(fromDisplay, toDisplay);
+        DemographicsRollup rollup = mergeSnapshotsIntoRollup(snapshots, "weekly", mondayDate);
+        if (rollup != null) {
+            rollupDao.save(rollup);
+            logger.info("Saved weekly rollup for " + mondayDate + " with " + rollup.getTotalResponses() + " responses");
+        }
+        return rollup;
+    }
+
+    /**
+     * Build and save a monthly rollup by merging daily snapshots for the given month.
+     * monthStart should be yyyy-MM-dd of the 1st of the month.
+     */
+    public DemographicsRollup buildMonthlyRollup(String monthStart) {
+        LocalDate start = LocalDate.parse(monthStart);
+        LocalDate end = start.plusMonths(1);
+        DateFormat displayDf = SafeDateFormat.forPattern("MM/dd/yyyy");
+        DateFormat sortableDf = SafeDateFormat.forPattern("yyyy-MM-dd");
+
+        String fromDisplay, toDisplay;
+        try {
+            fromDisplay = displayDf.format(sortableDf.parse(start.toString()));
+            toDisplay = displayDf.format(sortableDf.parse(end.toString()));
+        } catch (ParseException e) {
+            throw new RuntimeException(e);
+        }
+
+        List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(fromDisplay, toDisplay);
+        DemographicsRollup rollup = mergeSnapshotsIntoRollup(snapshots, "monthly", monthStart);
+        if (rollup != null) {
+            rollupDao.save(rollup);
+            logger.info("Saved monthly rollup for " + monthStart + " with " + rollup.getTotalResponses() + " responses");
+        }
+        return rollup;
+    }
+
+    private DemographicsRollup mergeSnapshotsIntoRollup(List<DemographicsSnapshot> snapshots, String granularity, String dateKey) {
+        if (snapshots.isEmpty()) return null;
+
+        int totalResponses = 0;
+        Map<String, Integer> countries = new HashMap<>();
+        Map<String, Integer> yearOfBirth = new HashMap<>();
+        Map<String, Integer> gender = new HashMap<>();
+        Map<String, Integer> maritalStatus = new HashMap<>();
+        Map<String, Integer> householdSize = new HashMap<>();
+        Map<String, Integer> householdIncome = new HashMap<>();
+        Map<String, Integer> educationalLevel = new HashMap<>();
+        Map<String, Integer> timeSpentOnMturk = new HashMap<>();
+        Map<String, Integer> weeklyIncomeFromMturk = new HashMap<>();
+        Map<String, Integer> languagesSpoken = new HashMap<>();
+
+        for (DemographicsSnapshot snap : snapshots) {
+            totalResponses += snap.getTotalResponses();
+            mergeCounts(snap.getCountries(), countries);
+            mergeCounts(snap.getYearOfBirth(), yearOfBirth);
+            mergeCounts(snap.getGender(), gender);
+            mergeCounts(snap.getMaritalStatus(), maritalStatus);
+            mergeCounts(snap.getHouseholdSize(), householdSize);
+            mergeCounts(snap.getHouseholdIncome(), householdIncome);
+            mergeCounts(snap.getEducationalLevel(), educationalLevel);
+            mergeCounts(snap.getTimeSpentOnMturk(), timeSpentOnMturk);
+            mergeCounts(snap.getWeeklyIncomeFromMturk(), weeklyIncomeFromMturk);
+            mergeCounts(snap.getLanguagesSpoken(), languagesSpoken);
+        }
+
+        DemographicsRollup rollup = new DemographicsRollup();
+        rollup.setId(granularity + ":" + dateKey);
+        rollup.setGranularity(granularity);
+        rollup.setDate(dateKey);
+        rollup.setTotalResponses(totalResponses);
+        rollup.setCountries(countries);
+        rollup.setYearOfBirth(yearOfBirth);
+        rollup.setGender(gender);
+        rollup.setMaritalStatus(maritalStatus);
+        rollup.setHouseholdSize(householdSize);
+        rollup.setHouseholdIncome(householdIncome);
+        rollup.setEducationalLevel(educationalLevel);
+        rollup.setTimeSpentOnMturk(timeSpentOnMturk);
+        rollup.setWeeklyIncomeFromMturk(weeklyIncomeFromMturk);
+        rollup.setLanguagesSpoken(languagesSpoken);
+        return rollup;
+    }
+
+    /**
      * Combined endpoint: returns both aggregated percentages and raw counts from a single
      * Datastore read. Cached in memory so repeated requests for the same range are instant.
      */
     @Cacheable(value = "chartData", key = "#from + '_' + #to")
     public DemographicsChartData getChartData(String from, String to) {
+        String granularity = estimateGranularity(from, to);
+
+        // Try rollups for weekly/monthly ranges — much faster than loading daily snapshots
+        if (!"daily".equals(granularity)) {
+            List<DemographicsRollup> rollups = rollupDao.listByGranularityAndDateRange(granularity, from, to);
+            if (!rollups.isEmpty()) {
+                DemographicsChartData result = new DemographicsChartData();
+                result.setAggregated(buildAggregatedFromRollups(rollups, granularity));
+                result.setCounts(buildCountsFromRollups(rollups, granularity));
+                return result;
+            }
+            logger.info("No " + granularity + " rollups found for " + from + "-" + to + ", falling back to daily snapshots");
+        }
+
+        // Fallback: load daily snapshots (small ranges, or rollups not yet built)
         List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(from, to);
-        String granularity = chooseGranularity(snapshots.size());
+        granularity = chooseGranularity(snapshots.size());
 
         DemographicsChartData result = new DemographicsChartData();
         result.setAggregated(buildAggregated(snapshots, granularity));
@@ -182,6 +307,13 @@ public class DemographicsSnapshotService {
      */
     @Cacheable(value = "aggregatedAnswers", key = "#from + '_' + #to")
     public DemographicsSurveyAnswersByPeriod getAggregatedAnswers(String from, String to) {
+        String granularity = estimateGranularity(from, to);
+        if (!"daily".equals(granularity)) {
+            List<DemographicsRollup> rollups = rollupDao.listByGranularityAndDateRange(granularity, from, to);
+            if (!rollups.isEmpty()) {
+                return buildAggregatedFromRollups(rollups, granularity);
+            }
+        }
         List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(from, to);
         return buildAggregated(snapshots, chooseGranularity(snapshots.size()));
     }
@@ -192,8 +324,32 @@ public class DemographicsSnapshotService {
      */
     @Cacheable(value = "counts", key = "#from + '_' + #to")
     public DemographicsCountsResponse getCounts(String from, String to) {
+        String granularity = estimateGranularity(from, to);
+        if (!"daily".equals(granularity)) {
+            List<DemographicsRollup> rollups = rollupDao.listByGranularityAndDateRange(granularity, from, to);
+            if (!rollups.isEmpty()) {
+                return buildCountsFromRollups(rollups, granularity);
+            }
+        }
         List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(from, to);
         return buildCounts(snapshots, chooseGranularity(snapshots.size()));
+    }
+
+    /**
+     * Estimate granularity from date strings without loading data.
+     */
+    private String estimateGranularity(String from, String to) {
+        try {
+            DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
+            long days = ChronoUnit.DAYS.between(
+                    new java.sql.Date(df.parse(from).getTime()).toLocalDate(),
+                    new java.sql.Date(df.parse(to).getTime()).toLocalDate());
+            if (days > MONTHLY_THRESHOLD) return "monthly";
+            if (days > WEEKLY_THRESHOLD) return "weekly";
+            return "daily";
+        } catch (ParseException e) {
+            return "daily";
+        }
     }
 
     // --- Internal builders ---
@@ -230,6 +386,143 @@ public class DemographicsSnapshotService {
         if (numSnapshots > MONTHLY_THRESHOLD) return "monthly";
         if (numSnapshots > WEEKLY_THRESHOLD) return "weekly";
         return "daily";
+    }
+
+    // --- Rollup-based builders (no re-grouping needed, each rollup = one chart period) ---
+
+    private DemographicsSurveyAnswersByPeriod buildAggregatedFromRollups(List<DemographicsRollup> rollups, String granularity) {
+        DemographicsSurveyAnswersByPeriod result = new DemographicsSurveyAnswersByPeriod();
+        result.setDailyGranularity(granularity);
+
+        // Each rollup is already a period — convert directly to percentages
+        Map<String, Map<String, Float>> countries = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> yearOfBirth = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> gender = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> maritalStatus = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> householdSize = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> householdIncome = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> educationalLevel = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> timeSpentOnMturk = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> weeklyIncomeFromMturk = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> languagesSpoken = new LinkedHashMap<>();
+        Map<String, Set<String>> labels = new HashMap<>();
+
+        // Sort rollups by date
+        rollups.sort(Comparator.comparing(DemographicsRollup::getDate));
+
+        for (DemographicsRollup r : rollups) {
+            if (r.getTotalResponses() == 0) continue;
+            // Use Date.toString() key for frontend compatibility
+            String key = rollupDateToKey(r.getDate(), granularity);
+            countries.put(key, toPercentageMap(r.getCountries(), labels, "countries"));
+            yearOfBirth.put(key, toPercentageMap(r.getYearOfBirth(), labels, "yearOfBirth"));
+            gender.put(key, toPercentageMap(r.getGender(), labels, "gender"));
+            maritalStatus.put(key, toPercentageMap(r.getMaritalStatus(), labels, "maritalStatus"));
+            householdSize.put(key, toPercentageMap(r.getHouseholdSize(), labels, "householdSize"));
+            householdIncome.put(key, toPercentageMap(r.getHouseholdIncome(), labels, "householdIncome"));
+            educationalLevel.put(key, toPercentageMap(r.getEducationalLevel(), labels, "educationalLevel"));
+            timeSpentOnMturk.put(key, toPercentageMap(r.getTimeSpentOnMturk(), labels, "timeSpentOnMturk"));
+            weeklyIncomeFromMturk.put(key, toPercentageMap(r.getWeeklyIncomeFromMturk(), labels, "weeklyIncomeFromMturk"));
+            languagesSpoken.put(key, toPercentageMap(r.getLanguagesSpoken(), labels, "languagesSpoken"));
+        }
+
+        filterIncomeLabels(labels);
+        DemographicsSurveyAnswers daily = new DemographicsSurveyAnswers();
+        daily.setCountries(countries);
+        daily.setYearOfBirth(yearOfBirth);
+        daily.setGender(gender);
+        daily.setMaritalStatus(maritalStatus);
+        daily.setHouseholdSize(householdSize);
+        daily.setHouseholdIncome(householdIncome);
+        daily.setEducationalLevel(educationalLevel);
+        daily.setTimeSpentOnMturk(timeSpentOnMturk);
+        daily.setWeeklyIncomeFromMturk(weeklyIncomeFromMturk);
+        daily.setLanguagesSpoken(languagesSpoken);
+        daily.setLabels(labels);
+        result.setDaily(daily);
+
+        // Hourly and day-of-week aggregations aren't available from rollups;
+        // set empty so frontend doesn't break
+        result.setHourly(new DemographicsSurveyAnswers());
+        result.setWeekly(new DemographicsSurveyAnswers());
+        return result;
+    }
+
+    private DemographicsCountsResponse buildCountsFromRollups(List<DemographicsRollup> rollups, String granularity) {
+        rollups.sort(Comparator.comparing(DemographicsRollup::getDate));
+
+        List<DemographicsCountsResponse.DailyCount> periods = new ArrayList<>();
+        int totalResponses = 0;
+        Map<String, Integer> totalCountries = new HashMap<>();
+        Map<String, Integer> totalYearOfBirth = new HashMap<>();
+        Map<String, Integer> totalGender = new HashMap<>();
+        Map<String, Integer> totalMaritalStatus = new HashMap<>();
+        Map<String, Integer> totalHouseholdSize = new HashMap<>();
+        Map<String, Integer> totalHouseholdIncome = new HashMap<>();
+        Map<String, Integer> totalEducationalLevel = new HashMap<>();
+        Map<String, Integer> totalTimeSpentOnMturk = new HashMap<>();
+        Map<String, Integer> totalWeeklyIncomeFromMturk = new HashMap<>();
+        Map<String, Integer> totalLanguagesSpoken = new HashMap<>();
+
+        for (DemographicsRollup r : rollups) {
+            DemographicsCountsResponse.DailyCount period = new DemographicsCountsResponse.DailyCount();
+            period.setDate(r.getDate()); // already yyyy-MM-dd
+            period.setTotalResponses(r.getTotalResponses());
+            period.setCountries(r.getCountries());
+            period.setYearOfBirth(r.getYearOfBirth());
+            period.setGender(r.getGender());
+            period.setMaritalStatus(r.getMaritalStatus());
+            period.setHouseholdSize(r.getHouseholdSize());
+            period.setHouseholdIncome(r.getHouseholdIncome());
+            period.setEducationalLevel(r.getEducationalLevel());
+            period.setTimeSpentOnMturk(r.getTimeSpentOnMturk());
+            period.setWeeklyIncomeFromMturk(r.getWeeklyIncomeFromMturk());
+            period.setLanguagesSpoken(r.getLanguagesSpoken());
+            periods.add(period);
+
+            totalResponses += r.getTotalResponses();
+            mergeCounts(r.getCountries(), totalCountries);
+            mergeCounts(r.getYearOfBirth(), totalYearOfBirth);
+            mergeCounts(r.getGender(), totalGender);
+            mergeCounts(r.getMaritalStatus(), totalMaritalStatus);
+            mergeCounts(r.getHouseholdSize(), totalHouseholdSize);
+            mergeCounts(r.getHouseholdIncome(), totalHouseholdIncome);
+            mergeCounts(r.getEducationalLevel(), totalEducationalLevel);
+            mergeCounts(r.getTimeSpentOnMturk(), totalTimeSpentOnMturk);
+            mergeCounts(r.getWeeklyIncomeFromMturk(), totalWeeklyIncomeFromMturk);
+            mergeCounts(r.getLanguagesSpoken(), totalLanguagesSpoken);
+        }
+
+        DemographicsCountsResponse response = new DemographicsCountsResponse();
+        response.setGranularity(granularity);
+        response.setDays(periods);
+        response.setTotalResponses(totalResponses);
+        response.setTotalCountries(totalCountries);
+        response.setTotalYearOfBirth(totalYearOfBirth);
+        response.setTotalGender(totalGender);
+        response.setTotalMaritalStatus(totalMaritalStatus);
+        response.setTotalHouseholdSize(totalHouseholdSize);
+        response.setTotalHouseholdIncome(totalHouseholdIncome);
+        response.setTotalEducationalLevel(totalEducationalLevel);
+        response.setTotalTimeSpentOnMturk(totalTimeSpentOnMturk);
+        response.setTotalWeeklyIncomeFromMturk(totalWeeklyIncomeFromMturk);
+        response.setTotalLanguagesSpoken(totalLanguagesSpoken);
+        return response;
+    }
+
+    /**
+     * Convert rollup date (yyyy-MM-dd) to a Date.toString() key for frontend compatibility.
+     */
+    private String rollupDateToKey(String dateStr, String granularity) {
+        try {
+            DateFormat sortableDf = SafeDateFormat.forPattern("yyyy-MM-dd");
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(sortableDf.parse(dateStr));
+            CalendarUtils.truncateToDay(cal);
+            return cal.getTime().toString();
+        } catch (ParseException e) {
+            return dateStr;
+        }
     }
 
     // --- Daily aggregation (one entry per day) ---
