@@ -127,9 +127,10 @@ src/main/appengine/
 See [TASKS.md](TASKS.md) for the full task list. Summary:
 
 - [x] **T0.1** — Fix yuicompressor-maven-plugin build failure (1.3.2 → 1.5.1)
+- [x] **T3.6** — Upgrade appengine-maven-plugin 2.4.0 → 2.8.1 (fixes deploy failure)
 - [ ] **Track 1** — CI/CD Pipeline (T1.1–T1.3)
 - [ ] **Track 2** — Configuration & Security (T2.1–T2.4)
-- [ ] **Track 3** — Dependency Updates (T3.1–T3.6)
+- [ ] **Track 3** — Dependency Updates (T3.1–T3.5 remaining)
 - [ ] **Track 4** — Java 21 + Spring Boot 3.x Migration (T4.1–T4.7)
 - [ ] **Track 5** — AWS SDK Update (T5.1–T5.3)
 - [ ] **Track 6** — Google Cloud Libraries Update (T6.1–T6.3)
