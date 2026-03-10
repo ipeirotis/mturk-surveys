@@ -120,3 +120,17 @@ src/main/appengine/
 - Datastore queries require composite indexes defined in `index.yaml`
 - No CI/CD pipeline is configured (no `.github/workflows`)
 - No test framework is present — be careful when modifying business logic
+- **YUI Compressor plugin** was upgraded from 1.3.2 to 1.5.1 to fix Maven 3.9+ compatibility (see TASKS.md T0.1)
+
+## Task Progress
+
+See [TASKS.md](TASKS.md) for the full task list. Summary:
+
+- [x] **T0.1** — Fix yuicompressor-maven-plugin build failure (1.3.2 → 1.5.1)
+- [ ] **Track 1** — CI/CD Pipeline (T1.1–T1.3)
+- [ ] **Track 2** — Configuration & Security (T2.1–T2.4)
+- [ ] **Track 3** — Dependency Updates (T3.1–T3.6)
+- [ ] **Track 4** — Java 21 + Spring Boot 3.x Migration (T4.1–T4.7)
+- [ ] **Track 5** — AWS SDK Update (T5.1–T5.3)
+- [ ] **Track 6** — Google Cloud Libraries Update (T6.1–T6.3)
+- [ ] **Track 7** — Frontend Modernization (T7.1–T7.3)

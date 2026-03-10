@@ -1,5 +1,9 @@
 # TASKS.md
 
+## Track 0: Build Fixes
+
+- [x] **T0.1** — Upgrade `yuicompressor-maven-plugin` from 1.3.2 to 1.5.1 to fix `DirectoryScanner` class not found error with Maven 3.9+ *(completed)*
+
 ## Track 1: CI/CD Pipeline
 
 - **T1.1** — Create GitHub Actions workflow for building on PR/push (`mvn clean install`)
