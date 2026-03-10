@@ -64,7 +64,7 @@ AngularJS 1.x is EOL but functional. Only pursue if the frontend needs active de
 
 Incremental improvements to the demographics dashboard charts, from quick wins within the current stack to a full modernization.
 
-- **T7.4** — **Replace Google Charts with Chart.js or Apache ECharts** — Google Charts is loaded from a CDN with no offline support and limited customization. Chart.js is lightweight (~60KB), works with AngularJS via `angular-chart.js`, and provides better-looking defaults (smooth animations, responsive resizing, retina support). Apache ECharts is an alternative if richer chart types (sankey, treemap) are needed later.
+- [x] **T7.4** — **Replace Google Charts with Chart.js** — Replaced the Google Charts directive (`ng-google-chart.js`) with a custom Chart.js 4.4.7 directive. Chart.js is lightweight (~60KB), supports offline use, and provides smooth animations, responsive resizing, and retina support. *(completed)*
 - **T7.5** — **Add area/line chart option for time series** — Stacked column charts are noisy for daily data over long date ranges. Add a toggle to switch between stacked columns and stacked area/line charts, which better show trends over time.
 - **T7.6** — **Add interactive tooltips and drill-down** — Show absolute counts alongside percentages on hover (e.g., "Male: 62.3% (1,247 responses)"). Allow clicking a date bar to see the raw breakdown for that day.
 - **T7.7** — **Add summary statistics panel** — Show key metrics above the chart: total responses in the selected period, percentage from US, most common demographic values, and trend direction (up/down arrows comparing to the previous period).
