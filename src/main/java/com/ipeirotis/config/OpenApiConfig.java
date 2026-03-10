@@ -3,6 +3,7 @@ package com.ipeirotis.config;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -12,6 +13,9 @@ public class OpenApiConfig {
 	@Bean
 	public OpenAPI mturkSurveysOpenAPI() {
 		return new OpenAPI()
+				.addServersItem(new Server()
+						.url("https://demographics.mturk-tracker.com")
+						.description("Production"))
 				.info(new Info()
 						.title("MTurk Demographics Survey API")
 						.description("API for accessing Amazon Mechanical Turk worker demographics survey data. "
