@@ -1,6 +1,7 @@
 package com.ipeirotis.service;
 
 import com.ipeirotis.dao.DemographicsSnapshotDao;
+import com.ipeirotis.dto.DemographicsChartData;
 import com.ipeirotis.dto.DemographicsCountsResponse;
 import com.ipeirotis.dto.DemographicsSurveyAnswers;
 import com.ipeirotis.dto.DemographicsSurveyAnswersByPeriod;
@@ -9,6 +10,7 @@ import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.text.DateFormat;
@@ -23,6 +25,9 @@ public class DemographicsSnapshotService {
 
     private static final String[] DAYS = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     private static final Set<String> INCOME_LABELS = new LinkedHashSet<>();
+
+    private static final int WEEKLY_THRESHOLD = 90;    // >90 days → weekly
+    private static final int MONTHLY_THRESHOLD = 730;  // >2 years → monthly
 
     static {
         INCOME_LABELS.add("Less than $10,000");
@@ -154,17 +159,77 @@ public class DemographicsSnapshotService {
     }
 
     /**
-     * Get aggregated answers from pre-computed snapshots.
+     * Combined endpoint: returns both aggregated percentages and raw counts from a single
+     * Datastore read. Cached in memory so repeated requests for the same range are instant.
      */
+    @Cacheable(value = "chartData", key = "#from + '_' + #to")
+    public DemographicsChartData getChartData(String from, String to) {
+        List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(from, to);
+        String granularity = chooseGranularity(snapshots.size());
+
+        DemographicsChartData result = new DemographicsChartData();
+        result.setAggregated(buildAggregated(snapshots, granularity));
+        result.setCounts(buildCounts(snapshots, granularity));
+        return result;
+    }
+
+    /**
+     * Get aggregated answers from pre-computed snapshots.
+     * Auto-selects granularity: ≤90 days → daily, 91–365 → weekly, >365 → monthly.
+     */
+    @Cacheable(value = "aggregatedAnswers", key = "#from + '_' + #to")
     public DemographicsSurveyAnswersByPeriod getAggregatedAnswers(String from, String to) {
         List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(from, to);
+        return buildAggregated(snapshots, chooseGranularity(snapshots.size()));
+    }
 
+    /**
+     * Get raw count data from pre-computed snapshots.
+     * Auto-selects granularity to match aggregatedAnswers.
+     */
+    @Cacheable(value = "counts", key = "#from + '_' + #to")
+    public DemographicsCountsResponse getCounts(String from, String to) {
+        List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(from, to);
+        return buildCounts(snapshots, chooseGranularity(snapshots.size()));
+    }
+
+    // --- Internal builders ---
+
+    private DemographicsSurveyAnswersByPeriod buildAggregated(List<DemographicsSnapshot> snapshots, String granularity) {
         DemographicsSurveyAnswersByPeriod result = new DemographicsSurveyAnswersByPeriod();
-        result.setDaily(buildDailyAggregation(snapshots));
+        result.setDailyGranularity(granularity);
+
+        switch (granularity) {
+            case "monthly":
+                result.setDaily(buildGroupedPercentages(snapshots, "monthly"));
+                break;
+            case "weekly":
+                result.setDaily(buildGroupedPercentages(snapshots, "weekly"));
+                break;
+            default:
+                result.setDaily(buildDailyAggregation(snapshots));
+                break;
+        }
+
         result.setHourly(buildHourlyAggregation(snapshots));
         result.setWeekly(buildWeeklyAggregation(snapshots));
         return result;
     }
+
+    private DemographicsCountsResponse buildCounts(List<DemographicsSnapshot> snapshots, String granularity) {
+        if ("daily".equals(granularity)) {
+            return buildDailyCounts(snapshots, granularity);
+        }
+        return buildGroupedCounts(snapshots, granularity);
+    }
+
+    private String chooseGranularity(int numSnapshots) {
+        if (numSnapshots > MONTHLY_THRESHOLD) return "monthly";
+        if (numSnapshots > WEEKLY_THRESHOLD) return "weekly";
+        return "daily";
+    }
+
+    // --- Daily aggregation (one entry per day) ---
 
     private DemographicsSurveyAnswers buildDailyAggregation(List<DemographicsSnapshot> snapshots) {
         Map<String, Map<String, Float>> countries = new LinkedHashMap<>();
@@ -221,6 +286,106 @@ public class DemographicsSnapshotService {
         return result;
     }
 
+    // --- Grouped percentages (calendar-weekly or monthly) ---
+
+    private DemographicsSurveyAnswers buildGroupedPercentages(List<DemographicsSnapshot> snapshots, String granularity) {
+        Map<String, List<DemographicsSnapshot>> groups = groupSnapshots(snapshots, granularity);
+
+        Map<String, Map<String, Integer>> countryCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> yearOfBirthCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> genderCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> maritalStatusCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> householdSizeCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> householdIncomeCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> educationalLevelCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> timeSpentOnMturkCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> weeklyIncomeFromMturkCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> languagesSpokenCounts = new LinkedHashMap<>();
+
+        for (Map.Entry<String, List<DemographicsSnapshot>> group : groups.entrySet()) {
+            String key = group.getKey();
+            countryCounts.put(key, new HashMap<>());
+            yearOfBirthCounts.put(key, new HashMap<>());
+            genderCounts.put(key, new HashMap<>());
+            maritalStatusCounts.put(key, new HashMap<>());
+            householdSizeCounts.put(key, new HashMap<>());
+            householdIncomeCounts.put(key, new HashMap<>());
+            educationalLevelCounts.put(key, new HashMap<>());
+            timeSpentOnMturkCounts.put(key, new HashMap<>());
+            weeklyIncomeFromMturkCounts.put(key, new HashMap<>());
+            languagesSpokenCounts.put(key, new HashMap<>());
+
+            for (DemographicsSnapshot snap : group.getValue()) {
+                mergeCounts(snap.getCountries(), countryCounts.get(key));
+                mergeCounts(snap.getYearOfBirth(), yearOfBirthCounts.get(key));
+                mergeCounts(snap.getGender(), genderCounts.get(key));
+                mergeCounts(snap.getMaritalStatus(), maritalStatusCounts.get(key));
+                mergeCounts(snap.getHouseholdSize(), householdSizeCounts.get(key));
+                mergeCounts(snap.getHouseholdIncome(), householdIncomeCounts.get(key));
+                mergeCounts(snap.getEducationalLevel(), educationalLevelCounts.get(key));
+                mergeCounts(snap.getTimeSpentOnMturk(), timeSpentOnMturkCounts.get(key));
+                mergeCounts(snap.getWeeklyIncomeFromMturk(), weeklyIncomeFromMturkCounts.get(key));
+                mergeCounts(snap.getLanguagesSpoken(), languagesSpokenCounts.get(key));
+            }
+        }
+
+        Map<String, Set<String>> labels = new HashMap<>();
+        DemographicsSurveyAnswers result = new DemographicsSurveyAnswers();
+        result.setCountries(countsToPercentages(countryCounts, labels, "countries"));
+        result.setYearOfBirth(countsToPercentages(yearOfBirthCounts, labels, "yearOfBirth"));
+        result.setGender(countsToPercentages(genderCounts, labels, "gender"));
+        result.setMaritalStatus(countsToPercentages(maritalStatusCounts, labels, "maritalStatus"));
+        result.setHouseholdSize(countsToPercentages(householdSizeCounts, labels, "householdSize"));
+        result.setHouseholdIncome(countsToPercentages(householdIncomeCounts, labels, "householdIncome"));
+        result.setEducationalLevel(countsToPercentages(educationalLevelCounts, labels, "educationalLevel"));
+        result.setTimeSpentOnMturk(countsToPercentages(timeSpentOnMturkCounts, labels, "timeSpentOnMturk"));
+        result.setWeeklyIncomeFromMturk(countsToPercentages(weeklyIncomeFromMturkCounts, labels, "weeklyIncomeFromMturk"));
+        result.setLanguagesSpoken(countsToPercentages(languagesSpokenCounts, labels, "languagesSpoken"));
+        filterIncomeLabels(labels);
+        result.setLabels(labels);
+        return result;
+    }
+
+    /**
+     * Group snapshots by period. Uses Date.toString() keys (Monday for weekly, 1st for monthly)
+     * to remain compatible with the frontend's new Date() parsing.
+     */
+    private Map<String, List<DemographicsSnapshot>> groupSnapshots(List<DemographicsSnapshot> snapshots, String granularity) {
+        Map<String, List<DemographicsSnapshot>> groups = new LinkedHashMap<>();
+        DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
+
+        for (DemographicsSnapshot snap : snapshots) {
+            if (snap.getTotalResponses() == 0) continue;
+            try {
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(df.parse(snap.getId()));
+                String key = "monthly".equals(granularity) ? getFirstOfMonthKey(cal) : getMondayKey(cal);
+                groups.computeIfAbsent(key, k -> new ArrayList<>()).add(snap);
+            } catch (ParseException e) {
+                // skip
+            }
+        }
+        return groups;
+    }
+
+    private String getMondayKey(Calendar cal) {
+        Calendar monday = (Calendar) cal.clone();
+        int dow = monday.get(Calendar.DAY_OF_WEEK);
+        int daysToSubtract = (dow == Calendar.SUNDAY) ? 6 : dow - Calendar.MONDAY;
+        monday.add(Calendar.DAY_OF_MONTH, -daysToSubtract);
+        CalendarUtils.truncateToDay(monday);
+        return monday.getTime().toString();
+    }
+
+    private String getFirstOfMonthKey(Calendar cal) {
+        Calendar first = (Calendar) cal.clone();
+        first.set(Calendar.DAY_OF_MONTH, 1);
+        CalendarUtils.truncateToDay(first);
+        return first.getTime().toString();
+    }
+
+    // --- Hourly aggregation (unchanged) ---
+
     private DemographicsSurveyAnswers buildHourlyAggregation(List<DemographicsSnapshot> snapshots) {
         Map<String, Map<String, Integer>> countryCounts = new HashMap<>();
         Map<String, Map<String, Integer>> yearOfBirthCounts = new HashMap<>();
@@ -262,6 +427,8 @@ public class DemographicsSnapshotService {
         result.setLabels(labels);
         return result;
     }
+
+    // --- Day-of-week aggregation (unchanged) ---
 
     private DemographicsSurveyAnswers buildWeeklyAggregation(List<DemographicsSnapshot> snapshots) {
         Map<String, Map<String, Integer>> countryCounts = new LinkedHashMap<>();
@@ -320,12 +487,9 @@ public class DemographicsSnapshotService {
         return result;
     }
 
-    /**
-     * Get raw count data from pre-computed snapshots for a date range.
-     */
-    public DemographicsCountsResponse getCounts(String from, String to) {
-        List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(from, to);
+    // --- Counts builders ---
 
+    private DemographicsCountsResponse buildDailyCounts(List<DemographicsSnapshot> snapshots, String granularity) {
         List<DemographicsCountsResponse.DailyCount> days = new ArrayList<>();
         int totalResponses = 0;
         Map<String, Integer> totalCountries = new HashMap<>();
@@ -369,6 +533,7 @@ public class DemographicsSnapshotService {
         }
 
         DemographicsCountsResponse response = new DemographicsCountsResponse();
+        response.setGranularity(granularity);
         response.setDays(days);
         response.setTotalResponses(totalResponses);
         response.setTotalCountries(totalCountries);
@@ -382,6 +547,127 @@ public class DemographicsSnapshotService {
         response.setTotalWeeklyIncomeFromMturk(totalWeeklyIncomeFromMturk);
         response.setTotalLanguagesSpoken(totalLanguagesSpoken);
         return response;
+    }
+
+    private DemographicsCountsResponse buildGroupedCounts(List<DemographicsSnapshot> snapshots, String granularity) {
+        DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
+        DateFormat sortableDf = SafeDateFormat.forPattern("yyyy-MM-dd");
+
+        // Group snapshots, using sortable date keys for the counts response
+        Map<String, List<DemographicsSnapshot>> groups = new LinkedHashMap<>();
+        for (DemographicsSnapshot snap : snapshots) {
+            try {
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(df.parse(snap.getId()));
+                String periodKey = "monthly".equals(granularity) ?
+                        getFirstOfMonthSortableDate(cal, sortableDf) :
+                        getMondaySortableDate(cal, sortableDf);
+                groups.computeIfAbsent(periodKey, k -> new ArrayList<>()).add(snap);
+            } catch (ParseException e) {
+                // skip
+            }
+        }
+
+        List<DemographicsCountsResponse.DailyCount> periods = new ArrayList<>();
+        int totalResponses = 0;
+        Map<String, Integer> totalCountries = new HashMap<>();
+        Map<String, Integer> totalYearOfBirth = new HashMap<>();
+        Map<String, Integer> totalGender = new HashMap<>();
+        Map<String, Integer> totalMaritalStatus = new HashMap<>();
+        Map<String, Integer> totalHouseholdSize = new HashMap<>();
+        Map<String, Integer> totalHouseholdIncome = new HashMap<>();
+        Map<String, Integer> totalEducationalLevel = new HashMap<>();
+        Map<String, Integer> totalTimeSpentOnMturk = new HashMap<>();
+        Map<String, Integer> totalWeeklyIncomeFromMturk = new HashMap<>();
+        Map<String, Integer> totalLanguagesSpoken = new HashMap<>();
+
+        for (Map.Entry<String, List<DemographicsSnapshot>> group : groups.entrySet()) {
+            DemographicsCountsResponse.DailyCount period = new DemographicsCountsResponse.DailyCount();
+            period.setDate(group.getKey());
+
+            Map<String, Integer> pCountries = new HashMap<>();
+            Map<String, Integer> pYearOfBirth = new HashMap<>();
+            Map<String, Integer> pGender = new HashMap<>();
+            Map<String, Integer> pMaritalStatus = new HashMap<>();
+            Map<String, Integer> pHouseholdSize = new HashMap<>();
+            Map<String, Integer> pHouseholdIncome = new HashMap<>();
+            Map<String, Integer> pEducationalLevel = new HashMap<>();
+            Map<String, Integer> pTimeSpentOnMturk = new HashMap<>();
+            Map<String, Integer> pWeeklyIncomeFromMturk = new HashMap<>();
+            Map<String, Integer> pLanguagesSpoken = new HashMap<>();
+            int periodResponses = 0;
+
+            for (DemographicsSnapshot snap : group.getValue()) {
+                periodResponses += snap.getTotalResponses();
+                mergeCounts(snap.getCountries(), pCountries);
+                mergeCounts(snap.getYearOfBirth(), pYearOfBirth);
+                mergeCounts(snap.getGender(), pGender);
+                mergeCounts(snap.getMaritalStatus(), pMaritalStatus);
+                mergeCounts(snap.getHouseholdSize(), pHouseholdSize);
+                mergeCounts(snap.getHouseholdIncome(), pHouseholdIncome);
+                mergeCounts(snap.getEducationalLevel(), pEducationalLevel);
+                mergeCounts(snap.getTimeSpentOnMturk(), pTimeSpentOnMturk);
+                mergeCounts(snap.getWeeklyIncomeFromMturk(), pWeeklyIncomeFromMturk);
+                mergeCounts(snap.getLanguagesSpoken(), pLanguagesSpoken);
+            }
+
+            period.setTotalResponses(periodResponses);
+            period.setCountries(pCountries);
+            period.setYearOfBirth(pYearOfBirth);
+            period.setGender(pGender);
+            period.setMaritalStatus(pMaritalStatus);
+            period.setHouseholdSize(pHouseholdSize);
+            period.setHouseholdIncome(pHouseholdIncome);
+            period.setEducationalLevel(pEducationalLevel);
+            period.setTimeSpentOnMturk(pTimeSpentOnMturk);
+            period.setWeeklyIncomeFromMturk(pWeeklyIncomeFromMturk);
+            period.setLanguagesSpoken(pLanguagesSpoken);
+            periods.add(period);
+
+            totalResponses += periodResponses;
+            mergeCounts(pCountries, totalCountries);
+            mergeCounts(pYearOfBirth, totalYearOfBirth);
+            mergeCounts(pGender, totalGender);
+            mergeCounts(pMaritalStatus, totalMaritalStatus);
+            mergeCounts(pHouseholdSize, totalHouseholdSize);
+            mergeCounts(pHouseholdIncome, totalHouseholdIncome);
+            mergeCounts(pEducationalLevel, totalEducationalLevel);
+            mergeCounts(pTimeSpentOnMturk, totalTimeSpentOnMturk);
+            mergeCounts(pWeeklyIncomeFromMturk, totalWeeklyIncomeFromMturk);
+            mergeCounts(pLanguagesSpoken, totalLanguagesSpoken);
+        }
+
+        DemographicsCountsResponse response = new DemographicsCountsResponse();
+        response.setGranularity(granularity);
+        response.setDays(periods);
+        response.setTotalResponses(totalResponses);
+        response.setTotalCountries(totalCountries);
+        response.setTotalYearOfBirth(totalYearOfBirth);
+        response.setTotalGender(totalGender);
+        response.setTotalMaritalStatus(totalMaritalStatus);
+        response.setTotalHouseholdSize(totalHouseholdSize);
+        response.setTotalHouseholdIncome(totalHouseholdIncome);
+        response.setTotalEducationalLevel(totalEducationalLevel);
+        response.setTotalTimeSpentOnMturk(totalTimeSpentOnMturk);
+        response.setTotalWeeklyIncomeFromMturk(totalWeeklyIncomeFromMturk);
+        response.setTotalLanguagesSpoken(totalLanguagesSpoken);
+        return response;
+    }
+
+    private String getMondaySortableDate(Calendar cal, DateFormat sortableDf) {
+        Calendar monday = (Calendar) cal.clone();
+        int dow = monday.get(Calendar.DAY_OF_WEEK);
+        int daysToSubtract = (dow == Calendar.SUNDAY) ? 6 : dow - Calendar.MONDAY;
+        monday.add(Calendar.DAY_OF_MONTH, -daysToSubtract);
+        CalendarUtils.truncateToDay(monday);
+        return sortableDf.format(monday.getTime());
+    }
+
+    private String getFirstOfMonthSortableDate(Calendar cal, DateFormat sortableDf) {
+        Calendar first = (Calendar) cal.clone();
+        first.set(Calendar.DAY_OF_MONTH, 1);
+        CalendarUtils.truncateToDay(first);
+        return sortableDf.format(first.getTime());
     }
 
     // --- Helper methods ---

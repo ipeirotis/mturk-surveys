@@ -1,5 +1,6 @@
 package com.ipeirotis.controller;
 
+import com.ipeirotis.dto.DemographicsChartData;
 import com.ipeirotis.dto.DemographicsCountsResponse;
 import com.ipeirotis.dto.DemographicsSurveyAnswersByPeriod;
 import com.ipeirotis.entity.Survey;
@@ -31,6 +32,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.http.CacheControl;
+
 @RestController
 @RequestMapping("/api/survey")
 @Tag(name = "Survey", description = "Demographics survey data and analytics")
@@ -61,25 +64,43 @@ public class SurveyController {
 		return userAnswerService.list(cursor, limit, fromDate, toDate);
 	}
 
+	@GetMapping({"/demographics/chartData"})
+	@Operation(summary = "Get combined chart data (percentages + counts)",
+			description = "Returns both aggregated percentages and raw counts from a single Datastore query. "
+					+ "Preferred over separate aggregatedAnswers + counts calls. "
+					+ "Auto-selects granularity: daily (≤90 days), weekly (91-730), monthly (>730).")
+	public ResponseEntity<DemographicsChartData> getChartData(
+			@Parameter(description = "Start date in MM/dd/yyyy format") @RequestParam String from,
+			@Parameter(description = "End date in MM/dd/yyyy format") @RequestParam String to) {
+		return ResponseEntity.ok()
+				.cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS))
+				.body(snapshotService.getChartData(from, to));
+	}
+
 	@GetMapping({"/demographics/aggregatedAnswers"})
 	@Operation(summary = "Get aggregated demographics percentages",
 			description = "Returns demographics data aggregated by period (hourly, daily, weekly) as percentages. "
-					+ "Data comes from pre-computed daily snapshots.")
-	public DemographicsSurveyAnswersByPeriod getSurveyAggregatedAnswers(
+					+ "Data comes from pre-computed daily snapshots. "
+					+ "Consider using /demographics/chartData instead for better performance.")
+	public ResponseEntity<DemographicsSurveyAnswersByPeriod> getSurveyAggregatedAnswers(
 			@Parameter(description = "Start date in MM/dd/yyyy format") @RequestParam String from,
 			@Parameter(description = "End date in MM/dd/yyyy format") @RequestParam String to) {
-		return snapshotService.getAggregatedAnswers(from, to);
+		return ResponseEntity.ok()
+				.cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS))
+				.body(snapshotService.getAggregatedAnswers(from, to));
 	}
 
 	@GetMapping({"/demographics/counts"})
 	@Operation(summary = "Get raw demographics counts",
 			description = "Returns raw count data (not percentages) from pre-computed daily snapshots. "
 					+ "Includes per-day breakdowns and summed totals across the date range. "
-					+ "Useful for statistical analysis where raw counts are needed.")
-	public DemographicsCountsResponse getSurveyCounts(
+					+ "Consider using /demographics/chartData instead for better performance.")
+	public ResponseEntity<DemographicsCountsResponse> getSurveyCounts(
 			@Parameter(description = "Start date in MM/dd/yyyy format") @RequestParam String from,
 			@Parameter(description = "End date in MM/dd/yyyy format") @RequestParam String to) {
-		return snapshotService.getCounts(from, to);
+		return ResponseEntity.ok()
+				.cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS))
+				.body(snapshotService.getCounts(from, to));
 	}
 
 	@GetMapping("/demographics/answers/csv")

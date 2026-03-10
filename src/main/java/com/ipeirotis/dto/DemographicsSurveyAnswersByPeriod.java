@@ -7,6 +7,8 @@ public class DemographicsSurveyAnswersByPeriod {
     private DemographicsSurveyAnswers hourly;
     private DemographicsSurveyAnswers daily;
     private DemographicsSurveyAnswers weekly;
+    /** Granularity used for the "daily" field: "daily", "weekly", or "monthly". */
+    private String dailyGranularity;
 
     public DemographicsSurveyAnswers getHourly() {
         return hourly;
@@ -30,5 +32,13 @@ public class DemographicsSurveyAnswersByPeriod {
 
     public void setWeekly(DemographicsSurveyAnswers weekly) {
         this.weekly = weekly;
+    }
+
+    public String getDailyGranularity() {
+        return dailyGranularity;
+    }
+
+    public void setDailyGranularity(String dailyGranularity) {
+        this.dailyGranularity = dailyGranularity;
     }
 }

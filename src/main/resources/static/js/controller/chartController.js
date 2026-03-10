@@ -2,6 +2,8 @@ angular.module('mturk').controller('ChartController',
     ['$scope', '$filter', '$routeParams', '$timeout', 'dataService', 'dateFilterState',
     function ($scope, $filter, $routeParams, $timeout, dataService, dateFilterState) {
 
+    var MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
     $scope.from = new Date(dateFilterState.from.getTime());
     $scope.to = new Date(dateFilterState.to.getTime());
     $scope.activePill = 'dailyChartPill';
@@ -16,6 +18,33 @@ angular.module('mturk').controller('ChartController',
     $scope.displayMode = 'bar';
     $scope.countsData = null;
     $scope.summaryStats = null;
+    $scope.granularityNote = null;
+
+    // --- Label formatting helpers ---
+
+    // Format a Date.toString() key depending on granularity reported by the backend.
+    function formatDailyLabel(periodKey, granularity) {
+        var d = new Date(periodKey);
+        if (granularity === 'monthly') {
+            return MONTH_ABBR[d.getMonth()] + ' ' + d.getFullYear();
+        }
+        // 'weekly' or 'daily' — show M/d/yyyy
+        return (d.getMonth()+1) + '/' + d.getDate() + '/' + d.getFullYear();
+    }
+
+    function granularityLabel(gran, numPeriods) {
+        if (gran === 'weekly') return 'Showing weekly averages (' + numPeriods + ' weeks)';
+        if (gran === 'monthly') return 'Showing monthly averages (' + numPeriods + ' months)';
+        return null;
+    }
+
+    // Parse a counts day date string "YYYY-MM-DD" into a Date
+    function parseCountsDate(dateStr) {
+        var p = dateStr.split('-');
+        return new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+    }
+
+    // --- End helpers ---
 
     $scope.setDisplayMode = function(mode) {
         $scope.displayMode = mode;
@@ -39,25 +68,13 @@ angular.module('mturk').controller('ChartController',
         var fromStr = $filter('date')($scope.from, 'MM/dd/yyyy');
         var toStr = $filter('date')($scope.to, 'MM/dd/yyyy');
 
-        dataService.loadDemographicsSurvey(fromStr, toStr, function(response){
-            $scope.response = response;
+        // Single XHR for both percentages and counts
+        dataService.loadChartData(fromStr, toStr, function(chartData){
+            $scope.response = chartData.aggregated;
+            $scope.countsData = chartData.counts;
+            buildSummaryStats(chartData.counts);
             $scope.drawnCharts = [];
             $scope.draw($scope.visibleChart);
-        }, function(error){
-            console.log(error);
-        });
-
-        dataService.loadDemographicsCounts(fromStr, toStr, function(counts){
-            $scope.countsData = counts;
-            buildSummaryStats(counts);
-            // If volume chart is visible, redraw it
-            var idx = $scope.drawnCharts.indexOf('volumeChart');
-            if (idx >= 0) {
-                $scope.drawnCharts.splice(idx, 1);
-            }
-            if ($scope.visibleChart === 'volumeChart') {
-                $scope.draw('volumeChart');
-            }
         }, function(error){
             console.log(error);
         });
@@ -163,11 +180,19 @@ angular.module('mturk').controller('ChartController',
             return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
         });
 
+        var gran = counts.granularity || 'daily';
+        scope.volumeGranularity = granularityLabel(gran, days.length);
+
         var labels = [];
         var data = [];
         for (var i = 0; i < days.length; i++) {
-            var parts = days[i].date.split('-');
-            labels.push(parseInt(parts[1]) + '/' + parseInt(parts[2]) + '/' + parts[0]);
+            if (gran === 'monthly') {
+                var d = parseCountsDate(days[i].date);
+                labels.push(MONTH_ABBR[d.getMonth()] + ' ' + d.getFullYear());
+            } else {
+                var parts = days[i].date.split('-');
+                labels.push(parseInt(parts[1]) + '/' + parseInt(parts[2]) + '/' + parts[0]);
+            }
             data.push(days[i].totalResponses);
         }
 
@@ -194,8 +219,12 @@ angular.module('mturk').controller('ChartController',
             return;
         }
 
+        // The backend reports the granularity used for the "daily" field
+        var granularity = (type === 'daily' && data.dailyGranularity) ? data.dailyGranularity : 'daily';
+
         if (type === 'daily') {
             periods.sort(function(a, b) { return new Date(a) - new Date(b); });
+            scope.dailyGranularity = granularityLabel(granularity, periods.length);
         } else if (type === 'hourly') {
             periods.sort(function(a, b) { return parseInt(a) - parseInt(b); });
         }
@@ -203,8 +232,7 @@ angular.module('mturk').controller('ChartController',
         var chartLabels = [];
         for (var p = 0; p < periods.length; p++) {
             if (type === 'daily') {
-                var d = new Date(periods[p]);
-                chartLabels.push((d.getMonth()+1) + '/' + d.getDate() + '/' + d.getFullYear());
+                chartLabels.push(formatDailyLabel(periods[p], granularity));
             } else {
                 chartLabels.push(periods[p]);
             }
@@ -225,12 +253,23 @@ angular.module('mturk').controller('ChartController',
         if (scope.countsData && scope.countsData.days && type === 'daily') {
             countsPerPeriod = {};
             var days = scope.countsData.days;
+
+            // Build a lookup from counts date to day data
+            var dayCountsByDate = {};
             for (var di = 0; di < days.length; di++) {
-                var day = days[di];
-                // Convert yyyy-MM-dd to M/d/yyyy to match chartLabels
-                var dp = day.date.split('-');
-                var labelKey = parseInt(dp[1]) + '/' + parseInt(dp[2]) + '/' + dp[0];
-                countsPerPeriod[labelKey] = day;
+                dayCountsByDate[days[di].date] = days[di];
+            }
+
+            // Map each chart label to its counts entry
+            for (var pi = 0; pi < periods.length; pi++) {
+                var periodDate = new Date(periods[pi]);
+                var dateKey = periodDate.getFullYear() + '-'
+                    + (periodDate.getMonth() < 9 ? '0' : '') + (periodDate.getMonth() + 1) + '-'
+                    + (periodDate.getDate() < 10 ? '0' : '') + periodDate.getDate();
+                var dayData = dayCountsByDate[dateKey];
+                if (dayData) {
+                    countsPerPeriod[chartLabels[pi]] = dayData;
+                }
             }
         }
 
