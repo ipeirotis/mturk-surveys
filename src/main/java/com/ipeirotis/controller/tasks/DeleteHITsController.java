@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ipeirotis.util.CalendarUtils;
+
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -45,9 +47,7 @@ public class DeleteHITsController {
 	private String delete(String cursorString) {
 		Calendar endCal = Calendar.getInstance();
 		endCal.setTime(new Date());
-		endCal.set(Calendar.HOUR_OF_DAY, 0);
-		endCal.set(Calendar.MINUTE, 0);
-		endCal.set(Calendar.SECOND, 0);
+		CalendarUtils.truncateToDay(endCal);
 
 		Calendar startCal = Calendar.getInstance();
 		startCal.setTime(endCal.getTime());

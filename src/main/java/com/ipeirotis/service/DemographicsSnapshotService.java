@@ -5,6 +5,7 @@ import com.ipeirotis.dto.DemographicsSurveyAnswers;
 import com.ipeirotis.dto.DemographicsSurveyAnswersByPeriod;
 import com.ipeirotis.entity.DemographicsSnapshot;
 import com.ipeirotis.entity.UserAnswer;
+import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -46,10 +47,7 @@ public class DemographicsSnapshotService {
         Calendar dateFrom = Calendar.getInstance();
         DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
         dateFrom.setTime(df.parse(dateStr));
-        dateFrom.set(Calendar.HOUR_OF_DAY, 0);
-        dateFrom.set(Calendar.MINUTE, 0);
-        dateFrom.set(Calendar.SECOND, 0);
-        dateFrom.set(Calendar.MILLISECOND, 0);
+        CalendarUtils.truncateToDay(dateFrom);
 
         Calendar dateTo = Calendar.getInstance();
         dateTo.setTime(dateFrom.getTime());
@@ -57,8 +55,7 @@ public class DemographicsSnapshotService {
 
         // Query without surveyId filter: old UserAnswer entities may have surveyId=null
         // and would be excluded by the composite index (surveyId, date) equality filter.
-        // Since this app only has the "demographics" survey, all UserAnswer entities qualify.
-        List<UserAnswer> answers = surveyService.listAnswers(null, dateFrom.getTime(), dateTo.getTime());
+        List<UserAnswer> answers = surveyService.listAnswersByDateRange(dateFrom.getTime(), dateTo.getTime());
 
         if (answers.isEmpty()) {
             logger.info("No responses found for " + dateStr + ", skipping snapshot");
@@ -161,10 +158,7 @@ public class DemographicsSnapshotService {
             try {
                 Calendar cal = Calendar.getInstance();
                 cal.setTime(SafeDateFormat.forPattern("MM/dd/yyyy").parse(snap.getId()));
-                cal.set(Calendar.HOUR_OF_DAY, 0);
-                cal.set(Calendar.MINUTE, 0);
-                cal.set(Calendar.SECOND, 0);
-                cal.set(Calendar.MILLISECOND, 0);
+                CalendarUtils.truncateToDay(cal);
                 key = cal.getTime().toString();
             } catch (ParseException e) {
                 continue;
