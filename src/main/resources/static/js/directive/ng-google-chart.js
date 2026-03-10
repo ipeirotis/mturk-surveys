@@ -151,20 +151,17 @@
                     function buildVolumeConfig(data) {
                         var ds = data.datasets[0];
                         return {
-                            type: 'line',
+                            type: 'bar',
                             data: {
                                 labels: data.labels,
                                 datasets: [{
                                     label: ds.label,
                                     data: ds.data,
-                                    backgroundColor: '#4285F4' + '33',
+                                    backgroundColor: '#4285F4' + '99',
                                     borderColor: '#4285F4',
-                                    borderWidth: 2,
-                                    fill: true,
-                                    tension: 0.3,
-                                    pointRadius: 2,
-                                    pointHitRadius: 8,
-                                    pointBackgroundColor: '#4285F4'
+                                    borderWidth: 0,
+                                    barPercentage: 1.0,
+                                    categoryPercentage: 1.0
                                 }]
                             },
                             options: {
@@ -188,27 +185,17 @@
                                 },
                                 scales: {
                                     x: {
-                                        ticks: {
-                                            font: { size: 11 },
-                                            color: '#666',
-                                            maxRotation: 45,
-                                            minRotation: 45
-                                        }
+                                        display: false
                                     },
                                     y: {
                                         min: 0,
                                         ticks: {
-                                            font: { size: 11 },
-                                            color: '#666'
+                                            font: { size: 10 },
+                                            color: '#999',
+                                            maxTicksLimit: 3
                                         },
                                         grid: {
-                                            color: '#e0e0e0'
-                                        },
-                                        title: {
-                                            display: true,
-                                            text: 'Responses',
-                                            font: { size: 12 },
-                                            color: '#666'
+                                            color: '#e8e8e8'
                                         }
                                     }
                                 }

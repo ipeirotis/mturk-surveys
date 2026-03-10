@@ -11,15 +11,122 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.text.DateFormat;
 import java.text.ParseException;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.util.Calendar;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 @RestController
 public class SnapshotController {
 
+    private static final Logger logger = Logger.getLogger(SnapshotController.class.getName());
+
     @Autowired
     private DemographicsSnapshotService snapshotService;
+
+    /**
+     * Cron-triggered: pre-warms the chartData cache for the full date range.
+     * Runs after the daily snapshot so the cache includes yesterday's data.
+     */
+    @GetMapping("/tasks/warmChartCache")
+    public Map<String, Object> warmChartCache() {
+        DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
+        String from = "03/26/2015";
+        String to = df.format(new java.util.Date());
+        long start = System.currentTimeMillis();
+        snapshotService.getChartData(from, to);
+        long elapsed = System.currentTimeMillis() - start;
+        logger.info("Chart cache warmed for " + from + " to " + to + " in " + elapsed + "ms");
+        return Map.of("status", "ok", "from", from, "to", to, "elapsedMs", elapsed);
+    }
+
+    /**
+     * Cron-triggered: build weekly and monthly rollups for the most recently completed periods.
+     * - Weekly: builds the rollup for the week that ended last Sunday
+     * - Monthly: if today is the 1st-7th, builds the rollup for the previous month
+     */
+    @GetMapping("/tasks/buildRollups")
+    public Map<String, Object> buildRollups() {
+        LocalDate today = LocalDate.now();
+
+        // Build weekly rollup for the most recently completed week (Mon-Sun)
+        LocalDate lastMonday = today.with(TemporalAdjusters.previous(DayOfWeek.MONDAY));
+        String weeklyDate = lastMonday.toString();
+        snapshotService.buildWeeklyRollup(weeklyDate);
+        logger.info("Built weekly rollup for " + weeklyDate);
+
+        // Build monthly rollup if we're in the first week of the month
+        String monthlyDate = null;
+        if (today.getDayOfMonth() <= 7) {
+            LocalDate firstOfLastMonth = today.minusMonths(1).withDayOfMonth(1);
+            monthlyDate = firstOfLastMonth.toString();
+            snapshotService.buildMonthlyRollup(monthlyDate);
+            logger.info("Built monthly rollup for " + monthlyDate);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", "ok");
+        result.put("weeklyRollup", weeklyDate);
+        result.put("monthlyRollup", monthlyDate);
+        return result;
+    }
+
+    /**
+     * Backfill all weekly and monthly rollups from the start of data (2015-03-23)
+     * to now. Enqueues individual rollup tasks via Cloud Tasks.
+     */
+    @GetMapping("/tasks/backfillRollups")
+    public Map<String, Object> backfillRollups() {
+        LocalDate dataStart = LocalDate.of(2015, 3, 23); // Monday before first data
+        LocalDate today = LocalDate.now();
+
+        int weeklyCount = 0;
+        int monthlyCount = 0;
+
+        // Enqueue weekly rollups
+        LocalDate monday = dataStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        while (monday.isBefore(today)) {
+            Map<String, String> params = new LinkedHashMap<>();
+            params.put("date", monday.toString());
+            params.put("granularity", "weekly");
+            TaskUtils.queueTask("/tasks/buildRollup", params);
+            weeklyCount++;
+            monday = monday.plusWeeks(1);
+        }
+
+        // Enqueue monthly rollups
+        LocalDate month = dataStart.withDayOfMonth(1);
+        while (month.isBefore(today)) {
+            Map<String, String> params = new LinkedHashMap<>();
+            params.put("date", month.toString());
+            params.put("granularity", "monthly");
+            TaskUtils.queueTask("/tasks/buildRollup", params);
+            monthlyCount++;
+            month = month.plusMonths(1);
+        }
+
+        return Map.of("status", "ok", "weeklyTasksEnqueued", weeklyCount,
+                "monthlyTasksEnqueued", monthlyCount);
+    }
+
+    /**
+     * Build a single rollup. Called by Cloud Tasks during backfill.
+     * Example: /tasks/buildRollup?date=2024-01-01&granularity=weekly
+     */
+    @GetMapping("/tasks/buildRollup")
+    public Map<String, Object> buildSingleRollup(@RequestParam String date, @RequestParam String granularity) {
+        if ("weekly".equals(granularity)) {
+            snapshotService.buildWeeklyRollup(date);
+        } else if ("monthly".equals(granularity)) {
+            snapshotService.buildMonthlyRollup(date);
+        } else {
+            return Map.of("status", "error", "message", "Unknown granularity: " + granularity);
+        }
+        return Map.of("status", "ok", "date", date, "granularity", granularity);
+    }
 
     /**
      * Cron-triggered: snapshot yesterday's demographics data.
