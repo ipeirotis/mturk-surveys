@@ -43,20 +43,25 @@ public class SnapshotController {
         return Map.of("status", "ok", "date", date);
     }
 
+    private static final int MAX_CHUNKS = 30;
+
     /**
-     * Backfill snapshots for a date range by enqueueing one Cloud Task per day.
-     * Each task calls /tasks/snapshotDate for a single date, avoiding timeouts.
+     * Backfill snapshots for a date range. If the range exceeds MAX_CHUNKS days,
+     * it divides the range into ~MAX_CHUNKS equal sub-ranges and re-enqueues each
+     * as a backfillSnapshots Cloud Task (recursive subdivision). Only when the range
+     * is <= MAX_CHUNKS days does it enqueue individual snapshotDate tasks per day.
      * Example: /tasks/backfillSnapshots?from=01/01/2010&to=03/09/2026
      */
     @GetMapping("/tasks/backfillSnapshots")
     public Map<String, Object> backfill(@RequestParam String from, @RequestParam String to) throws ParseException {
         DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
-        Calendar current = Calendar.getInstance();
-        current.setTime(df.parse(from));
-        current.set(Calendar.HOUR_OF_DAY, 0);
-        current.set(Calendar.MINUTE, 0);
-        current.set(Calendar.SECOND, 0);
-        current.set(Calendar.MILLISECOND, 0);
+
+        Calendar start = Calendar.getInstance();
+        start.setTime(df.parse(from));
+        start.set(Calendar.HOUR_OF_DAY, 0);
+        start.set(Calendar.MINUTE, 0);
+        start.set(Calendar.SECOND, 0);
+        start.set(Calendar.MILLISECOND, 0);
 
         Calendar end = Calendar.getInstance();
         end.setTime(df.parse(to));
@@ -65,7 +70,39 @@ public class SnapshotController {
         end.set(Calendar.SECOND, 0);
         end.set(Calendar.MILLISECOND, 0);
 
+        long totalDays = java.util.concurrent.TimeUnit.MILLISECONDS.toDays(
+                end.getTimeInMillis() - start.getTimeInMillis()) + 1;
+
+        if (totalDays > MAX_CHUNKS) {
+            // Divide range into ~MAX_CHUNKS equal sub-ranges and re-enqueue
+            int daysPerChunk = (int) Math.ceil((double) totalDays / MAX_CHUNKS);
+            int chunksEnqueued = 0;
+            Calendar chunkStart = (Calendar) start.clone();
+            while (!chunkStart.after(end)) {
+                Calendar chunkEnd = (Calendar) chunkStart.clone();
+                chunkEnd.add(Calendar.DAY_OF_MONTH, daysPerChunk - 1);
+                if (chunkEnd.after(end)) {
+                    chunkEnd = (Calendar) end.clone();
+                }
+
+                Map<String, String> params = new LinkedHashMap<>();
+                params.put("from", df.format(chunkStart.getTime()));
+                params.put("to", df.format(chunkEnd.getTime()));
+                TaskUtils.queueTask("/tasks/backfillSnapshots", params);
+                chunksEnqueued++;
+
+                chunkStart = (Calendar) chunkEnd.clone();
+                chunkStart.add(Calendar.DAY_OF_MONTH, 1);
+            }
+
+            return Map.of("status", "ok", "mode", "subdivided",
+                    "chunksEnqueued", chunksEnqueued, "daysPerChunk", daysPerChunk,
+                    "totalDays", totalDays, "from", from, "to", to);
+        }
+
+        // Range is small enough — enqueue individual per-day tasks
         int tasksEnqueued = 0;
+        Calendar current = (Calendar) start.clone();
         while (!current.after(end)) {
             String dateStr = df.format(current.getTime());
             Map<String, String> params = new LinkedHashMap<>();
@@ -75,6 +112,7 @@ public class SnapshotController {
             tasksEnqueued++;
         }
 
-        return Map.of("status", "ok", "tasksEnqueued", tasksEnqueued, "from", from, "to", to);
+        return Map.of("status", "ok", "mode", "daily",
+                "tasksEnqueued", tasksEnqueued, "from", from, "to", to);
     }
 }
