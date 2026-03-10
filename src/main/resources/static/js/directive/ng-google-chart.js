@@ -130,14 +130,14 @@
                                     y: {
                                         stacked: true,
                                         min: 0,
-                                        max: 100,
+                                        max: data.autoScaleY ? undefined : 100,
                                         ticks: {
                                             font: { size: 11 },
                                             color: '#666',
                                             callback: function (value) {
                                                 return value + '%';
                                             },
-                                            stepSize: 20
+                                            stepSize: data.autoScaleY ? undefined : 20
                                         },
                                         grid: {
                                             color: '#e0e0e0'

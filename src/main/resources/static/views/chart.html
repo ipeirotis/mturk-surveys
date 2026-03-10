@@ -30,7 +30,7 @@
 	<div class="col-xs-6 col-sm-3">
 		<p class="input-group">
 			<input type="text" class="form-control input-sm" datepicker-popup="MM/dd/yyyy" ng-model="from" is-open="openedFrom"
-			datepicker-options="dateOptions" show-weeks="false" show-button-bar="false" close-text="Close" />
+			datepicker-options="dateOptions" min-date="minDate" max-date="to" show-weeks="false" show-button-bar="false" close-text="Close" />
 			<span class="input-group-btn">
 			<button type="button" class="btn btn-default btn-sm" ng-click="openFromPicker($event)"><i class="glyphicon glyphicon-calendar"></i></button>
 			</span>
@@ -39,25 +39,24 @@
 	<div class="col-xs-6 col-sm-3">
 		<p class="input-group">
 			<input type="text" class="form-control input-sm" datepicker-popup="MM/dd/yyyy" ng-model="to" is-open="openedTo"
-			datepicker-options="dateOptions" show-weeks="false" show-button-bar="false" close-text="Close" />
+			datepicker-options="dateOptions" min-date="from" max-date="maxDate" show-weeks="false" show-button-bar="false" close-text="Close" />
 			<span class="input-group-btn">
 			<button type="button" class="btn btn-default btn-sm" ng-click="openToPicker($event)"><i class="glyphicon glyphicon-calendar"></i></button>
 			</span>
 		</p>
 	</div>
+	<div class="col-xs-6 col-sm-3">
+		<button type="button" class="btn btn-primary btn-sm" ng-click="applyDateRange()">
+			<i class="glyphicon glyphicon-refresh"></i> Update
+		</button>
+	</div>
 </div>
-<!-- Chart Type Pills & Display Mode -->
+<!-- Display Mode -->
 <div class="row">
 	<div class="col-xs-12 col-sm-8">
-		<ul class="nav nav-pills chart-pills" ng-model="activePill" pills>
-		  <li><a href="" id="hourlyChartPill" ng-click="draw('hourlyChart')">hourly</a></li>
-		  <li class="active"><a href="" id="dailyChartPill" ng-click="draw('dailyChart')">daily</a></li>
-		  <li><a href="" id="weeklyChartPill" ng-click="draw('weeklyChart')">day of week</a></li>
-		  <li><a href="" id="volumeChartPill" ng-click="draw('volumeChart')"><i class="glyphicon glyphicon-signal"></i> volume</a></li>
-		</ul>
 	</div>
 	<div class="col-xs-12 col-sm-4 text-right display-mode-btns">
-		<div class="btn-group" ng-hide="visibleChart === 'volumeChart'">
+		<div class="btn-group">
 			<button type="button" class="btn btn-sm" ng-class="displayMode === 'bar' ? 'btn-primary' : 'btn-default'" ng-click="setDisplayMode('bar')">
 				<i class="glyphicon glyphicon-stats"></i> Bars
 			</button>
@@ -68,18 +67,22 @@
 	</div>
 </div>
 <!-- Granularity Note -->
-<div class="row" ng-if="dailyGranularity || volumeGranularity">
+<div class="row" ng-if="dailyGranularity">
 	<div class="col-xs-12">
-		<p class="text-muted small granularity-note" ng-if="visibleChart === 'dailyChart' && dailyGranularity">
+		<p class="text-muted small granularity-note">
 			<i class="glyphicon glyphicon-info-sign"></i> {{dailyGranularity}}
 		</p>
-		<p class="text-muted small granularity-note" ng-if="visibleChart === 'volumeChart' && volumeGranularity">
+	</div>
+</div>
+<!-- Demographics Chart Container -->
+<div id="dailyChart" class="chart-container" style="display:block;" chartjs-chart="dailyChart"></div>
+<!-- Volume Chart (always visible, separate) -->
+<div class="row" style="margin-top: 20px;">
+	<div class="col-xs-12">
+		<h5 class="text-muted">Response Volume</h5>
+		<p class="text-muted small granularity-note" ng-if="volumeGranularity">
 			<i class="glyphicon glyphicon-info-sign"></i> {{volumeGranularity}}
 		</p>
 	</div>
 </div>
-<!-- Chart Containers -->
-<div id="hourlyChart" class="chart-container" style="display:none;" chartjs-chart="hourlyChart"></div>
-<div id="dailyChart" class="chart-container" style="display:block;" chartjs-chart="dailyChart"></div>
-<div id="weeklyChart" class="chart-container" style="display:none;" chartjs-chart="weeklyChart"></div>
-<div id="volumeChart" class="chart-container" style="display:none;" chartjs-chart="volumeChart"></div>
+<div id="volumeChart" class="chart-container" style="display:block;" chartjs-chart="volumeChart"></div>

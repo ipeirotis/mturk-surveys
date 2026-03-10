@@ -4,16 +4,20 @@ angular.module('mturk').controller('ChartController',
 
     var MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-    $scope.from = new Date(dateFilterState.from.getTime());
-    $scope.to = new Date(dateFilterState.to.getTime());
-    $scope.activePill = 'dailyChartPill';
-    $scope.chartIds = ['hourlyChart', 'dailyChart', 'weeklyChart', 'volumeChart'];
-    $scope.drawnCharts = [];
-    $scope.visibleChart = 'dailyChart';
+    // Date validation limits
+    $scope.minDate = new Date(2015, 2, 26); // March 26, 2015
+    $scope.maxDate = new Date(); // today
 
-    $scope.hourlyChart = {};
+    // Clamp persisted dates to valid range
+    var initFrom = new Date(dateFilterState.from.getTime());
+    var initTo = new Date(dateFilterState.to.getTime());
+    if (initFrom < $scope.minDate) initFrom = new Date($scope.minDate.getTime());
+    if (initTo > $scope.maxDate) initTo = new Date($scope.maxDate.getTime());
+    if (initFrom > initTo) initFrom = new Date(initTo.getTime());
+
+    $scope.from = initFrom;
+    $scope.to = initTo;
     $scope.dailyChart = {};
-    $scope.weeklyChart = {};
     $scope.volumeChart = {};
     $scope.displayMode = 'bar';
     $scope.countsData = null;
@@ -22,13 +26,11 @@ angular.module('mturk').controller('ChartController',
 
     // --- Label formatting helpers ---
 
-    // Format a Date.toString() key depending on granularity reported by the backend.
     function formatDailyLabel(periodKey, granularity) {
         var d = new Date(periodKey);
         if (granularity === 'monthly') {
             return MONTH_ABBR[d.getMonth()] + ' ' + d.getFullYear();
         }
-        // 'weekly' or 'daily' — show M/d/yyyy
         return (d.getMonth()+1) + '/' + d.getDate() + '/' + d.getFullYear();
     }
 
@@ -38,7 +40,6 @@ angular.module('mturk').controller('ChartController',
         return null;
     }
 
-    // Parse a counts day date string "YYYY-MM-DD" into a Date
     function parseCountsDate(dateStr) {
         var p = dateStr.split('-');
         return new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
@@ -48,33 +49,30 @@ angular.module('mturk').controller('ChartController',
 
     $scope.setDisplayMode = function(mode) {
         $scope.displayMode = mode;
-        var name = $scope.visibleChart;
-        if (name === 'volumeChart') return; // volume chart ignores display mode
-        if ($scope[name] && $scope[name].labels) {
-            var copy = angular.copy($scope[name]);
+        if ($scope.dailyChart && $scope.dailyChart.labels) {
+            var copy = angular.copy($scope.dailyChart);
             copy.displayMode = mode;
-            $scope[name] = copy;
+            $scope.dailyChart = copy;
         }
-        var kept = [];
-        for (var i = 0; i < $scope.drawnCharts.length; i++) {
-            if ($scope.drawnCharts[i] === name) {
-                kept.push(name);
-            }
-        }
-        $scope.drawnCharts = kept;
+    };
+
+    // Apply date range manually (Update button)
+    $scope.applyDateRange = function() {
+        dateFilterState.from = $scope.from;
+        dateFilterState.to = $scope.to;
+        $scope.load();
     };
 
     $scope.load = function(){
         var fromStr = $filter('date')($scope.from, 'MM/dd/yyyy');
         var toStr = $filter('date')($scope.to, 'MM/dd/yyyy');
 
-        // Single XHR for both percentages and counts
         dataService.loadChartData(fromStr, toStr, function(chartData){
             $scope.response = chartData.aggregated;
             $scope.countsData = chartData.counts;
             buildSummaryStats(chartData.counts);
-            $scope.drawnCharts = [];
-            $scope.draw($scope.visibleChart);
+            populateDailyChart($scope, $scope.response, $routeParams.id);
+            populateVolumeChart($scope);
         }, function(error){
             console.log(error);
         });
@@ -87,13 +85,9 @@ angular.module('mturk').controller('ChartController',
         stats.numDays = counts.days ? counts.days.length : 0;
         stats.avgPerDay = stats.numDays > 0 ? Math.round(stats.totalResponses / stats.numDays) : 0;
 
-        // Top country
         stats.topCountry = findTop(counts.totalCountries);
-        // Top gender
         stats.topGender = findTop(counts.totalGender);
-        // Top income
         stats.topIncome = findTop(counts.totalHouseholdIncome);
-        // Top education
         stats.topEducation = findTop(counts.totalEducationalLevel);
 
         $scope.summaryStats = stats;
@@ -116,49 +110,7 @@ angular.module('mturk').controller('ChartController',
         return best;
     }
 
-    $scope.draw = function(chart){
-        $scope.visibleChart = chart;
-        $scope.activePill = chart + 'Pill';
-
-        var drawn = false;
-        var i = $.inArray(chart, $scope.drawnCharts);
-        if(i < 0){
-            $scope.drawnCharts.push(chart);
-        } else {
-            drawn = true;
-        }
-
-        angular.forEach($scope.chartIds, function(chartId){
-            if($scope.visibleChart != chartId){
-                $('#'+chartId).css({display:'none'});
-            } else {
-                $('#'+chartId).css({display:'block'});
-            }
-        });
-
-        if(drawn == false){
-            if (chart === 'volumeChart') {
-                populateVolumeChart($scope);
-            } else {
-                populate($scope, chart, $scope.response, chart.substr(0, chart.length-5),
-                        $routeParams.id);
-            }
-        }
-    };
-
     $scope.load();
-
-    var watchEnabled = false;
-    $timeout(function() { watchEnabled = true; });
-
-    $scope.$watch('from+to', function(newValue, oldValue) {
-        if(!watchEnabled) return;
-        if($scope.from && $scope.to){
-            dateFilterState.from = $scope.from;
-            dateFilterState.to = $scope.to;
-            $scope.load();
-        }
-    });
 
     $scope.openFromPicker = function($event) {
         $event.preventDefault();
@@ -203,9 +155,9 @@ angular.module('mturk').controller('ChartController',
         };
     }
 
-    function populate(scope, chartName, data, type, id) {
-        var periodData = data[type][id];
-        var labelSet = data[type].labels[id];
+    function populateDailyChart(scope, data, id) {
+        var periodData = data.daily[id];
+        var labelSet = data.daily.labels[id];
 
         if (!periodData || !labelSet) {
             return;
@@ -219,27 +171,28 @@ angular.module('mturk').controller('ChartController',
             return;
         }
 
-        // The backend reports the granularity used for the "daily" field
-        var granularity = (type === 'daily' && data.dailyGranularity) ? data.dailyGranularity : 'daily';
-
-        if (type === 'daily') {
-            periods.sort(function(a, b) { return new Date(a) - new Date(b); });
-            scope.dailyGranularity = granularityLabel(granularity, periods.length);
-        } else if (type === 'hourly') {
-            periods.sort(function(a, b) { return parseInt(a) - parseInt(b); });
-        }
+        var granularity = data.dailyGranularity || 'daily';
+        periods.sort(function(a, b) { return new Date(a) - new Date(b); });
+        scope.dailyGranularity = granularityLabel(granularity, periods.length);
 
         var chartLabels = [];
         for (var p = 0; p < periods.length; p++) {
-            if (type === 'daily') {
-                chartLabels.push(formatDailyLabel(periods[p], granularity));
-            } else {
-                chartLabels.push(periods[p]);
-            }
+            chartLabels.push(formatDailyLabel(periods[p], granularity));
+        }
+
+        // For languages, filter out English by default
+        var filteredLabelSet = labelSet;
+        if (id === 'languagesSpoken') {
+            filteredLabelSet = [];
+            angular.forEach(labelSet, function(label) {
+                if (label !== 'English') {
+                    filteredLabelSet.push(label);
+                }
+            });
         }
 
         var datasets = [];
-        angular.forEach(labelSet, function(label) {
+        angular.forEach(filteredLabelSet, function(label) {
             var values = [];
             for (var pp = 0; pp < periods.length; pp++) {
                 var entry = periodData[periods[pp]];
@@ -250,17 +203,15 @@ angular.module('mturk').controller('ChartController',
 
         // Attach counts data for tooltips if available
         var countsPerPeriod = null;
-        if (scope.countsData && scope.countsData.days && type === 'daily') {
+        if (scope.countsData && scope.countsData.days) {
             countsPerPeriod = {};
             var days = scope.countsData.days;
 
-            // Build a lookup from counts date to day data
             var dayCountsByDate = {};
             for (var di = 0; di < days.length; di++) {
                 dayCountsByDate[days[di].date] = days[di];
             }
 
-            // Map each chart label to its counts entry
             for (var pi = 0; pi < periods.length; pi++) {
                 var periodDate = new Date(periods[pi]);
                 var dateKey = periodDate.getFullYear() + '-'
@@ -273,12 +224,13 @@ angular.module('mturk').controller('ChartController',
             }
         }
 
-        scope[chartName] = {
+        scope.dailyChart = {
             labels: chartLabels,
             datasets: datasets,
             displayMode: scope.displayMode,
             countsPerPeriod: countsPerPeriod,
-            demographicField: id
+            demographicField: id,
+            autoScaleY: (id === 'languagesSpoken')
         };
     }
 }]);
