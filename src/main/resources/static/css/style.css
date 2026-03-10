@@ -139,6 +139,11 @@ body {
     margin-bottom: 10px;
 }
 
+.granularity-note {
+    margin: 2px 0 6px 0;
+    color: #888;
+}
+
 /* Mobile sidebar toggle */
 .sidebar-toggle {
     display: none;

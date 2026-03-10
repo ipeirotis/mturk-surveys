@@ -67,6 +67,17 @@
 		</div>
 	</div>
 </div>
+<!-- Granularity Note -->
+<div class="row" ng-if="dailyGranularity || volumeGranularity">
+	<div class="col-xs-12">
+		<p class="text-muted small granularity-note" ng-if="visibleChart === 'dailyChart' && dailyGranularity">
+			<i class="glyphicon glyphicon-info-sign"></i> {{dailyGranularity}}
+		</p>
+		<p class="text-muted small granularity-note" ng-if="visibleChart === 'volumeChart' && volumeGranularity">
+			<i class="glyphicon glyphicon-info-sign"></i> {{volumeGranularity}}
+		</p>
+	</div>
+</div>
 <!-- Chart Containers -->
 <div id="hourlyChart" class="chart-container" style="display:none;" chartjs-chart="hourlyChart"></div>
 <div id="dailyChart" class="chart-container" style="display:block;" chartjs-chart="dailyChart"></div>
