@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import static com.googlecode.objectify.ObjectifyService.ofy;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -39,10 +40,17 @@ public class UserAnswerService {
         return userAnswerDao.query(params).list();
     }
 
-    public ListByCursorResult<UserAnswer> list(String cursorString, Integer limit) {
+    public ListByCursorResult<UserAnswer> list(String cursorString, Integer limit, Date from, Date to) {
         List<UserAnswer> result = new ArrayList<UserAnswer>();
         Query<UserAnswer> query = ofy().load().type(UserAnswer.class)
                 .filter("surveyId", DEMOGRAPHICS_SURVEY_ID).order("-date");
+
+        if (from != null) {
+            query = query.filter("date >=", from);
+        }
+        if (to != null) {
+            query = query.filter("date <", to);
+        }
 
         if(cursorString != null) {
             query = query.startAt(Cursor.fromUrlSafe(cursorString));
@@ -57,11 +65,7 @@ public class UserAnswerService {
 
         while (iterator.hasNext()) {
             UserAnswer userAnswer = iterator.next();
-            String workerId = userAnswer.getWorkerId();
-            if(workerId != null) {
-                userAnswer.setWorkerId(MD5.crypt(workerId));
-            }
-            userAnswer.setIp(null);
+            applyPrivacyTransforms(userAnswer);
             result.add(userAnswer);
             cont = true;
         }
@@ -72,5 +76,32 @@ public class UserAnswerService {
         } else {
             return new ListByCursorResult<UserAnswer>().setItems(result);
         }
+    }
+
+    /**
+     * List demographics answers by date range. Uses the (date ASC) index.
+     * Results have privacy transforms applied (MD5-hashed workerId, stripped IP).
+     */
+    public List<UserAnswer> listByDateRange(Date from, Date to) {
+        Query<UserAnswer> query = ofy().load().type(UserAnswer.class)
+                .filter("surveyId", DEMOGRAPHICS_SURVEY_ID)
+                .filter("date >=", from)
+                .filter("date <", to)
+                .order("date");
+
+        List<UserAnswer> result = new ArrayList<>();
+        for (UserAnswer ua : query) {
+            applyPrivacyTransforms(ua);
+            result.add(ua);
+        }
+        return result;
+    }
+
+    private void applyPrivacyTransforms(UserAnswer userAnswer) {
+        String workerId = userAnswer.getWorkerId();
+        if (workerId != null) {
+            userAnswer.setWorkerId(MD5.crypt(workerId));
+        }
+        userAnswer.setIp(null);
     }
 }

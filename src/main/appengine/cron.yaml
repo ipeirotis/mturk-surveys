@@ -8,3 +8,6 @@ cron:
 - url: '/tasks/snapshotDemographics'
   schedule: 'every day 04:00'
   description: 'Snapshot yesterday demographics data'
+- url: '/tasks/exportToBigQuery'
+  schedule: 'every day 05:00'
+  description: 'Export yesterday demographics to BigQuery'
