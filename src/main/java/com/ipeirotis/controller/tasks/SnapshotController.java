@@ -1,6 +1,7 @@
 package com.ipeirotis.controller.tasks;
 
 import com.ipeirotis.service.DemographicsSnapshotService;
+import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
 import com.ipeirotis.util.TaskUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,17 +59,11 @@ public class SnapshotController {
 
         Calendar start = Calendar.getInstance();
         start.setTime(df.parse(from));
-        start.set(Calendar.HOUR_OF_DAY, 0);
-        start.set(Calendar.MINUTE, 0);
-        start.set(Calendar.SECOND, 0);
-        start.set(Calendar.MILLISECOND, 0);
+        CalendarUtils.truncateToDay(start);
 
         Calendar end = Calendar.getInstance();
         end.setTime(df.parse(to));
-        end.set(Calendar.HOUR_OF_DAY, 0);
-        end.set(Calendar.MINUTE, 0);
-        end.set(Calendar.SECOND, 0);
-        end.set(Calendar.MILLISECOND, 0);
+        CalendarUtils.truncateToDay(end);
 
         long totalDays = java.util.concurrent.TimeUnit.MILLISECONDS.toDays(
                 end.getTimeInMillis() - start.getTimeInMillis()) + 1;
@@ -102,7 +97,7 @@ public class SnapshotController {
 
         // Range is small enough — enqueue individual per-day tasks
         int tasksEnqueued = 0;
-        Calendar current = (Calendar) start.clone();
+        Calendar current = start;
         while (!current.after(end)) {
             String dateStr = df.format(current.getTime());
             Map<String, String> params = new LinkedHashMap<>();

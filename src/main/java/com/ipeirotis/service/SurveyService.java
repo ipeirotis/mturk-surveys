@@ -33,6 +33,7 @@ import com.ipeirotis.entity.Selection;
 import com.ipeirotis.entity.Survey;
 import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.entity.enums.AnswerType;
+import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
 
 import freemarker.template.Configuration;
@@ -222,6 +223,17 @@ public class SurveyService {
         return userAnswerService.query(params);
     }
 
+    /**
+     * List all answers in a date range regardless of surveyId.
+     * Useful for querying legacy entities that may have null surveyId.
+     */
+    public List<UserAnswer> listAnswersByDateRange(Date from, Date to) {
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("date >=", from);
+        params.put("date <", to);
+        return userAnswerService.query(params);
+    }
+
     public DemographicsSurveyAnswersByPeriod getDemographicsAnswers(String from, String to) throws ParseException {
         Map<String, List<UserAnswer>> hourlyMap = new HashMap<String, List<UserAnswer>>();
         Map<String, List<UserAnswer>> dailyMap = new HashMap<String, List<UserAnswer>>();
@@ -234,25 +246,18 @@ public class SurveyService {
         DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
         Calendar dateFrom = Calendar.getInstance();
         dateFrom.setTime(df.parse(from));
-        dateFrom.set(Calendar.HOUR_OF_DAY, 0);
-        dateFrom.set(Calendar.MINUTE, 0);
-        dateFrom.set(Calendar.SECOND, 0);
+        CalendarUtils.truncateToDay(dateFrom);
 
         Calendar dateTo = Calendar.getInstance();
         dateTo.setTime(df.parse(to));
-        dateTo.set(Calendar.HOUR_OF_DAY, 0);
-        dateTo.set(Calendar.MINUTE, 0);
-        dateTo.set(Calendar.SECOND, 0);
+        CalendarUtils.truncateToDay(dateTo);
         dateTo.add(Calendar.DAY_OF_MONTH, 1);
         List<UserAnswer> answers = listAnswers("demographics", dateFrom.getTime(), dateTo.getTime());
 
         for (UserAnswer userAnswer : answers) {
             Calendar d = Calendar.getInstance();
             d.setTime(userAnswer.getDate());
-            d.set(Calendar.HOUR_OF_DAY, 0);
-            d.set(Calendar.MINUTE, 0);
-            d.set(Calendar.SECOND, 0);
-            d.set(Calendar.MILLISECOND, 0);
+            CalendarUtils.truncateToDay(d);
 
             Calendar dateWithHour = Calendar.getInstance();
             dateWithHour.setTime(userAnswer.getDate());
