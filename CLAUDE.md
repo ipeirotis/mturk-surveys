@@ -130,7 +130,7 @@ See [TASKS.md](TASKS.md) for the full task list. Summary:
 - [x] **T3.6** — Upgrade appengine-maven-plugin 2.4.0 → 2.8.1 (fixes deploy failure)
 - [x] **Track 1** — CI/CD Pipeline (T1.1–T1.3)
 - [ ] **Track 2** — Configuration & Security (T2.1–T2.2 done, T2.3–T2.4 remaining)
-- [ ] **Track 3** — Dependency Updates (T3.1–T3.5 remaining)
+- [x] **Track 3** — Dependency Updates (T3.1–T3.5 completed)
 - [ ] **Track 4** — Java 21 + Spring Boot 3.x Migration (T4.1–T4.7)
 - [ ] **Track 5** — AWS SDK Update (T5.1–T5.3)
 - [ ] **Track 6** — Google Cloud Libraries Update (T6.1–T6.3)

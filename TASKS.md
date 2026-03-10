@@ -21,11 +21,11 @@
 
 These are low-risk version bumps with no expected API changes.
 
-- **T3.1** — Objectify 6.0.6 -> 6.1.3
-- **T3.2** — GSON 2.8.6 -> 2.11+
-- **T3.3** — Commons Lang3 3.3.2 -> 3.17+
-- **T3.4** — Commons Codec 1.2 -> 1.17+
-- **T3.5** — FreeMarker 2.3.20 -> 2.3.33+
+- [x] **T3.1** — Objectify 6.0.6 -> 6.1.3 *(completed)*
+- [x] **T3.2** — GSON 2.8.9 -> 2.11.0 *(completed)*
+- [x] **T3.3** — Commons Lang3 3.3.2 -> 3.18.0 *(already up to date)*
+- [x] **T3.4** — Commons Codec 1.2 -> 1.17.1 *(completed)*
+- [x] **T3.5** — FreeMarker 2.3.20 -> 2.3.33 *(completed)*
 - [x] **T3.6** — appengine-maven-plugin 2.4.0 -> 2.8.1 *(completed — fixes deploy failure with newer gcloud CLI)*
 
 ## Track 4: Java 21 + Spring Boot 3.x Migration
@@ -76,11 +76,11 @@ Incremental improvements to the demographics dashboard charts, from quick wins w
 
 | ID | Dependency | Current | Target | Track |
 |---|---|---|---|---|
-| T3.1 | Objectify | 6.0.6 | 6.1.3 | 3 |
-| T3.2 | GSON | 2.8.6 | 2.11+ | 3 |
-| T3.3 | Commons Lang3 | 3.3.2 | 3.17+ | 3 |
-| T3.4 | Commons Codec | 1.2 | 1.17+ | 3 |
-| T3.5 | FreeMarker | 2.3.20 | 2.3.33+ | 3 |
+| T3.1 | Objectify | ~~6.0.6~~ **6.1.3** | 6.1.3 | 3 ✅ |
+| T3.2 | GSON | ~~2.8.9~~ **2.11.0** | 2.11+ | 3 ✅ |
+| T3.3 | Commons Lang3 | ~~3.3.2~~ **3.18.0** | 3.17+ | 3 ✅ |
+| T3.4 | Commons Codec | ~~1.2~~ **1.17.1** | 1.17+ | 3 ✅ |
+| T3.5 | FreeMarker | ~~2.3.20~~ **2.3.33** | 2.3.33+ | 3 ✅ |
 | T3.6 | appengine-maven-plugin | ~~2.4.0~~ **2.8.1** | 2.8.1 | 3 ✅ |
 | T4.3 | Spring Boot | 2.3.5 | 3.4.x | 4 |
 | T4.5 | Jetty (via Spring Boot) | 2.4.0 | managed | 4 |
