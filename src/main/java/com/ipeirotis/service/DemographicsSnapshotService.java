@@ -55,7 +55,15 @@ public class DemographicsSnapshotService {
         dateTo.setTime(dateFrom.getTime());
         dateTo.add(Calendar.DAY_OF_MONTH, 1);
 
-        List<UserAnswer> answers = surveyService.listAnswers("demographics", dateFrom.getTime(), dateTo.getTime());
+        // Query without surveyId filter: old UserAnswer entities may have surveyId=null
+        // and would be excluded by the composite index (surveyId, date) equality filter.
+        // Since this app only has the "demographics" survey, all UserAnswer entities qualify.
+        List<UserAnswer> answers = surveyService.listAnswers(null, dateFrom.getTime(), dateTo.getTime());
+
+        if (answers.isEmpty()) {
+            logger.info("No responses found for " + dateStr + ", skipping snapshot");
+            return null;
+        }
 
         DateFormat sortableDf = SafeDateFormat.forPattern("yyyy-MM-dd");
         String sortableDate = sortableDf.format(dateFrom.getTime());
