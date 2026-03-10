@@ -123,6 +123,12 @@
                             return;
                         }
 
+                        // Skip rendering when the container is hidden;
+                        // Chart.js cannot measure a display:none element.
+                        if ($elm[0].offsetParent === null) {
+                            return;
+                        }
+
                         if (chart) {
                             chart.destroy();
                         }
