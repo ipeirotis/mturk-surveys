@@ -20,7 +20,7 @@ public class DemographicsSnapshot {
     private String id; // date in MM/dd/yyyy format
 
     @Index
-    private String date; // same as id, indexed for range queries
+    private String date; // yyyy-MM-dd format, indexed for range queries
 
     private int totalResponses;
 

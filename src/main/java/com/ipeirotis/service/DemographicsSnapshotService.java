@@ -33,8 +33,6 @@ public class DemographicsSnapshotService {
         INCOME_LABELS.add("$100,000 or more");
     }
 
-    private final DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
-
     @Autowired
     private DemographicsSnapshotDao snapshotDao;
 
@@ -46,6 +44,7 @@ public class DemographicsSnapshotService {
      */
     public DemographicsSnapshot buildSnapshot(String dateStr) throws ParseException {
         Calendar dateFrom = Calendar.getInstance();
+        DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
         dateFrom.setTime(df.parse(dateStr));
         dateFrom.set(Calendar.HOUR_OF_DAY, 0);
         dateFrom.set(Calendar.MINUTE, 0);
@@ -58,9 +57,12 @@ public class DemographicsSnapshotService {
 
         List<UserAnswer> answers = surveyService.listAnswers("demographics", dateFrom.getTime(), dateTo.getTime());
 
+        DateFormat sortableDf = SafeDateFormat.forPattern("yyyy-MM-dd");
+        String sortableDate = sortableDf.format(dateFrom.getTime());
+
         DemographicsSnapshot snapshot = new DemographicsSnapshot();
         snapshot.setId(dateStr);
-        snapshot.setDate(dateStr);
+        snapshot.setDate(sortableDate);
         snapshot.setDayOfWeek(DAYS[dateFrom.get(Calendar.DAY_OF_WEEK) - 1]);
         snapshot.setTotalResponses(answers.size());
 
@@ -150,7 +152,7 @@ public class DemographicsSnapshotService {
             String key;
             try {
                 Calendar cal = Calendar.getInstance();
-                cal.setTime(df.parse(snap.getId()));
+                cal.setTime(SafeDateFormat.forPattern("MM/dd/yyyy").parse(snap.getId()));
                 cal.set(Calendar.HOUR_OF_DAY, 0);
                 cal.set(Calendar.MINUTE, 0);
                 cal.set(Calendar.SECOND, 0);
