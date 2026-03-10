@@ -10,8 +10,8 @@ Deployed on **Google App Engine** (Java 21 runtime) with **Google Cloud Datastor
 
 - **Backend:** Java 21, Spring Boot 3.4.1, Jetty (not Tomcat)
 - **ORM:** Objectify 6.1.3 (Google Cloud Datastore)
-- **Cloud:** Google App Engine, Google Cloud Tasks
-- **AWS:** MTurk SDK 2.5.49
+- **Cloud:** Google App Engine, Google Cloud Tasks, Google Secret Manager
+- **AWS:** MTurk SDK 2.35.6
 - **Frontend:** AngularJS 1.2.15, Bootstrap 3.1.1, Google Charts
 - **Build:** Maven, YUI Compressor (JS/CSS minification)
 - **Templating:** FreeMarker 2.3.33
@@ -121,10 +121,39 @@ src/main/appengine/
 - **UserAnswer** stores a worker's response with geolocation, timestamp, and hashed worker ID
 - Worker IDs are MD5-hashed in analytics output for privacy
 
-### Environment Variables (app.yaml)
-- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` — MTurk credentials
-- `AWS_REGION` — defaults to `us-east-1`
-- `PORT` — server port (default 8080)
+### Environment Variables & Secrets
+
+#### App Engine Environment Variables (`app.yaml`)
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `AWS_REGION` | No | `us-east-1` | AWS region for MTurk API calls |
+| `QUEUE_ID` | Yes | `default` | Google Cloud Tasks queue name |
+| `LOCATION_ID` | Yes | `us-central1` | GCP region for Cloud Tasks |
+| `GOOGLE_CLOUD_PROJECT` | Auto | *(set by GAE)* | GCP project ID (provided automatically on App Engine) |
+| `PORT` | No | `8080` | Server port (provided automatically on App Engine) |
+
+#### GCP Secret Manager Secrets
+AWS credentials are stored in **GCP Secret Manager** (not in env vars). The app reads them at startup via `AwsCredentialsConfig`. Create these secrets in the `mturk-demographics` project:
+
+| Secret ID | Description |
+|---|---|
+| `aws-access-key-id` | AWS access key for the MTurk requester account |
+| `aws-secret-access-key` | AWS secret key for the MTurk requester account |
+
+To create the secrets:
+```bash
+echo -n "AKIAIOSFODNN7EXAMPLE" | gcloud secrets create aws-access-key-id --data-file=-
+echo -n "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" | gcloud secrets create aws-secret-access-key --data-file=-
+```
+
+The App Engine default service account needs the **Secret Manager Secret Accessor** role (`roles/secretmanager.secretAccessor`).
+
+For **local development**, the app falls back to the default AWS credential provider chain (env vars `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, `~/.aws/credentials`, etc.).
+
+#### GitHub Actions Secrets (CI/CD)
+| Secret | Description |
+|---|---|
+| `GCP_SA_KEY` | JSON key for a GCP service account with App Engine Admin + Secret Manager access |
 
 ## Important Notes
 
@@ -144,7 +173,7 @@ See [TASKS.md](TASKS.md) for the full task list. Summary:
 - [x] **T0.1** — Fix yuicompressor-maven-plugin build failure (1.3.2 → 1.5.1)
 - [x] **T3.6** — Upgrade appengine-maven-plugin 2.4.0 → 2.8.1 (fixes deploy failure)
 - [x] **Track 1** — CI/CD Pipeline (T1.1–T1.3)
-- [ ] **Track 2** — Configuration & Security (T2.1–T2.2 done, T2.3–T2.4 remaining)
+- [x] **Track 2** — Configuration & Security (T2.1–T2.4 completed)
 - [x] **Track 3** — Dependency Updates (T3.1–T3.5 completed)
 - [x] **Track 4** — Java 21 + Spring Boot 3.x Migration (T4.1–T4.7 completed)
 - [x] **Track 5** — AWS SDK Update (T5.1–T5.3 completed)

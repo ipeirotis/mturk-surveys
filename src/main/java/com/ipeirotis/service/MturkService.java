@@ -3,6 +3,7 @@ package com.ipeirotis.service;
 import com.ipeirotis.entity.Survey;
 import com.ipeirotis.util.SafeDecimalFormat;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.services.mturk.MTurkClient;
 import software.amazon.awssdk.services.mturk.MTurkClientBuilder;
 import software.amazon.awssdk.services.mturk.model.*;
@@ -18,6 +19,12 @@ public class MturkService {
     private static final Logger logger = Logger.getLogger(MturkService.class.getName());
 
     private static NumberFormat numberFormat = SafeDecimalFormat.forPattern("#0.00");
+
+    private final AwsCredentialsProvider awsCredentialsProvider;
+
+    public MturkService(AwsCredentialsProvider awsCredentialsProvider) {
+        this.awsCredentialsProvider = awsCredentialsProvider;
+    }
 
     private static final String SANDBOX_ENDPOINT = "https://mturk-requester-sandbox.us-east-1.amazonaws.com";
     private static final long DEFAULT_ASSIGNMENT_DURATION_IN_SECONDS = (long) 60 * 60; // 1 hour
@@ -87,6 +94,7 @@ public class MturkService {
 
     private MTurkClient getClient(Boolean production) {
         MTurkClientBuilder builder = MTurkClient.builder();
+        builder.credentialsProvider(awsCredentialsProvider);
         if(production == null || !production) {
             builder.endpointOverride(URI.create(SANDBOX_ENDPOINT));
         }
