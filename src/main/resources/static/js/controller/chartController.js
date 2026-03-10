@@ -13,6 +13,11 @@ angular.module('mturk').controller('ChartController',
     $scope.hourlyChart = {};
     $scope.dailyChart = {};
     $scope.weeklyChart = {};
+    $scope.displayMode = 'bar';
+
+    $scope.setDisplayMode = function(mode) {
+        $scope.displayMode = mode;
+    };
 
     $scope.$watch('from+to', function(newValue, oldValue) {
         if($scope.from && $scope.to){

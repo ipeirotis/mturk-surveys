@@ -11,7 +11,8 @@
             return {
                 restrict: 'A',
                 scope: {
-                    chartData: '=chartjsChart'
+                    chartData: '=chartjsChart',
+                    chartType: '=?chartjsType'
                 },
                 link: function ($scope, $elm) {
                     var chart = null;
@@ -26,19 +27,35 @@
                     ];
 
                     function buildConfig(data) {
+                        var isArea = $scope.chartType === 'area';
                         var datasets = [];
                         for (var i = 0; i < data.datasets.length; i++) {
                             var ds = data.datasets[i];
-                            datasets.push({
-                                label: ds.label,
-                                data: ds.data,
-                                backgroundColor: palette[i % palette.length],
-                                borderWidth: 0
-                            });
+                            var color = palette[i % palette.length];
+                            if (isArea) {
+                                datasets.push({
+                                    label: ds.label,
+                                    data: ds.data,
+                                    backgroundColor: color + 'B3',
+                                    borderColor: color,
+                                    borderWidth: 1.5,
+                                    fill: true,
+                                    tension: 0.3,
+                                    pointRadius: 0,
+                                    pointHitRadius: 6
+                                });
+                            } else {
+                                datasets.push({
+                                    label: ds.label,
+                                    data: ds.data,
+                                    backgroundColor: color,
+                                    borderWidth: 0
+                                });
+                            }
                         }
 
                         return {
-                            type: 'bar',
+                            type: isArea ? 'line' : 'bar',
                             data: {
                                 labels: data.labels,
                                 datasets: datasets
@@ -65,6 +82,9 @@
                                                 return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
                                             }
                                         }
+                                    },
+                                    filler: {
+                                        propagate: true
                                     }
                                 },
                                 scales: {
@@ -123,6 +143,12 @@
                             $timeout(renderChart, 0);
                         }
                     }, true);
+
+                    $scope.$watch('chartType', function (newVal, oldVal) {
+                        if (newVal !== oldVal && $scope.chartData && $scope.chartData.labels && $scope.chartData.labels.length > 0) {
+                            $timeout(renderChart, 0);
+                        }
+                    });
 
                     $scope.$on('$destroy', function () {
                         if (chart) {
