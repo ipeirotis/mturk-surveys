@@ -12,8 +12,8 @@
 
 ## Track 2: Configuration & Security
 
-- **T2.1** — Add missing `QUEUE_ID` and `LOCATION_ID` env vars to `app.yaml` (Cloud Tasks is broken without them)
-- **T2.2** — Fix silent exception swallowing in `TaskUtils.java` (catch block returns null with no logging)
+- [x] **T2.1** — Add missing `QUEUE_ID` and `LOCATION_ID` env vars to `app.yaml` (Cloud Tasks is broken without them) *(completed — added default values to app.yaml)*
+- [x] **T2.2** — Fix silent exception swallowing in `TaskUtils.java` (catch block returns null with no logging) *(completed — added java.util.logging with SEVERE level)*
 - **T2.3** — Migrate AWS credentials from `app.yaml` env vars to GCP Secret Manager
 - **T2.4** — Document all required environment variables and secrets in `CLAUDE.md`
 

@@ -9,8 +9,12 @@ import com.google.cloud.tasks.v2.Task;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TaskUtils {
+
+	private static final Logger logger = Logger.getLogger(TaskUtils.class.getName());
 
 	public static String queueTask(String url, Map<String, String> params) {
 		try (CloudTasksClient client = CloudTasksClient.create()) {
@@ -43,6 +47,7 @@ public class TaskUtils {
 			Task task = client.createTask(queuePath, taskBuilder.build());
 			return "Task created: " + task.getName();
 		} catch(Exception e) {
+			logger.log(Level.SEVERE, "Failed to create Cloud Task for URL: " + url, e);
 			return null;
 		}
 	}
