@@ -30,16 +30,24 @@ public class DemographicsSnapshot {
     private Map<String, Integer> maritalStatus;
     private Map<String, Integer> householdSize;
     private Map<String, Integer> householdIncome;
+    private Map<String, Integer> educationalLevel;
+    private Map<String, Integer> timeSpentOnMturk;
+    private Map<String, Integer> weeklyIncomeFromMturk;
+    private Map<String, Integer> languagesSpoken;
 
     // Hourly breakdown: hour (0-23) -> count
     private Map<String, Integer> hourlyTotals;
-    // Hourly demographic breakdowns: "hour:dimension:value" -> count
+    // Hourly demographic breakdowns: "hour:value" -> count
     private Map<String, Integer> hourlyCountries;
     private Map<String, Integer> hourlyYearOfBirth;
     private Map<String, Integer> hourlyGender;
     private Map<String, Integer> hourlyMaritalStatus;
     private Map<String, Integer> hourlyHouseholdSize;
     private Map<String, Integer> hourlyHouseholdIncome;
+    private Map<String, Integer> hourlyEducationalLevel;
+    private Map<String, Integer> hourlyTimeSpentOnMturk;
+    private Map<String, Integer> hourlyWeeklyIncomeFromMturk;
+    private Map<String, Integer> hourlyLanguagesSpoken;
 
     // Day of week (Sun, Mon, etc.)
     private String dayOfWeek;
@@ -170,6 +178,70 @@ public class DemographicsSnapshot {
 
     public void setHourlyHouseholdIncome(Map<String, Integer> hourlyHouseholdIncome) {
         this.hourlyHouseholdIncome = hourlyHouseholdIncome;
+    }
+
+    public Map<String, Integer> getEducationalLevel() {
+        return educationalLevel;
+    }
+
+    public void setEducationalLevel(Map<String, Integer> educationalLevel) {
+        this.educationalLevel = educationalLevel;
+    }
+
+    public Map<String, Integer> getTimeSpentOnMturk() {
+        return timeSpentOnMturk;
+    }
+
+    public void setTimeSpentOnMturk(Map<String, Integer> timeSpentOnMturk) {
+        this.timeSpentOnMturk = timeSpentOnMturk;
+    }
+
+    public Map<String, Integer> getWeeklyIncomeFromMturk() {
+        return weeklyIncomeFromMturk;
+    }
+
+    public void setWeeklyIncomeFromMturk(Map<String, Integer> weeklyIncomeFromMturk) {
+        this.weeklyIncomeFromMturk = weeklyIncomeFromMturk;
+    }
+
+    public Map<String, Integer> getLanguagesSpoken() {
+        return languagesSpoken;
+    }
+
+    public void setLanguagesSpoken(Map<String, Integer> languagesSpoken) {
+        this.languagesSpoken = languagesSpoken;
+    }
+
+    public Map<String, Integer> getHourlyEducationalLevel() {
+        return hourlyEducationalLevel;
+    }
+
+    public void setHourlyEducationalLevel(Map<String, Integer> hourlyEducationalLevel) {
+        this.hourlyEducationalLevel = hourlyEducationalLevel;
+    }
+
+    public Map<String, Integer> getHourlyTimeSpentOnMturk() {
+        return hourlyTimeSpentOnMturk;
+    }
+
+    public void setHourlyTimeSpentOnMturk(Map<String, Integer> hourlyTimeSpentOnMturk) {
+        this.hourlyTimeSpentOnMturk = hourlyTimeSpentOnMturk;
+    }
+
+    public Map<String, Integer> getHourlyWeeklyIncomeFromMturk() {
+        return hourlyWeeklyIncomeFromMturk;
+    }
+
+    public void setHourlyWeeklyIncomeFromMturk(Map<String, Integer> hourlyWeeklyIncomeFromMturk) {
+        this.hourlyWeeklyIncomeFromMturk = hourlyWeeklyIncomeFromMturk;
+    }
+
+    public Map<String, Integer> getHourlyLanguagesSpoken() {
+        return hourlyLanguagesSpoken;
+    }
+
+    public void setHourlyLanguagesSpoken(Map<String, Integer> hourlyLanguagesSpoken) {
+        this.hourlyLanguagesSpoken = hourlyLanguagesSpoken;
     }
 
     public String getDayOfWeek() {

@@ -78,6 +78,10 @@ public class DemographicsSnapshotService {
         Map<String, Integer> maritalStatus = new HashMap<>();
         Map<String, Integer> householdSize = new HashMap<>();
         Map<String, Integer> householdIncome = new HashMap<>();
+        Map<String, Integer> educationalLevel = new HashMap<>();
+        Map<String, Integer> timeSpentOnMturk = new HashMap<>();
+        Map<String, Integer> weeklyIncomeFromMturk = new HashMap<>();
+        Map<String, Integer> languagesSpoken = new HashMap<>();
 
         Map<String, Integer> hourlyTotals = new HashMap<>();
         Map<String, Integer> hourlyCountries = new HashMap<>();
@@ -86,6 +90,10 @@ public class DemographicsSnapshotService {
         Map<String, Integer> hourlyMaritalStatus = new HashMap<>();
         Map<String, Integer> hourlyHouseholdSize = new HashMap<>();
         Map<String, Integer> hourlyHouseholdIncome = new HashMap<>();
+        Map<String, Integer> hourlyEducationalLevel = new HashMap<>();
+        Map<String, Integer> hourlyTimeSpentOnMturk = new HashMap<>();
+        Map<String, Integer> hourlyWeeklyIncomeFromMturk = new HashMap<>();
+        Map<String, Integer> hourlyLanguagesSpoken = new HashMap<>();
 
         for (UserAnswer ua : answers) {
             Calendar cal = Calendar.getInstance();
@@ -99,6 +107,10 @@ public class DemographicsSnapshotService {
             incrementDemographic("maritalStatus", ua.getAnswers(), maritalStatus, false);
             incrementDemographic("householdSize", ua.getAnswers(), householdSize, false);
             incrementDemographic("householdIncome", ua.getAnswers(), householdIncome, false);
+            incrementDemographic("educationalLevel", ua.getAnswers(), educationalLevel, false);
+            incrementDemographic("timeSpentOnMturk", ua.getAnswers(), timeSpentOnMturk, false);
+            incrementDemographic("weeklyIncomeFromMturk", ua.getAnswers(), weeklyIncomeFromMturk, false);
+            incrementMultiValue("languagesSpoken", ua.getAnswers(), languagesSpoken);
 
             // Hourly totals
             increment(hourlyTotals, hour);
@@ -108,6 +120,10 @@ public class DemographicsSnapshotService {
             incrementDemographic("maritalStatus", ua.getAnswers(), hourlyMaritalStatus, hour, false);
             incrementDemographic("householdSize", ua.getAnswers(), hourlyHouseholdSize, hour, false);
             incrementDemographic("householdIncome", ua.getAnswers(), hourlyHouseholdIncome, hour, false);
+            incrementDemographic("educationalLevel", ua.getAnswers(), hourlyEducationalLevel, hour, false);
+            incrementDemographic("timeSpentOnMturk", ua.getAnswers(), hourlyTimeSpentOnMturk, hour, false);
+            incrementDemographic("weeklyIncomeFromMturk", ua.getAnswers(), hourlyWeeklyIncomeFromMturk, hour, false);
+            incrementMultiValue("languagesSpoken", ua.getAnswers(), hourlyLanguagesSpoken, hour);
         }
 
         snapshot.setCountries(countries);
@@ -116,6 +132,10 @@ public class DemographicsSnapshotService {
         snapshot.setMaritalStatus(maritalStatus);
         snapshot.setHouseholdSize(householdSize);
         snapshot.setHouseholdIncome(householdIncome);
+        snapshot.setEducationalLevel(educationalLevel);
+        snapshot.setTimeSpentOnMturk(timeSpentOnMturk);
+        snapshot.setWeeklyIncomeFromMturk(weeklyIncomeFromMturk);
+        snapshot.setLanguagesSpoken(languagesSpoken);
         snapshot.setHourlyTotals(hourlyTotals);
         snapshot.setHourlyCountries(hourlyCountries);
         snapshot.setHourlyYearOfBirth(hourlyYearOfBirth);
@@ -123,6 +143,10 @@ public class DemographicsSnapshotService {
         snapshot.setHourlyMaritalStatus(hourlyMaritalStatus);
         snapshot.setHourlyHouseholdSize(hourlyHouseholdSize);
         snapshot.setHourlyHouseholdIncome(hourlyHouseholdIncome);
+        snapshot.setHourlyEducationalLevel(hourlyEducationalLevel);
+        snapshot.setHourlyTimeSpentOnMturk(hourlyTimeSpentOnMturk);
+        snapshot.setHourlyWeeklyIncomeFromMturk(hourlyWeeklyIncomeFromMturk);
+        snapshot.setHourlyLanguagesSpoken(hourlyLanguagesSpoken);
 
         snapshotDao.save(snapshot);
         logger.info("Saved snapshot for " + dateStr + " with " + answers.size() + " responses");
@@ -149,12 +173,15 @@ public class DemographicsSnapshotService {
         Map<String, Map<String, Float>> maritalStatus = new LinkedHashMap<>();
         Map<String, Map<String, Float>> householdSize = new LinkedHashMap<>();
         Map<String, Map<String, Float>> householdIncome = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> educationalLevel = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> timeSpentOnMturk = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> weeklyIncomeFromMturk = new LinkedHashMap<>();
+        Map<String, Map<String, Float>> languagesSpoken = new LinkedHashMap<>();
         Map<String, Set<String>> labels = new HashMap<>();
 
         for (DemographicsSnapshot snap : snapshots) {
             if (snap.getTotalResponses() == 0) continue;
 
-            // Convert the date string to a Date.toString() key to match frontend expectations
             String key;
             try {
                 Calendar cal = Calendar.getInstance();
@@ -171,6 +198,10 @@ public class DemographicsSnapshotService {
             maritalStatus.put(key, toPercentageMap(snap.getMaritalStatus(), labels, "maritalStatus"));
             householdSize.put(key, toPercentageMap(snap.getHouseholdSize(), labels, "householdSize"));
             householdIncome.put(key, toPercentageMap(snap.getHouseholdIncome(), labels, "householdIncome"));
+            educationalLevel.put(key, toPercentageMap(snap.getEducationalLevel(), labels, "educationalLevel"));
+            timeSpentOnMturk.put(key, toPercentageMap(snap.getTimeSpentOnMturk(), labels, "timeSpentOnMturk"));
+            weeklyIncomeFromMturk.put(key, toPercentageMap(snap.getWeeklyIncomeFromMturk(), labels, "weeklyIncomeFromMturk"));
+            languagesSpoken.put(key, toPercentageMap(snap.getLanguagesSpoken(), labels, "languagesSpoken"));
         }
 
         filterIncomeLabels(labels);
@@ -182,18 +213,25 @@ public class DemographicsSnapshotService {
         result.setMaritalStatus(maritalStatus);
         result.setHouseholdSize(householdSize);
         result.setHouseholdIncome(householdIncome);
+        result.setEducationalLevel(educationalLevel);
+        result.setTimeSpentOnMturk(timeSpentOnMturk);
+        result.setWeeklyIncomeFromMturk(weeklyIncomeFromMturk);
+        result.setLanguagesSpoken(languagesSpoken);
         result.setLabels(labels);
         return result;
     }
 
     private DemographicsSurveyAnswers buildHourlyAggregation(List<DemographicsSnapshot> snapshots) {
-        // Merge hourly counts across all snapshots
         Map<String, Map<String, Integer>> countryCounts = new HashMap<>();
         Map<String, Map<String, Integer>> yearOfBirthCounts = new HashMap<>();
         Map<String, Map<String, Integer>> genderCounts = new HashMap<>();
         Map<String, Map<String, Integer>> maritalStatusCounts = new HashMap<>();
         Map<String, Map<String, Integer>> householdSizeCounts = new HashMap<>();
         Map<String, Map<String, Integer>> householdIncomeCounts = new HashMap<>();
+        Map<String, Map<String, Integer>> educationalLevelCounts = new HashMap<>();
+        Map<String, Map<String, Integer>> timeSpentOnMturkCounts = new HashMap<>();
+        Map<String, Map<String, Integer>> weeklyIncomeFromMturkCounts = new HashMap<>();
+        Map<String, Map<String, Integer>> languagesSpokenCounts = new HashMap<>();
 
         for (DemographicsSnapshot snap : snapshots) {
             mergeHourlyCounts(snap.getHourlyCountries(), countryCounts);
@@ -202,6 +240,10 @@ public class DemographicsSnapshotService {
             mergeHourlyCounts(snap.getHourlyMaritalStatus(), maritalStatusCounts);
             mergeHourlyCounts(snap.getHourlyHouseholdSize(), householdSizeCounts);
             mergeHourlyCounts(snap.getHourlyHouseholdIncome(), householdIncomeCounts);
+            mergeHourlyCounts(snap.getHourlyEducationalLevel(), educationalLevelCounts);
+            mergeHourlyCounts(snap.getHourlyTimeSpentOnMturk(), timeSpentOnMturkCounts);
+            mergeHourlyCounts(snap.getHourlyWeeklyIncomeFromMturk(), weeklyIncomeFromMturkCounts);
+            mergeHourlyCounts(snap.getHourlyLanguagesSpoken(), languagesSpokenCounts);
         }
 
         Map<String, Set<String>> labels = new HashMap<>();
@@ -212,21 +254,27 @@ public class DemographicsSnapshotService {
         result.setMaritalStatus(countsToPercentages(maritalStatusCounts, labels, "maritalStatus"));
         result.setHouseholdSize(countsToPercentages(householdSizeCounts, labels, "householdSize"));
         result.setHouseholdIncome(countsToPercentages(householdIncomeCounts, labels, "householdIncome"));
+        result.setEducationalLevel(countsToPercentages(educationalLevelCounts, labels, "educationalLevel"));
+        result.setTimeSpentOnMturk(countsToPercentages(timeSpentOnMturkCounts, labels, "timeSpentOnMturk"));
+        result.setWeeklyIncomeFromMturk(countsToPercentages(weeklyIncomeFromMturkCounts, labels, "weeklyIncomeFromMturk"));
+        result.setLanguagesSpoken(countsToPercentages(languagesSpokenCounts, labels, "languagesSpoken"));
         filterIncomeLabels(labels);
         result.setLabels(labels);
         return result;
     }
 
     private DemographicsSurveyAnswers buildWeeklyAggregation(List<DemographicsSnapshot> snapshots) {
-        // Group snapshots by day of week, merge counts
         Map<String, Map<String, Integer>> countryCounts = new LinkedHashMap<>();
         Map<String, Map<String, Integer>> yearOfBirthCounts = new LinkedHashMap<>();
         Map<String, Map<String, Integer>> genderCounts = new LinkedHashMap<>();
         Map<String, Map<String, Integer>> maritalStatusCounts = new LinkedHashMap<>();
         Map<String, Map<String, Integer>> householdSizeCounts = new LinkedHashMap<>();
         Map<String, Map<String, Integer>> householdIncomeCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> educationalLevelCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> timeSpentOnMturkCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> weeklyIncomeFromMturkCounts = new LinkedHashMap<>();
+        Map<String, Map<String, Integer>> languagesSpokenCounts = new LinkedHashMap<>();
 
-        // Initialize day-of-week keys in order
         for (String day : DAYS) {
             countryCounts.put(day, new HashMap<>());
             yearOfBirthCounts.put(day, new HashMap<>());
@@ -234,6 +282,10 @@ public class DemographicsSnapshotService {
             maritalStatusCounts.put(day, new HashMap<>());
             householdSizeCounts.put(day, new HashMap<>());
             householdIncomeCounts.put(day, new HashMap<>());
+            educationalLevelCounts.put(day, new HashMap<>());
+            timeSpentOnMturkCounts.put(day, new HashMap<>());
+            weeklyIncomeFromMturkCounts.put(day, new HashMap<>());
+            languagesSpokenCounts.put(day, new HashMap<>());
         }
 
         for (DemographicsSnapshot snap : snapshots) {
@@ -245,6 +297,10 @@ public class DemographicsSnapshotService {
             mergeCounts(snap.getMaritalStatus(), maritalStatusCounts.get(dow));
             mergeCounts(snap.getHouseholdSize(), householdSizeCounts.get(dow));
             mergeCounts(snap.getHouseholdIncome(), householdIncomeCounts.get(dow));
+            mergeCounts(snap.getEducationalLevel(), educationalLevelCounts.get(dow));
+            mergeCounts(snap.getTimeSpentOnMturk(), timeSpentOnMturkCounts.get(dow));
+            mergeCounts(snap.getWeeklyIncomeFromMturk(), weeklyIncomeFromMturkCounts.get(dow));
+            mergeCounts(snap.getLanguagesSpoken(), languagesSpokenCounts.get(dow));
         }
 
         Map<String, Set<String>> labels = new HashMap<>();
@@ -255,6 +311,10 @@ public class DemographicsSnapshotService {
         result.setMaritalStatus(countsToPercentages(maritalStatusCounts, labels, "maritalStatus"));
         result.setHouseholdSize(countsToPercentages(householdSizeCounts, labels, "householdSize"));
         result.setHouseholdIncome(countsToPercentages(householdIncomeCounts, labels, "householdIncome"));
+        result.setEducationalLevel(countsToPercentages(educationalLevelCounts, labels, "educationalLevel"));
+        result.setTimeSpentOnMturk(countsToPercentages(timeSpentOnMturkCounts, labels, "timeSpentOnMturk"));
+        result.setWeeklyIncomeFromMturk(countsToPercentages(weeklyIncomeFromMturkCounts, labels, "weeklyIncomeFromMturk"));
+        result.setLanguagesSpoken(countsToPercentages(languagesSpokenCounts, labels, "languagesSpoken"));
         filterIncomeLabels(labels);
         result.setLabels(labels);
         return result;
@@ -274,6 +334,10 @@ public class DemographicsSnapshotService {
         Map<String, Integer> totalMaritalStatus = new HashMap<>();
         Map<String, Integer> totalHouseholdSize = new HashMap<>();
         Map<String, Integer> totalHouseholdIncome = new HashMap<>();
+        Map<String, Integer> totalEducationalLevel = new HashMap<>();
+        Map<String, Integer> totalTimeSpentOnMturk = new HashMap<>();
+        Map<String, Integer> totalWeeklyIncomeFromMturk = new HashMap<>();
+        Map<String, Integer> totalLanguagesSpoken = new HashMap<>();
 
         for (DemographicsSnapshot snap : snapshots) {
             DemographicsCountsResponse.DailyCount day = new DemographicsCountsResponse.DailyCount();
@@ -285,6 +349,10 @@ public class DemographicsSnapshotService {
             day.setMaritalStatus(snap.getMaritalStatus());
             day.setHouseholdSize(snap.getHouseholdSize());
             day.setHouseholdIncome(snap.getHouseholdIncome());
+            day.setEducationalLevel(snap.getEducationalLevel());
+            day.setTimeSpentOnMturk(snap.getTimeSpentOnMturk());
+            day.setWeeklyIncomeFromMturk(snap.getWeeklyIncomeFromMturk());
+            day.setLanguagesSpoken(snap.getLanguagesSpoken());
             days.add(day);
 
             totalResponses += snap.getTotalResponses();
@@ -294,6 +362,10 @@ public class DemographicsSnapshotService {
             mergeCounts(snap.getMaritalStatus(), totalMaritalStatus);
             mergeCounts(snap.getHouseholdSize(), totalHouseholdSize);
             mergeCounts(snap.getHouseholdIncome(), totalHouseholdIncome);
+            mergeCounts(snap.getEducationalLevel(), totalEducationalLevel);
+            mergeCounts(snap.getTimeSpentOnMturk(), totalTimeSpentOnMturk);
+            mergeCounts(snap.getWeeklyIncomeFromMturk(), totalWeeklyIncomeFromMturk);
+            mergeCounts(snap.getLanguagesSpoken(), totalLanguagesSpoken);
         }
 
         DemographicsCountsResponse response = new DemographicsCountsResponse();
@@ -305,6 +377,10 @@ public class DemographicsSnapshotService {
         response.setTotalMaritalStatus(totalMaritalStatus);
         response.setTotalHouseholdSize(totalHouseholdSize);
         response.setTotalHouseholdIncome(totalHouseholdIncome);
+        response.setTotalEducationalLevel(totalEducationalLevel);
+        response.setTotalTimeSpentOnMturk(totalTimeSpentOnMturk);
+        response.setTotalWeeklyIncomeFromMturk(totalWeeklyIncomeFromMturk);
+        response.setTotalLanguagesSpoken(totalLanguagesSpoken);
         return response;
     }
 
@@ -400,6 +476,32 @@ public class DemographicsSnapshotService {
         if (answer == null) return;
         String key = isDecade ? getDecadeKey(answer) : answer;
         dst.merge(hour + ":" + key, 1, Integer::sum);
+    }
+
+    private void incrementMultiValue(String questionId, Map<String, String> answers,
+                                       Map<String, Integer> dst) {
+        if (answers == null) return;
+        String answer = answers.get(questionId);
+        if (answer == null || answer.isEmpty()) return;
+        for (String part : answer.split(",")) {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty()) {
+                dst.merge(trimmed, 1, Integer::sum);
+            }
+        }
+    }
+
+    private void incrementMultiValue(String questionId, Map<String, String> answers,
+                                       Map<String, Integer> dst, String hour) {
+        if (answers == null) return;
+        String answer = answers.get(questionId);
+        if (answer == null || answer.isEmpty()) return;
+        for (String part : answer.split(",")) {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty()) {
+                dst.merge(hour + ":" + trimmed, 1, Integer::sum);
+            }
+        }
     }
 
     private String getDecadeKey(String year) {

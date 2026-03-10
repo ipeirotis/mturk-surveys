@@ -26,6 +26,14 @@ public class DemographicsCountsResponse {
 	private Map<String, Integer> totalHouseholdSize;
 	@Schema(description = "Household income counts summed across all days")
 	private Map<String, Integer> totalHouseholdIncome;
+	@Schema(description = "Educational level counts summed across all days")
+	private Map<String, Integer> totalEducationalLevel;
+	@Schema(description = "Time spent on MTurk counts summed across all days")
+	private Map<String, Integer> totalTimeSpentOnMturk;
+	@Schema(description = "Weekly income from MTurk counts summed across all days")
+	private Map<String, Integer> totalWeeklyIncomeFromMturk;
+	@Schema(description = "Languages spoken counts summed across all days")
+	private Map<String, Integer> totalLanguagesSpoken;
 
 	public List<DailyCount> getDays() {
 		return days;
@@ -91,6 +99,38 @@ public class DemographicsCountsResponse {
 		this.totalHouseholdIncome = totalHouseholdIncome;
 	}
 
+	public Map<String, Integer> getTotalEducationalLevel() {
+		return totalEducationalLevel;
+	}
+
+	public void setTotalEducationalLevel(Map<String, Integer> totalEducationalLevel) {
+		this.totalEducationalLevel = totalEducationalLevel;
+	}
+
+	public Map<String, Integer> getTotalTimeSpentOnMturk() {
+		return totalTimeSpentOnMturk;
+	}
+
+	public void setTotalTimeSpentOnMturk(Map<String, Integer> totalTimeSpentOnMturk) {
+		this.totalTimeSpentOnMturk = totalTimeSpentOnMturk;
+	}
+
+	public Map<String, Integer> getTotalWeeklyIncomeFromMturk() {
+		return totalWeeklyIncomeFromMturk;
+	}
+
+	public void setTotalWeeklyIncomeFromMturk(Map<String, Integer> totalWeeklyIncomeFromMturk) {
+		this.totalWeeklyIncomeFromMturk = totalWeeklyIncomeFromMturk;
+	}
+
+	public Map<String, Integer> getTotalLanguagesSpoken() {
+		return totalLanguagesSpoken;
+	}
+
+	public void setTotalLanguagesSpoken(Map<String, Integer> totalLanguagesSpoken) {
+		this.totalLanguagesSpoken = totalLanguagesSpoken;
+	}
+
 	@Schema(description = "Demographics counts for a single day")
 	public static class DailyCount {
 		@Schema(description = "Date in yyyy-MM-dd format")
@@ -103,6 +143,10 @@ public class DemographicsCountsResponse {
 		private Map<String, Integer> maritalStatus;
 		private Map<String, Integer> householdSize;
 		private Map<String, Integer> householdIncome;
+		private Map<String, Integer> educationalLevel;
+		private Map<String, Integer> timeSpentOnMturk;
+		private Map<String, Integer> weeklyIncomeFromMturk;
+		private Map<String, Integer> languagesSpoken;
 
 		public String getDate() {
 			return date;
@@ -166,6 +210,38 @@ public class DemographicsCountsResponse {
 
 		public void setHouseholdIncome(Map<String, Integer> householdIncome) {
 			this.householdIncome = householdIncome;
+		}
+
+		public Map<String, Integer> getEducationalLevel() {
+			return educationalLevel;
+		}
+
+		public void setEducationalLevel(Map<String, Integer> educationalLevel) {
+			this.educationalLevel = educationalLevel;
+		}
+
+		public Map<String, Integer> getTimeSpentOnMturk() {
+			return timeSpentOnMturk;
+		}
+
+		public void setTimeSpentOnMturk(Map<String, Integer> timeSpentOnMturk) {
+			this.timeSpentOnMturk = timeSpentOnMturk;
+		}
+
+		public Map<String, Integer> getWeeklyIncomeFromMturk() {
+			return weeklyIncomeFromMturk;
+		}
+
+		public void setWeeklyIncomeFromMturk(Map<String, Integer> weeklyIncomeFromMturk) {
+			this.weeklyIncomeFromMturk = weeklyIncomeFromMturk;
+		}
+
+		public Map<String, Integer> getLanguagesSpoken() {
+			return languagesSpoken;
+		}
+
+		public void setLanguagesSpoken(Map<String, Integer> languagesSpoken) {
+			this.languagesSpoken = languagesSpoken;
 		}
 	}
 }
