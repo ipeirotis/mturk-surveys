@@ -194,8 +194,9 @@ public class DatastoreRestoreService {
 			TableResult tableResult = bigQuery.query(queryConfig);
 
 			// Build set of available column names from schema
+			Schema tableSchema = tableResult.getSchema();
 			Set<String> columns = new HashSet<>();
-			for (com.google.cloud.bigquery.Field field : tableResult.getSchema().getFields()) {
+			for (com.google.cloud.bigquery.Field field : tableSchema.getFields()) {
 				columns.add(field.getName());
 			}
 			logger.info("Backup table columns for " + sortableDate + ": " + columns);
@@ -233,7 +234,7 @@ public class DatastoreRestoreService {
 				ua.setAnswer(getStringOrNull(row, "answer"));
 
 				// Parse the 'answers' map (new format)
-				Map<String, String> answers = parseAnswersRecord(row);
+				Map<String, String> answers = parseAnswersRecord(row, tableSchema);
 				if (!answers.isEmpty()) {
 					ua.setAnswers(answers);
 				}
@@ -253,42 +254,37 @@ public class DatastoreRestoreService {
 
 	/**
 	 * Parse the 'answers' field from a Datastore export row.
-	 * Datastore maps export as nested RECORD with repeated {key, value} entries.
+	 * The backup table stores answers as a flat RECORD with named sub-fields
+	 * (e.g., answers.gender, answers.householdSize) rather than the Datastore
+	 * map format with repeated {key, value} entries.
 	 */
-	private Map<String, String> parseAnswersRecord(FieldValueList row) {
+	private Map<String, String> parseAnswersRecord(FieldValueList row, Schema tableSchema) {
 		Map<String, String> answers = new LinkedHashMap<>();
 		try {
 			FieldValue answersField = row.get("answers");
-			if (!answersField.isNull()) {
-				if (answersField.getAttribute() == FieldValue.Attribute.RECORD) {
-					FieldValueList record = answersField.getRecordValue();
-					for (int i = 0; i < record.size(); i++) {
-						FieldValue entry = record.get(i);
-						if (entry.getAttribute() == FieldValue.Attribute.RECORD) {
-							FieldValueList kv = entry.getRecordValue();
-							String key = kv.get("key").isNull() ? null : kv.get("key").getStringValue();
-							String value = kv.get("value").isNull() ? null : kv.get("value").getStringValue();
-							if (key != null) {
-								answers.put(key, value);
+			if (!answersField.isNull() && answersField.getAttribute() == FieldValue.Attribute.RECORD) {
+				FieldValueList record = answersField.getRecordValue();
+
+				// Get the sub-field names from the schema
+				com.google.cloud.bigquery.Field answersSchemaField = tableSchema.getFields().get("answers");
+				if (answersSchemaField != null && answersSchemaField.getSubFields() != null) {
+					FieldList subFields = answersSchemaField.getSubFields();
+					for (int i = 0; i < subFields.size() && i < record.size(); i++) {
+						String fieldName = subFields.get(i).getName();
+						if ("__key__".equals(fieldName)) continue; // Skip embedded key
+						try {
+							FieldValue val = record.get(i);
+							if (!val.isNull()) {
+								answers.put(fieldName, val.getStringValue());
 							}
-						}
-					}
-				} else if (answersField.getAttribute() == FieldValue.Attribute.REPEATED) {
-					List<FieldValue> entries = answersField.getRepeatedValue();
-					for (FieldValue entry : entries) {
-						if (entry.getAttribute() == FieldValue.Attribute.RECORD) {
-							FieldValueList kv = entry.getRecordValue();
-							String key = kv.get("key").isNull() ? null : kv.get("key").getStringValue();
-							String value = kv.get("value").isNull() ? null : kv.get("value").getStringValue();
-							if (key != null) {
-								answers.put(key, value);
-							}
+						} catch (Exception e) {
+							// Skip unparseable sub-field
 						}
 					}
 				}
 			}
 		} catch (Exception e) {
-			// Field might not exist or have different structure
+			// Field might not exist
 		}
 		return answers;
 	}
