@@ -858,12 +858,18 @@ public class DiagnosticController {
 
 	private Date parseTimestamp(String timestamp) {
 		// Handle various timestamp formats from BigQuery/Datastore exports
-		// Try epoch micros first (Datastore export format)
+		// Try epoch micros first (Datastore export format), or epoch seconds (scientific notation)
 		try {
 			long micros = Long.parseLong(timestamp);
 			return new Date(micros / 1000);
 		} catch (NumberFormatException e) {
-			// Not numeric, try ISO format
+			// Might be a floating-point epoch (e.g., "1.610683167447E9" seconds)
+			try {
+				double epochSeconds = Double.parseDouble(timestamp);
+				return new Date((long) (epochSeconds * 1000));
+			} catch (NumberFormatException e2) {
+				// Not numeric, try ISO format
+			}
 		}
 
 		// Try ISO format: "2021-01-15T12:34:56Z" or "2021-01-15 12:34:56 UTC"
