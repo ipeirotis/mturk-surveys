@@ -1112,4 +1112,122 @@ public class DiagnosticController {
 
 		return answers;
 	}
+
+	/**
+	 * Compare daily counts between BigQuery and Datastore for a date range.
+	 * Queries BigQuery for daily counts from the backup table, then queries
+	 * Datastore for daily counts, and reports any discrepancies.
+	 *
+	 * Example: /tasks/compareBigQueryDatastore?dataset=test&table=UserAnswer_2025MAR20&from=2020-10-01&to=2023-02-01
+	 */
+	@GetMapping("/tasks/compareBigQueryDatastore")
+	public Map<String, Object> compareBigQueryDatastore(
+			@RequestParam String dataset,
+			@RequestParam String table,
+			@RequestParam String from,
+			@RequestParam String to) {
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("dataset", dataset);
+		result.put("table", table);
+		result.put("from", from);
+		result.put("to", to);
+
+		try {
+			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
+			String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
+
+			// Query BigQuery for daily counts
+			String sql = String.format(
+					"SELECT DATE(date) as day, COUNT(*) as cnt FROM `%s.%s.%s` "
+					+ "WHERE DATE(date) >= '%s' AND DATE(date) < '%s' "
+					+ "GROUP BY day ORDER BY day",
+					projectId, dataset, table, from, to);
+
+			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
+			TableResult tableResult = bigQuery.query(queryConfig);
+
+			Map<String, Integer> bqCounts = new TreeMap<>();
+			int bqTotal = 0;
+			for (FieldValueList row : tableResult.iterateAll()) {
+				String day = row.get("day").getStringValue();
+				int count = (int) row.get("cnt").getLongValue();
+				bqCounts.put(day, count);
+				bqTotal += count;
+			}
+
+			// Query Datastore for daily counts in the same range
+			DateFormat sortable = SafeDateFormat.forPattern("yyyy-MM-dd");
+			Calendar start = Calendar.getInstance();
+			start.setTime(sortable.parse(from));
+			CalendarUtils.truncateToDay(start);
+
+			Calendar end = Calendar.getInstance();
+			end.setTime(sortable.parse(to));
+			CalendarUtils.truncateToDay(end);
+
+			Query<UserAnswer> q = ofy().load().type(UserAnswer.class)
+					.filter("surveyId", "demographics")
+					.filter("date >=", start.getTime())
+					.filter("date <", end.getTime())
+					.order("date")
+					.chunk(500);
+
+			Map<String, Integer> dsCounts = new TreeMap<>();
+			int dsTotal = 0;
+			for (UserAnswer ua : q) {
+				dsTotal++;
+				if (ua.getDate() == null) continue;
+				Calendar cal = Calendar.getInstance();
+				cal.setTime(ua.getDate());
+				CalendarUtils.truncateToDay(cal);
+				String day = sortable.format(cal.getTime());
+				dsCounts.merge(day, 1, Integer::sum);
+			}
+
+			result.put("bigQueryTotal", bqTotal);
+			result.put("datastoreTotal", dsTotal);
+
+			// Build per-day comparison and find discrepancies
+			Set<String> allDays = new TreeSet<>();
+			allDays.addAll(bqCounts.keySet());
+			allDays.addAll(dsCounts.keySet());
+
+			Map<String, Map<String, Object>> dailyComparison = new LinkedHashMap<>();
+			Map<String, Map<String, Object>> discrepancies = new LinkedHashMap<>();
+			int matchCount = 0;
+			int mismatchCount = 0;
+
+			for (String day : allDays) {
+				int bq = bqCounts.getOrDefault(day, 0);
+				int ds = dsCounts.getOrDefault(day, 0);
+				Map<String, Object> entry = new LinkedHashMap<>();
+				entry.put("bigQuery", bq);
+				entry.put("datastore", ds);
+				entry.put("diff", ds - bq);
+				dailyComparison.put(day, entry);
+
+				if (bq != ds) {
+					mismatchCount++;
+					discrepancies.put(day, entry);
+				} else {
+					matchCount++;
+				}
+			}
+
+			result.put("daysMatching", matchCount);
+			result.put("daysMismatched", mismatchCount);
+			result.put("discrepancies", discrepancies);
+			result.put("dailyComparison", dailyComparison);
+			result.put("status", "ok");
+
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			result.put("error", "Interrupted: " + e.getMessage());
+		} catch (Exception e) {
+			result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
+		}
+
+		return result;
+	}
 }
