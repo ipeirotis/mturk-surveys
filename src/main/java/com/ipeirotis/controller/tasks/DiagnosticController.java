@@ -521,7 +521,15 @@ public class DiagnosticController {
 				Map<String, String> rowMap = new LinkedHashMap<>();
 				for (Field field : schema.getFields()) {
 					FieldValue val = row.get(field.getName());
-					rowMap.put(field.getName(), val.isNull() ? null : val.getStringValue());
+					if (val.isNull()) {
+						rowMap.put(field.getName(), null);
+					} else if (val.getAttribute() == FieldValue.Attribute.RECORD) {
+						rowMap.put(field.getName(), val.getRecordValue().toString());
+					} else if (val.getAttribute() == FieldValue.Attribute.REPEATED) {
+						rowMap.put(field.getName(), val.getRepeatedValue().toString());
+					} else {
+						rowMap.put(field.getName(), val.getStringValue());
+					}
 				}
 				sampleRows.add(rowMap);
 			}
