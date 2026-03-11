@@ -1198,10 +1198,10 @@ public class DiagnosticController {
 			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
 			String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
-			// Query BigQuery for daily counts
+			// Query BigQuery for daily counts (inclusive range)
 			String sql = String.format(
 					"SELECT DATE(date) as day, COUNT(*) as cnt FROM `%s.%s.%s` "
-					+ "WHERE DATE(date) >= '%s' AND DATE(date) < '%s' "
+					+ "WHERE DATE(date) >= '%s' AND DATE(date) <= '%s' "
 					+ "GROUP BY day ORDER BY day",
 					projectId, dataset, table, from, to);
 
@@ -1217,7 +1217,7 @@ public class DiagnosticController {
 				bqTotal += count;
 			}
 
-			// Query Datastore for daily counts in the same range
+			// Query Datastore for daily counts in the same range (inclusive)
 			DateFormat sortable = SafeDateFormat.forPattern("yyyy-MM-dd");
 			Calendar start = Calendar.getInstance();
 			start.setTime(sortable.parse(from));
@@ -1226,6 +1226,7 @@ public class DiagnosticController {
 			Calendar end = Calendar.getInstance();
 			end.setTime(sortable.parse(to));
 			CalendarUtils.truncateToDay(end);
+			end.add(Calendar.DAY_OF_MONTH, 1); // make end exclusive = day after 'to'
 
 			Query<UserAnswer> q = ofy().load().type(UserAnswer.class)
 					.filter("surveyId", "demographics")
