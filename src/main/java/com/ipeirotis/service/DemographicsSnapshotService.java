@@ -1197,18 +1197,18 @@ public class DemographicsSnapshotService {
 
     /**
      * Load UserAnswer-like objects from BigQuery for a given date.
-     * Tries the daily export table (demographics.responses) first, then
-     * falls back to the Datastore backup table (test.UserAnswer_2025MAR20).
+     * Tries the Datastore backup table (authoritative source) first, then
+     * falls back to the daily export table (demographics.responses).
      */
     private List<UserAnswer> loadFromBigQuery(String sortableDate) {
-        // Try the daily export table first
-        List<UserAnswer> results = loadFromResponsesTable(sortableDate);
+        // Try the Datastore backup table first (most complete source)
+        List<UserAnswer> results = loadFromBackupTable(sortableDate);
         if (!results.isEmpty()) {
             return results;
         }
 
-        // Fall back to the Datastore backup table
-        return loadFromBackupTable(sortableDate);
+        // Fall back to the daily export table
+        return loadFromResponsesTable(sortableDate);
     }
 
     /**

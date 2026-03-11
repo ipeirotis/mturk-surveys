@@ -1068,6 +1068,65 @@ public class DiagnosticController {
 		return result;
 	}
 
+	/**
+	 * Restore UserAnswer entities from BigQuery backup for a large date range
+	 * by splitting into monthly chunks and enqueuing each as a Cloud Task.
+	 * Uses force=true to overwrite existing entities that may have missing answers.
+	 *
+	 * Example: /tasks/backfillRestore?dataset=test&table=UserAnswer_2025MAR20&from=2015-03-26&to=2025-03-20
+	 * Add dryRun=true to preview without restoring.
+	 */
+	@GetMapping("/tasks/backfillRestore")
+	public Map<String, Object> backfillRestore(
+			@RequestParam String dataset,
+			@RequestParam String table,
+			@RequestParam String from,
+			@RequestParam String to,
+			@RequestParam(required = false, defaultValue = "false") boolean dryRun) {
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("dataset", dataset);
+		result.put("table", table);
+		result.put("from", from);
+		result.put("to", to);
+		result.put("dryRun", dryRun);
+
+		try {
+			java.time.LocalDate startDate = java.time.LocalDate.parse(from);
+			java.time.LocalDate endDate = java.time.LocalDate.parse(to);
+			int tasksEnqueued = 0;
+
+			java.time.LocalDate chunkStart = startDate;
+			while (!chunkStart.isAfter(endDate)) {
+				java.time.LocalDate chunkEnd = chunkStart.plusMonths(1).minusDays(1);
+				if (chunkEnd.isAfter(endDate)) {
+					chunkEnd = endDate;
+				}
+
+				Map<String, String> params = new LinkedHashMap<>();
+				params.put("dataset", dataset);
+				params.put("table", table);
+				params.put("from", chunkStart.toString());
+				params.put("to", chunkEnd.toString());
+				params.put("dryRun", String.valueOf(dryRun));
+				params.put("force", "true");
+				TaskUtils.queueTask("/tasks/restoreRange", params);
+				tasksEnqueued++;
+
+				chunkStart = chunkEnd.plusDays(1);
+			}
+
+			result.put("tasksEnqueued", tasksEnqueued);
+			result.put("status", "ok");
+
+		} catch (Exception e) {
+			result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
+			logger.log(Level.SEVERE, "Backfill restore failed", e);
+		}
+
+		return result;
+	}
+
 	private Map<String, String> parseAnswersFromRow(FieldValueList row) {
 		Map<String, String> answers = new LinkedHashMap<>();
 
