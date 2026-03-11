@@ -514,8 +514,6 @@ public class DiagnosticController {
 			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
 			TableResult tableResult = bigQuery.query(queryConfig);
 
-			result.put("totalRowsForDate", tableResult.getTotalRows());
-
 			List<Map<String, String>> sampleRows = new ArrayList<>();
 			for (FieldValueList row : tableResult.iterateAll()) {
 				Map<String, String> rowMap = new LinkedHashMap<>();
@@ -887,6 +885,146 @@ public class DiagnosticController {
 		}
 
 		throw new RuntimeException("Cannot parse timestamp: " + timestamp);
+	}
+
+	/**
+	 * Reindex UserAnswer entities for a date range by loading them from Datastore by key
+	 * (using BigQuery to get the entity IDs) and re-saving them through Objectify.
+	 * This rebuilds all property indexes (date, surveyId, workerId, hitId) without
+	 * modifying any data.
+	 *
+	 * Example: /tasks/reindexEntities?dataset=test&table=UserAnswer_2025MAR20&from=2021-01-01&to=2021-01-31
+	 * Add dryRun=true (default) to preview without saving.
+	 */
+	@GetMapping("/tasks/reindexEntities")
+	public Map<String, Object> reindexEntities(
+			@RequestParam String dataset,
+			@RequestParam String table,
+			@RequestParam String from,
+			@RequestParam String to,
+			@RequestParam(required = false, defaultValue = "true") boolean dryRun) {
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("dataset", dataset);
+		result.put("table", table);
+		result.put("from", from);
+		result.put("to", to);
+		result.put("dryRun", dryRun);
+
+		try {
+			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
+			String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
+
+			// Get all entity IDs from BigQuery for the date range
+			String sql = String.format(
+					"SELECT __key__.id as entity_id FROM `%s.%s.%s` WHERE DATE(date) >= '%s' AND DATE(date) <= '%s'",
+					projectId, dataset, table, from, to);
+
+			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
+			TableResult tableResult = bigQuery.query(queryConfig);
+
+			List<Long> entityIds = new ArrayList<>();
+			for (FieldValueList row : tableResult.iterateAll()) {
+				entityIds.add(row.get("entity_id").getLongValue());
+			}
+
+			result.put("totalIdsFromBigQuery", entityIds.size());
+
+			int found = 0;
+			int notFound = 0;
+			int resaved = 0;
+
+			// Process in batches of 100
+			for (int i = 0; i < entityIds.size(); i += 100) {
+				int end = Math.min(i + 100, entityIds.size());
+				List<Long> batch = entityIds.subList(i, end);
+
+				// Batch-load by key
+				List<Key<UserAnswer>> keys = new ArrayList<>();
+				for (Long id : batch) {
+					keys.add(Key.create(UserAnswer.class, id));
+				}
+				Map<Key<UserAnswer>, UserAnswer> existing = ofy().load().keys(keys);
+
+				found += existing.size();
+				notFound += (batch.size() - existing.size());
+
+				if (!dryRun && !existing.isEmpty()) {
+					// Re-save to rebuild indexes
+					ofy().save().entities(existing.values()).now();
+					resaved += existing.size();
+				}
+			}
+
+			result.put("foundInDatastore", found);
+			result.put("notFoundInDatastore", notFound);
+			result.put(dryRun ? "wouldResave" : "resaved", dryRun ? found : resaved);
+			result.put("status", "ok");
+
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			result.put("error", "Interrupted: " + e.getMessage());
+		} catch (Exception e) {
+			result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
+			logger.log(Level.SEVERE, "Reindex failed", e);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Reindex entities for a large date range by splitting into monthly chunks
+	 * and enqueuing each as a Cloud Task.
+	 *
+	 * Example: /tasks/reindexRange?dataset=test&table=UserAnswer_2025MAR20&from=2020-11-01&to=2022-12-31
+	 */
+	@GetMapping("/tasks/reindexRange")
+	public Map<String, Object> reindexRange(
+			@RequestParam String dataset,
+			@RequestParam String table,
+			@RequestParam String from,
+			@RequestParam String to) {
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("dataset", dataset);
+		result.put("table", table);
+		result.put("from", from);
+		result.put("to", to);
+
+		try {
+			java.time.LocalDate startDate = java.time.LocalDate.parse(from);
+			java.time.LocalDate endDate = java.time.LocalDate.parse(to);
+			int tasksEnqueued = 0;
+
+			java.time.LocalDate chunkStart = startDate;
+			while (!chunkStart.isAfter(endDate)) {
+				// Each chunk is one month
+				java.time.LocalDate chunkEnd = chunkStart.plusMonths(1).minusDays(1);
+				if (chunkEnd.isAfter(endDate)) {
+					chunkEnd = endDate;
+				}
+
+				Map<String, String> params = new LinkedHashMap<>();
+				params.put("dataset", dataset);
+				params.put("table", table);
+				params.put("from", chunkStart.toString());
+				params.put("to", chunkEnd.toString());
+				params.put("dryRun", "false");
+				TaskUtils.queueTask("/tasks/reindexEntities", params);
+				tasksEnqueued++;
+
+				chunkStart = chunkEnd.plusDays(1);
+			}
+
+			result.put("tasksEnqueued", tasksEnqueued);
+			result.put("status", "ok");
+
+		} catch (Exception e) {
+			result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
+			logger.log(Level.SEVERE, "Reindex range failed", e);
+		}
+
+		return result;
 	}
 
 	private Map<String, String> parseAnswersFromRow(FieldValueList row) {
