@@ -174,6 +174,92 @@ After deploying T7.17, run a snapshot backfill to populate the 4 new demographic
 | T5.1 | AWS MTurk SDK | ~~2.5.49~~ **2.35.6** | 2.35.6 | 5 ✅ |
 | T6.1 | google-cloud-tasks | ~~1.30.8~~ **2.85.0** | 2.85+ | 6 ✅ |
 
+## Track 9: Robustness & Reliability
+
+Improvements to error handling, resilience, and operational stability for a production system running since 2015.
+
+### Task Endpoint Security (Critical)
+
+- [ ] **T9.1** — **Authenticate `/tasks/` endpoints** — Add a request filter or interceptor that verifies task requests originate from App Engine cron or Cloud Tasks. Check for the `X-Appengine-Cron: true` header (cron jobs) and `X-CloudTasks-TaskName` header (Cloud Tasks). Reject requests without these headers with 403. This prevents external actors from triggering destructive operations like `/tasks/deleteHITs`, `/tasks/restoreDateFromBigQuery`, or `/tasks/backupDatastore`.
+
+- [ ] **T9.2** — **Add input validation to task endpoints** — Add `@NotBlank` and date format validation to all `@RequestParam` on task controllers (`SnapshotController`, `BigQueryExportController`, `DatastoreRestoreController`, `DatastoreBackupController`). Validate date ranges (from ≤ to, max range limits) to prevent resource exhaustion from unbounded queries.
+
+### Error Handling & Resilience
+
+- [ ] **T9.3** — **Add global catch-all exception handler** — Extend `RestResponseEntityExceptionHandler` to handle generic `Exception` and `RuntimeException`, returning consistent JSON error responses (not Spring's default HTML/Whitelabel). Map `MturkException` → 502, `ParseException` → 400, `BigQueryException` → 502, and `Exception` → 500 with structured `ErrorResponse` bodies.
+
+- [ ] **T9.4** — **Add retry with backoff on MTurk API calls** — Wrap `MturkService` methods with Spring Retry (`@Retryable`) or manual exponential backoff for transient failures (network errors, rate limiting). Configure max 3 retries with 1s/2s/4s delays. Add `spring-retry` dependency.
+
+- [ ] **T9.5** — **Add retry limits to task re-enqueuing** — In `CreateHITController`, `DeleteHITsController`, and `ApproveAssignmentsController`, track retry count via a request parameter (e.g., `?retryCount=N`). Stop re-enqueuing after 5 attempts and log a SEVERE error instead of silently retrying forever.
+
+- [ ] **T9.6** — **Fix silent failure in TaskUtils.queueTask()** — `queueTask()` currently catches all exceptions and returns `null`. Change it to throw a `TaskEnqueueException` (new runtime exception) so callers can decide whether to retry or fail. Update all callers to handle the new exception.
+
+### Timeouts & Resource Management
+
+- [ ] **T9.7** — **Configure MTurk client timeouts** — Set connect timeout (5s), read timeout (10s), and total API call timeout (30s) on the `MturkClient` via `MturkClient.builder().overrideConfiguration(...)`. Close clients properly with try-with-resources or a shared singleton with `@PreDestroy` cleanup.
+
+- [ ] **T9.8** — **Configure BigQuery client timeouts** — Set `QueryJobConfiguration` timeouts and `BigQueryOptions` retry settings. Add a 60s timeout on `bigQuery.query()` calls and a 120s timeout on bulk `insertAll()` operations.
+
+- [ ] **T9.9** — **Fix HttpURLConnection resource leak** — In `DatastoreBackupController`, wrap `HttpURLConnection` usage in try-with-resources. Set connect timeout (10s) and read timeout (30s).
+
+### Memory & Query Bounds
+
+- [ ] **T9.10** — **Paginate large in-memory queries** — Refactor `UserAnswerService.listByDateRange()` and `SurveyService.listAnswersByDateRange()` to use cursor-based iteration instead of loading all results into a `List`. Use Objectify's `QueryResultIterator` with chunked processing (e.g., 500 entities at a time) for snapshot building and BigQuery export.
+
+- [ ] **T9.11** — **Stream CSV export from Datastore** — Refactor `SurveyController.exportAnswersCsv()` to use cursor-based pagination inside the `StreamingResponseBody`, fetching 500 entities at a time and writing directly to the output stream, instead of loading the entire date range into memory first.
+
+- [ ] **T9.12** — **Add cache eviction policy** — Replace `ConcurrentMapCacheManager` with Caffeine cache (`spring-boot-starter-cache` + `caffeine` dependency). Configure maximum cache size (e.g., 100 entries), TTL (1 hour), and eviction listeners for logging. This prevents unbounded memory growth on long-running instances.
+
+### Idempotency & Data Integrity
+
+- [ ] **T9.13** — **Make HIT creation idempotent** — Add a `UniqueRequestToken` to `CreateHitRequest` using a deterministic key (e.g., hash of survey ID + date + hour). MTurk's API will reject duplicate creation attempts with the same token, preventing double-HIT creation on task retries.
+
+- [ ] **T9.14** — **Add optimistic locking to snapshot writes** — Before saving a `DemographicsSnapshot`, check if one already exists for the same date. If it does and was updated recently (within 5 minutes), skip the write to prevent concurrent builds from overwriting each other.
+
+## Track 10: Scalability & Performance
+
+Improvements to handle growing data volume and reduce latency.
+
+### Batch Operations
+
+- [ ] **T10.1** — **Batch MTurk API calls in DeleteHITs and ApproveAssignments** — Currently these controllers make one AWS API call per `UserAnswer` (N+1 pattern). Collect HIT IDs / assignment IDs into batches of 10-20, then process batches. Add a configurable rate limiter (e.g., Guava `RateLimiter` at 5 requests/second) to stay within AWS API limits.
+
+- [ ] **T10.2** — **Increase task processing batch sizes** — `DeleteHITsController` and `ApproveAssignmentsController` use `limit(30)` per task execution. Increase to `limit(100)` with task-level timeout awareness (check remaining time vs. App Engine 10-min limit before processing next batch).
+
+### Caching
+
+- [ ] **T10.3** — **Add Memcache/Redis for distributed caching** — The current in-memory cache is per-instance. On App Engine with auto-scaling (2+ instances), each instance maintains a separate cache. Add App Engine Memcache or Cloud Memorystore (Redis) for shared caching of `chartData` and `aggregatedAnswers`.
+
+- [ ] **T10.4** — **Implement incremental cache invalidation** — Currently `@CacheEvict(allEntries=true)` clears the entire cache when any snapshot is built. Instead, evict only the affected cache keys (by date range) so that unrelated queries remain cached.
+
+### Database Optimization
+
+- [ ] **T10.5** — **Review and optimize Datastore indexes** — Audit `index.yaml` against actual query patterns. Remove unused composite indexes (each index adds write latency). Add missing indexes for new query patterns (e.g., `DemographicsSnapshot` by date range, `DemographicsRollup` by period + type).
+
+- [ ] **T10.6** — **Add Datastore query projection** — For aggregation queries that only need a few fields (e.g., snapshot building needs only `answers`, `date`, `locationCountryCode`), use Objectify projection queries to avoid deserializing full entities. This reduces both Datastore read costs and memory usage.
+
+## Track 11: Observability & Operations
+
+Monitoring, logging, and operational tooling for production visibility.
+
+### Health & Monitoring
+
+- [ ] **T11.1** — **Add Spring Boot Actuator health endpoint** — Add `spring-boot-starter-actuator` dependency. Configure `/actuator/health` as a liveness probe and `/actuator/info` with build metadata. Expose only health and info endpoints (not all actuator endpoints). Configure App Engine's `liveness_check` in `app.yaml` to use it.
+
+- [ ] **T11.2** — **Add custom health indicators** — Implement `HealthIndicator` beans for: (a) Datastore connectivity (simple read test), (b) MTurk API reachability (describe account call), (c) BigQuery connectivity. Report `DOWN` if any external dependency is unreachable.
+
+- [ ] **T11.3** — **Add Micrometer metrics** — Add `micrometer-registry-stackdriver` (or `micrometer-registry-prometheus`) for exporting metrics to Cloud Monitoring. Instrument: API request latency histograms, MTurk API call counts/durations, BigQuery export success/failure rates, snapshot build durations, task queue depths.
+
+### Logging
+
+- [ ] **T11.4** — **Switch to structured JSON logging** — Replace `java.util.logging` with SLF4J + Logback. Configure JSON output format for Cloud Logging integration (automatic severity parsing, trace ID extraction). Add MDC context for request IDs.
+
+- [ ] **T11.5** — **Add request correlation IDs** — Add a servlet filter that generates a UUID per request (or extracts `X-Cloud-Trace-Context` from App Engine). Propagate via MDC to all log statements. Pass as a parameter when enqueuing Cloud Tasks for end-to-end tracing.
+
+### Alerting
+
+- [ ] **T11.6** — **Add task failure monitoring endpoint** — Create a `/tasks/status` diagnostic endpoint (authenticated) that reports: number of pending tasks in queue, last successful snapshot date, last successful BigQuery export date, and last successful HIT creation time. Useful for operational dashboards and alerting.
+
 ## Recommended Execution Order
 
 1. **Track 1** (CI/CD) — no code risk, immediate value
@@ -183,3 +269,6 @@ After deploying T7.17, run a snapshot backfill to populate the 4 new demographic
 5. **Track 5** (AWS SDK) — after Spring Boot migration stabilizes
 6. **Track 6** (Cloud Tasks lib) — after Spring Boot migration stabilizes
 7. **Track 7** (Frontend) — only if needed
+8. **Track 9** (Robustness) — highest priority for production stability; T9.1 is critical security fix
+9. **Track 10** (Scalability) — pursue when data volume growth demands it
+10. **Track 11** (Observability) — high value for ongoing operations
