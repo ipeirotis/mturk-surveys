@@ -1,5 +1,6 @@
 package com.ipeirotis.controller.tasks;
 
+import com.google.cloud.bigquery.*;
 import com.googlecode.objectify.Key;
 import com.googlecode.objectify.cmd.Query;
 import com.ipeirotis.entity.UserAnswer;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static com.googlecode.objectify.ObjectifyService.ofy;
@@ -288,6 +290,86 @@ public class DiagnosticController {
 	}
 
 	/**
+	 * Look up specific UserAnswer entities by their numeric IDs.
+	 * Use this to check whether entities from BigQuery still exist in Datastore.
+	 *
+	 * Example: /tasks/lookupEntities?ids=12345,67890,11111
+	 */
+	@GetMapping("/tasks/lookupEntities")
+	public Map<String, Object> lookupEntities(@RequestParam String ids) {
+		String[] idParts = ids.split(",");
+		List<Long> idList = new ArrayList<>();
+		for (String part : idParts) {
+			String trimmed = part.trim();
+			if (!trimmed.isEmpty()) {
+				idList.add(Long.parseLong(trimmed));
+			}
+		}
+
+		List<Key<UserAnswer>> keys = new ArrayList<>();
+		for (Long id : idList) {
+			keys.add(Key.create(UserAnswer.class, id));
+		}
+
+		Map<Key<UserAnswer>, UserAnswer> found = ofy().load().keys(keys);
+
+		List<Map<String, Object>> results = new ArrayList<>();
+		int existCount = 0;
+		int missingCount = 0;
+		for (Long id : idList) {
+			Key<UserAnswer> key = Key.create(UserAnswer.class, id);
+			UserAnswer ua = found.get(key);
+			Map<String, Object> entry = new LinkedHashMap<>();
+			entry.put("id", id);
+			if (ua != null) {
+				existCount++;
+				entry.put("exists", true);
+				entry.put("date", ua.getDate() != null ? ua.getDate().toString() : null);
+				entry.put("surveyId", ua.getSurveyId());
+				entry.put("hitId", ua.getHitId());
+			} else {
+				missingCount++;
+				entry.put("exists", false);
+			}
+			results.add(entry);
+		}
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("requestedCount", idList.size());
+		result.put("existCount", existCount);
+		result.put("missingCount", missingCount);
+		result.put("entities", results);
+		return result;
+	}
+
+	/**
+	 * Count total UserAnswer entities in Datastore using keys-only scan.
+	 * This gives us the true entity count regardless of indexes.
+	 * Warning: this scans ALL entities and may be slow/expensive.
+	 *
+	 * Example: /tasks/countAllEntities
+	 * With surveyId filter: /tasks/countAllEntities?surveyId=demographics
+	 */
+	@GetMapping("/tasks/countAllEntities")
+	public Map<String, Object> countAllEntities(
+			@RequestParam(required = false) String surveyId) {
+		Query<UserAnswer> q = ofy().load().type(UserAnswer.class);
+		if (surveyId != null) {
+			q = q.filter("surveyId", surveyId);
+		}
+
+		int count = 0;
+		for (Key<UserAnswer> key : q.keys()) {
+			count++;
+		}
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("surveyIdFilter", surveyId);
+		result.put("totalEntities", count);
+		return result;
+	}
+
+	/**
 	 * Re-index UserAnswer entities by loading via the surveyId single-property
 	 * index (bypassing the date index) and re-saving them. Re-saving forces
 	 * Datastore to rebuild all property indexes including date.
@@ -386,5 +468,461 @@ public class DiagnosticController {
 		result.put("from", from);
 		result.put("to", to);
 		return result;
+	}
+
+	/**
+	 * Preview what a restore from BigQuery would do, without writing anything.
+	 * Shows the BigQuery table schema and a sample of rows that would be restored.
+	 *
+	 * Example: /tasks/previewRestore?dataset=test&table=UserAnswer_2025MAR20&date=2021-01-15
+	 */
+	@GetMapping("/tasks/previewRestore")
+	public Map<String, Object> previewRestore(
+			@RequestParam String dataset,
+			@RequestParam String table,
+			@RequestParam String date) {
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("dataset", dataset);
+		result.put("table", table);
+		result.put("date", date);
+
+		try {
+			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
+			String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
+
+			// Get table schema
+			TableId tableId = TableId.of(dataset, table);
+			Table bqTable = bigQuery.getTable(tableId);
+			if (bqTable == null) {
+				result.put("error", "Table not found: " + dataset + "." + table);
+				return result;
+			}
+
+			Schema schema = bqTable.getDefinition().getSchema();
+			List<String> columns = new ArrayList<>();
+			for (Field field : schema.getFields()) {
+				columns.add(field.getName() + " (" + field.getType() + ")");
+			}
+			result.put("schema", columns);
+
+			// Query BigQuery for the given date
+			String sql = String.format(
+					"SELECT * FROM `%s.%s.%s` WHERE DATE(date) = '%s' LIMIT 5",
+					projectId, dataset, table, date);
+
+			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
+			TableResult tableResult = bigQuery.query(queryConfig);
+
+			result.put("totalRowsForDate", tableResult.getTotalRows());
+
+			List<Map<String, String>> sampleRows = new ArrayList<>();
+			for (FieldValueList row : tableResult.iterateAll()) {
+				Map<String, String> rowMap = new LinkedHashMap<>();
+				for (Field field : schema.getFields()) {
+					FieldValue val = row.get(field.getName());
+					rowMap.put(field.getName(), val.isNull() ? null : val.getStringValue());
+				}
+				sampleRows.add(rowMap);
+			}
+			result.put("sampleRows", sampleRows);
+
+			// Count how many already exist in Datastore
+			String countSql = String.format(
+					"SELECT __key__.id as entity_id FROM `%s.%s.%s` WHERE DATE(date) = '%s'",
+					projectId, dataset, table, date);
+			QueryJobConfiguration countConfig = QueryJobConfiguration.newBuilder(countSql).build();
+			TableResult countResult = bigQuery.query(countConfig);
+
+			List<Long> bqIds = new ArrayList<>();
+			for (FieldValueList row : countResult.iterateAll()) {
+				bqIds.add(row.get("entity_id").getLongValue());
+			}
+
+			// Check which ones exist in Datastore
+			List<Key<UserAnswer>> keys = new ArrayList<>();
+			for (Long id : bqIds) {
+				keys.add(Key.create(UserAnswer.class, id));
+			}
+			Map<Key<UserAnswer>, UserAnswer> existing = ofy().load().keys(keys);
+
+			int alreadyExist = existing.size();
+			int wouldRestore = bqIds.size() - alreadyExist;
+
+			result.put("bigQueryCount", bqIds.size());
+			result.put("alreadyInDatastore", alreadyExist);
+			result.put("wouldRestore", wouldRestore);
+
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			result.put("error", "Interrupted: " + e.getMessage());
+		} catch (Exception e) {
+			result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
+		}
+
+		return result;
+	}
+
+	/**
+	 * Restore UserAnswer entities from a BigQuery table back to Datastore.
+	 * Only restores entities that are missing from Datastore (skip existing).
+	 * Uses the original entity IDs from the __key__.id column.
+	 *
+	 * The BigQuery table should be a raw Datastore export with columns matching
+	 * the UserAnswer entity fields.
+	 *
+	 * Params:
+	 *   dataset  - BigQuery dataset (e.g., "test")
+	 *   table    - BigQuery table (e.g., "UserAnswer_2025MAR20")
+	 *   date     - date to restore in yyyy-MM-dd format (e.g., "2021-01-15")
+	 *   dryRun   - if true, only count what would be restored (default: true)
+	 *
+	 * Example: /tasks/restoreFromBigQuery?dataset=test&table=UserAnswer_2025MAR20&date=2021-01-15&dryRun=false
+	 */
+	@GetMapping("/tasks/restoreFromBigQuery")
+	public Map<String, Object> restoreFromBigQuery(
+			@RequestParam String dataset,
+			@RequestParam String table,
+			@RequestParam String date,
+			@RequestParam(required = false, defaultValue = "true") boolean dryRun) {
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("dataset", dataset);
+		result.put("table", table);
+		result.put("date", date);
+		result.put("dryRun", dryRun);
+
+		try {
+			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
+			String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
+
+			// Query all rows for the given date
+			String sql = String.format(
+					"SELECT __key__.id as entity_id, * FROM `%s.%s.%s` WHERE DATE(date) = '%s'",
+					projectId, dataset, table, date);
+
+			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
+			TableResult tableResult = bigQuery.query(queryConfig);
+
+			int totalInBigQuery = 0;
+			int alreadyExist = 0;
+			int restored = 0;
+			int errors = 0;
+			List<UserAnswer> batch = new ArrayList<>();
+
+			for (FieldValueList row : tableResult.iterateAll()) {
+				totalInBigQuery++;
+
+				long entityId = row.get("entity_id").getLongValue();
+
+				// Check if entity already exists in Datastore
+				UserAnswer existing = ofy().load().type(UserAnswer.class).id(entityId).now();
+				if (existing != null) {
+					alreadyExist++;
+					continue;
+				}
+
+				if (dryRun) {
+					restored++; // count what would be restored
+					continue;
+				}
+
+				// Build UserAnswer from BigQuery row
+				try {
+					UserAnswer ua = new UserAnswer();
+					ua.setId(entityId);
+
+					// Parse date
+					if (!row.get("date").isNull()) {
+						String dateStr = row.get("date").getStringValue();
+						// Datastore export timestamps can be in various formats
+						ua.setDate(parseTimestamp(dateStr));
+					}
+
+					ua.setSurveyId(getStringOrNull(row, "surveyId"));
+					ua.setHitId(getStringOrNull(row, "hitId"));
+					ua.setWorkerId(getStringOrNull(row, "workerId"));
+					ua.setIp(getStringOrNull(row, "ip"));
+					ua.setLocationCountry(getStringOrNull(row, "locationCountry"));
+					ua.setLocationRegion(getStringOrNull(row, "locationRegion"));
+					ua.setLocationCity(getStringOrNull(row, "locationCity"));
+
+					if (!row.get("hitCreationDate").isNull()) {
+						ua.setHitCreationDate(parseTimestamp(row.get("hitCreationDate").getStringValue()));
+					}
+
+					// Parse answers map — Datastore exports nested maps as repeated RECORD
+					Map<String, String> answers = parseAnswersFromRow(row);
+					if (answers != null && !answers.isEmpty()) {
+						ua.setAnswers(answers);
+					}
+
+					batch.add(ua);
+
+					if (batch.size() >= 25) {
+						ofy().save().entities(batch).now();
+						restored += batch.size();
+						batch.clear();
+					}
+				} catch (Exception e) {
+					errors++;
+					logger.log(Level.WARNING, "Error restoring entity " + entityId + ": " + e.getMessage(), e);
+				}
+			}
+
+			// Save remaining batch
+			if (!batch.isEmpty()) {
+				ofy().save().entities(batch).now();
+				restored += batch.size();
+			}
+
+			result.put("totalInBigQuery", totalInBigQuery);
+			result.put("alreadyInDatastore", alreadyExist);
+			result.put(dryRun ? "wouldRestore" : "restored", restored);
+			if (errors > 0) {
+				result.put("errors", errors);
+			}
+			result.put("status", "ok");
+
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			result.put("error", "Interrupted: " + e.getMessage());
+		} catch (Exception e) {
+			result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
+			logger.log(Level.SEVERE, "Restore failed", e);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Restore UserAnswer entities from BigQuery for a range of dates.
+	 * Iterates day by day, restoring missing entities for each date.
+	 *
+	 * Example: /tasks/restoreRange?dataset=test&table=UserAnswer_2025MAR20&from=2021-01-01&to=2021-01-31&dryRun=false
+	 */
+	@GetMapping("/tasks/restoreRange")
+	public Map<String, Object> restoreRange(
+			@RequestParam String dataset,
+			@RequestParam String table,
+			@RequestParam String from,
+			@RequestParam String to,
+			@RequestParam(required = false, defaultValue = "true") boolean dryRun) {
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("dataset", dataset);
+		result.put("table", table);
+		result.put("from", from);
+		result.put("to", to);
+		result.put("dryRun", dryRun);
+
+		try {
+			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
+			String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
+
+			// Query all rows for the date range
+			String sql = String.format(
+					"SELECT __key__.id as entity_id, * FROM `%s.%s.%s` WHERE DATE(date) >= '%s' AND DATE(date) <= '%s' ORDER BY date",
+					projectId, dataset, table, from, to);
+
+			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
+			TableResult tableResult = bigQuery.query(queryConfig);
+
+			int totalInBigQuery = 0;
+			int alreadyExist = 0;
+			int restored = 0;
+			int errors = 0;
+
+			// Collect all entity IDs first to batch-check existence
+			List<FieldValueList> allRows = new ArrayList<>();
+			for (FieldValueList row : tableResult.iterateAll()) {
+				allRows.add(row);
+			}
+			totalInBigQuery = allRows.size();
+
+			// Batch-check existence in groups of 100
+			List<UserAnswer> saveBatch = new ArrayList<>();
+			for (int i = 0; i < allRows.size(); i += 100) {
+				int end = Math.min(i + 100, allRows.size());
+				List<FieldValueList> chunk = allRows.subList(i, end);
+
+				// Batch-load existing entities
+				List<Key<UserAnswer>> keys = new ArrayList<>();
+				for (FieldValueList row : chunk) {
+					long entityId = row.get("entity_id").getLongValue();
+					keys.add(Key.create(UserAnswer.class, entityId));
+				}
+				Map<Key<UserAnswer>, UserAnswer> existingMap = ofy().load().keys(keys);
+
+				for (FieldValueList row : chunk) {
+					long entityId = row.get("entity_id").getLongValue();
+					Key<UserAnswer> key = Key.create(UserAnswer.class, entityId);
+
+					if (existingMap.containsKey(key)) {
+						alreadyExist++;
+						continue;
+					}
+
+					if (dryRun) {
+						restored++;
+						continue;
+					}
+
+					try {
+						UserAnswer ua = buildUserAnswerFromRow(row, entityId);
+						saveBatch.add(ua);
+
+						if (saveBatch.size() >= 25) {
+							ofy().save().entities(saveBatch).now();
+							restored += saveBatch.size();
+							saveBatch.clear();
+						}
+					} catch (Exception e) {
+						errors++;
+						logger.log(Level.WARNING, "Error restoring entity " + entityId + ": " + e.getMessage(), e);
+					}
+				}
+			}
+
+			// Save remaining batch
+			if (!saveBatch.isEmpty()) {
+				ofy().save().entities(saveBatch).now();
+				restored += saveBatch.size();
+			}
+
+			result.put("totalInBigQuery", totalInBigQuery);
+			result.put("alreadyInDatastore", alreadyExist);
+			result.put(dryRun ? "wouldRestore" : "restored", restored);
+			if (errors > 0) {
+				result.put("errors", errors);
+			}
+			result.put("status", "ok");
+
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			result.put("error", "Interrupted: " + e.getMessage());
+		} catch (Exception e) {
+			result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
+			logger.log(Level.SEVERE, "Restore range failed", e);
+		}
+
+		return result;
+	}
+
+	private UserAnswer buildUserAnswerFromRow(FieldValueList row, long entityId) {
+		UserAnswer ua = new UserAnswer();
+		ua.setId(entityId);
+
+		if (!row.get("date").isNull()) {
+			ua.setDate(parseTimestamp(row.get("date").getStringValue()));
+		}
+
+		ua.setSurveyId(getStringOrNull(row, "surveyId"));
+		ua.setHitId(getStringOrNull(row, "hitId"));
+		ua.setWorkerId(getStringOrNull(row, "workerId"));
+		ua.setIp(getStringOrNull(row, "ip"));
+		ua.setLocationCountry(getStringOrNull(row, "locationCountry"));
+		ua.setLocationRegion(getStringOrNull(row, "locationRegion"));
+		ua.setLocationCity(getStringOrNull(row, "locationCity"));
+
+		try {
+			if (!row.get("hitCreationDate").isNull()) {
+				ua.setHitCreationDate(parseTimestamp(row.get("hitCreationDate").getStringValue()));
+			}
+		} catch (Exception e) {
+			// hitCreationDate may not exist in all exports
+		}
+
+		Map<String, String> answers = parseAnswersFromRow(row);
+		if (answers != null && !answers.isEmpty()) {
+			ua.setAnswers(answers);
+		}
+
+		return ua;
+	}
+
+	private String getStringOrNull(FieldValueList row, String fieldName) {
+		try {
+			FieldValue val = row.get(fieldName);
+			return val.isNull() ? null : val.getStringValue();
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private Date parseTimestamp(String timestamp) {
+		// Handle various timestamp formats from BigQuery/Datastore exports
+		// Try epoch micros first (Datastore export format)
+		try {
+			long micros = Long.parseLong(timestamp);
+			return new Date(micros / 1000);
+		} catch (NumberFormatException e) {
+			// Not numeric, try ISO format
+		}
+
+		// Try ISO format: "2021-01-15T12:34:56Z" or "2021-01-15 12:34:56 UTC"
+		String[] patterns = {
+				"yyyy-MM-dd'T'HH:mm:ss'Z'",
+				"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+				"yyyy-MM-dd HH:mm:ss z",
+				"yyyy-MM-dd HH:mm:ss.SSS z",
+				"yyyy-MM-dd HH:mm:ss",
+				"E MMM dd HH:mm:ss z yyyy"
+		};
+		for (String pattern : patterns) {
+			try {
+				DateFormat df = SafeDateFormat.forPattern(pattern);
+				return df.parse(timestamp);
+			} catch (ParseException e) {
+				// try next
+			}
+		}
+
+		throw new RuntimeException("Cannot parse timestamp: " + timestamp);
+	}
+
+	private Map<String, String> parseAnswersFromRow(FieldValueList row) {
+		Map<String, String> answers = new LinkedHashMap<>();
+
+		// Try to read the "answers" field directly (Datastore export as nested RECORD)
+		try {
+			FieldValue answersField = row.get("answers");
+			if (!answersField.isNull()) {
+				if (answersField.getAttribute() == FieldValue.Attribute.RECORD) {
+					// Nested record — iterate sub-fields
+					FieldValueList record = answersField.getRecordValue();
+					for (int i = 0; i < record.size(); i++) {
+						// Datastore map exports as repeated {key, value} records
+						FieldValue entry = record.get(i);
+						if (entry.getAttribute() == FieldValue.Attribute.RECORD) {
+							FieldValueList kv = entry.getRecordValue();
+							String key = kv.get("key").isNull() ? null : kv.get("key").getStringValue();
+							String value = kv.get("value").isNull() ? null : kv.get("value").getStringValue();
+							if (key != null) {
+								answers.put(key, value);
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			// Field might not exist or have different structure
+		}
+
+		// If answers map is still empty, try reading individual answer columns
+		// (some exports flatten the map into top-level columns)
+		if (answers.isEmpty()) {
+			String[] answerKeys = {"yearOfBirth", "gender", "maritalStatus", "householdSize",
+					"householdIncome", "educationalLevel", "timeSpentOnMturk",
+					"weeklyIncomeFromMturk", "languagesSpoken"};
+			for (String key : answerKeys) {
+				String value = getStringOrNull(row, key);
+				if (value != null) {
+					answers.put(key, value);
+				}
+			}
+		}
+
+		return answers;
 	}
 }
