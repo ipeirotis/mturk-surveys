@@ -290,8 +290,13 @@
                     };
                 }
 
-                $scope.$watchGroup(['mapData', 'normalized'], function(newVals) {
-                    if (newVals[0]) {
+                $scope.$watch('mapData', function(newVal) {
+                    if (newVal) {
+                        $timeout(render, 0);
+                    }
+                });
+                $scope.$watch('normalized', function() {
+                    if ($scope.mapData) {
                         $timeout(render, 0);
                     }
                 });
