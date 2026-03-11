@@ -1127,41 +1127,42 @@ public class DiagnosticController {
 		return result;
 	}
 
+	/** Known answer field names in the Datastore export RECORD. */
+	private static final String[] ANSWER_FIELD_NAMES = {
+		"gender", "yearOfBirth", "maritalStatus", "householdSize",
+		"householdIncome", "educationalLevel", "timeSpentOnMturk",
+		"weeklyIncomeFromMturk", "languagesSpoken"
+	};
+
 	private Map<String, String> parseAnswersFromRow(FieldValueList row) {
 		Map<String, String> answers = new LinkedHashMap<>();
 
-		// Try to read the "answers" field directly (Datastore export as nested RECORD)
+		// Try to read the "answers" field (Datastore export as nested RECORD with named sub-fields)
 		try {
 			FieldValue answersField = row.get("answers");
-			if (!answersField.isNull()) {
-				if (answersField.getAttribute() == FieldValue.Attribute.RECORD) {
-					// Nested record — iterate sub-fields
-					FieldValueList record = answersField.getRecordValue();
-					for (int i = 0; i < record.size(); i++) {
-						// Datastore map exports as repeated {key, value} records
-						FieldValue entry = record.get(i);
-						if (entry.getAttribute() == FieldValue.Attribute.RECORD) {
-							FieldValueList kv = entry.getRecordValue();
-							String key = kv.get("key").isNull() ? null : kv.get("key").getStringValue();
-							String value = kv.get("value").isNull() ? null : kv.get("value").getStringValue();
-							if (key != null) {
-								answers.put(key, value);
-							}
+			if (!answersField.isNull() && answersField.getAttribute() == FieldValue.Attribute.RECORD) {
+				FieldValueList record = answersField.getRecordValue();
+				// Use named field access for robustness
+				for (String fieldName : ANSWER_FIELD_NAMES) {
+					try {
+						FieldValue val = record.get(fieldName);
+						if (val != null && !val.isNull()) {
+							answers.put(fieldName, val.getStringValue());
 						}
+					} catch (IllegalArgumentException e) {
+						// Field doesn't exist in this record
 					}
 				}
 			}
+		} catch (IllegalArgumentException e) {
+			// 'answers' column doesn't exist in this table
 		} catch (Exception e) {
-			// Field might not exist or have different structure
+			logger.warning("Failed to parse answers: " + e.getClass().getName() + ": " + e.getMessage());
 		}
 
-		// If answers map is still empty, try reading individual answer columns
-		// (some exports flatten the map into top-level columns)
+		// Fallback: try reading individual answer columns as top-level (for flattened exports)
 		if (answers.isEmpty()) {
-			String[] answerKeys = {"yearOfBirth", "gender", "maritalStatus", "householdSize",
-					"householdIncome", "educationalLevel", "timeSpentOnMturk",
-					"weeklyIncomeFromMturk", "languagesSpoken"};
-			for (String key : answerKeys) {
+			for (String key : ANSWER_FIELD_NAMES) {
 				String value = getStringOrNull(row, key);
 				if (value != null) {
 					answers.put(key, value);
