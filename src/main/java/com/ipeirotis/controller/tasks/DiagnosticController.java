@@ -514,8 +514,6 @@ public class DiagnosticController {
 			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
 			TableResult tableResult = bigQuery.query(queryConfig);
 
-			result.put("totalRowsForDate", tableResult.getTotalRows());
-
 			List<Map<String, String>> sampleRows = new ArrayList<>();
 			for (FieldValueList row : tableResult.iterateAll()) {
 				Map<String, String> rowMap = new LinkedHashMap<>();
