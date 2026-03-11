@@ -36,9 +36,12 @@ public class DiagnosticController {
 	 * Strategy 5: keys-only count with composite filter
 	 *
 	 * Example: /tasks/diagnoseVolume?date=01/15/2021
+	 * Add full=true to include Strategy 3 (slow full-scan): /tasks/diagnoseVolume?date=01/15/2021&full=true
 	 */
 	@GetMapping("/tasks/diagnoseVolume")
-	public Map<String, Object> diagnoseVolume(@RequestParam String date) throws ParseException {
+	public Map<String, Object> diagnoseVolume(
+			@RequestParam String date,
+			@RequestParam(required = false, defaultValue = "false") boolean full) throws ParseException {
 		DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
 		Calendar dateFrom = Calendar.getInstance();
 		dateFrom.setTime(df.parse(date));
@@ -56,18 +59,19 @@ public class DiagnosticController {
 		result.put("queryFrom", from.toString());
 		result.put("queryTo", to.toString());
 
-		// Strategy 1: date-only filter (single-property index on date)
-		{
+		// Strategy 1: date-only filter — stream entities in small chunks to avoid OOM
+		try {
 			Query<UserAnswer> q = ofy().load().type(UserAnswer.class)
 					.filter("date >=", from)
-					.filter("date <", to);
-			List<UserAnswer> answers = q.list();
-			int total = answers.size();
+					.filter("date <", to)
+					.chunk(100);
+			int total = 0;
 			int withSurveyId = 0;
 			int withDemographicsSurveyId = 0;
 			int nullSurveyId = 0;
 			Set<String> surveyIds = new TreeSet<>();
-			for (UserAnswer ua : answers) {
+			for (UserAnswer ua : q) {
+				total++;
 				if (ua.getSurveyId() == null) {
 					nullSurveyId++;
 				} else {
@@ -79,63 +83,76 @@ public class DiagnosticController {
 				}
 			}
 			Map<String, Object> s1 = new LinkedHashMap<>();
-			s1.put("description", "date-only filter (single-property date index)");
+			s1.put("description", "date-only filter (single-property date index, streamed)");
 			s1.put("totalCount", total);
 			s1.put("withDemographicsSurveyId", withDemographicsSurveyId);
 			s1.put("nullSurveyId", nullSurveyId);
 			s1.put("distinctSurveyIds", surveyIds);
 			result.put("strategy1_dateOnly", s1);
+		} catch (Exception e) {
+			result.put("strategy1_dateOnly", Map.of("error", e.getMessage()));
+			logger.warning("Strategy 1 failed: " + e.getMessage());
 		}
 
-		// Strategy 2: surveyId=demographics + date filter (composite index)
-		{
+		// Strategy 2: surveyId=demographics + date filter — keys-only count
+		try {
 			Query<UserAnswer> q = ofy().load().type(UserAnswer.class)
 					.filter("surveyId", "demographics")
 					.filter("date >=", from)
 					.filter("date <", to)
 					.order("date");
-			List<UserAnswer> answers = q.list();
+			int keysCount = q.keys().list().size();
 			Map<String, Object> s2 = new LinkedHashMap<>();
-			s2.put("description", "surveyId=demographics + date filter (composite index)");
-			s2.put("totalCount", answers.size());
+			s2.put("description", "surveyId=demographics + date filter (composite index, keys-only)");
+			s2.put("totalCount", keysCount);
 			result.put("strategy2_compositeIndex", s2);
+		} catch (Exception e) {
+			result.put("strategy2_compositeIndex", Map.of("error", e.getMessage()));
+			logger.warning("Strategy 2 failed: " + e.getMessage());
 		}
 
 		// Strategy 3: surveyId=demographics only, filter dates in Java (bypasses date index)
-		{
-			Query<UserAnswer> q = ofy().load().type(UserAnswer.class)
-					.filter("surveyId", "demographics");
-			int totalForSurvey = 0;
-			int inDateRange = 0;
-			for (UserAnswer ua : q) {
-				totalForSurvey++;
-				if (ua.getDate() != null && !ua.getDate().before(from) && ua.getDate().before(to)) {
-					inDateRange++;
+		// This is SLOW — scans all demographics entities. Only runs with full=true.
+		if (full) {
+			try {
+				Query<UserAnswer> q = ofy().load().type(UserAnswer.class)
+						.filter("surveyId", "demographics")
+						.chunk(100);
+				int totalForSurvey = 0;
+				int inDateRange = 0;
+				for (UserAnswer ua : q) {
+					totalForSurvey++;
+					if (ua.getDate() != null && !ua.getDate().before(from) && ua.getDate().before(to)) {
+						inDateRange++;
+					}
+					if (totalForSurvey > 200000) {
+						Map<String, Object> s3 = new LinkedHashMap<>();
+						s3.put("description", "surveyId=demographics, dates filtered in-memory (TRUNCATED at 200k)");
+						s3.put("totalScanned", totalForSurvey);
+						s3.put("inDateRangeCount", inDateRange);
+						s3.put("truncated", true);
+						result.put("strategy3_inMemoryDateFilter", s3);
+						break;
+					}
 				}
-				// Limit to avoid timeout - if we've already found more than enough
-				// evidence, we can stop
-				if (totalForSurvey > 200000) {
+				if (totalForSurvey <= 200000) {
 					Map<String, Object> s3 = new LinkedHashMap<>();
-					s3.put("description", "surveyId=demographics, dates filtered in-memory (TRUNCATED at 200k)");
+					s3.put("description", "surveyId=demographics, dates filtered in-memory");
 					s3.put("totalScanned", totalForSurvey);
 					s3.put("inDateRangeCount", inDateRange);
-					s3.put("truncated", true);
+					s3.put("truncated", false);
 					result.put("strategy3_inMemoryDateFilter", s3);
-					break;
 				}
+			} catch (Exception e) {
+				result.put("strategy3_inMemoryDateFilter", Map.of("error", e.getMessage()));
+				logger.warning("Strategy 3 failed: " + e.getMessage());
 			}
-			if (totalForSurvey <= 200000) {
-				Map<String, Object> s3 = new LinkedHashMap<>();
-				s3.put("description", "surveyId=demographics, dates filtered in-memory");
-				s3.put("totalScanned", totalForSurvey);
-				s3.put("inDateRangeCount", inDateRange);
-				s3.put("truncated", false);
-				result.put("strategy3_inMemoryDateFilter", s3);
-			}
+		} else {
+			result.put("strategy3_inMemoryDateFilter", "SKIPPED (add full=true to enable — slow full-scan)");
 		}
 
 		// Strategy 4: keys-only count with date filter
-		{
+		try {
 			Query<UserAnswer> q = ofy().load().type(UserAnswer.class)
 					.filter("date >=", from)
 					.filter("date <", to);
@@ -144,10 +161,13 @@ public class DiagnosticController {
 			s4.put("description", "keys-only query with date filter");
 			s4.put("keysCount", keysCount);
 			result.put("strategy4_keysOnlyDate", s4);
+		} catch (Exception e) {
+			result.put("strategy4_keysOnlyDate", Map.of("error", e.getMessage()));
+			logger.warning("Strategy 4 failed: " + e.getMessage());
 		}
 
 		// Strategy 5: keys-only count with composite filter
-		{
+		try {
 			Query<UserAnswer> q = ofy().load().type(UserAnswer.class)
 					.filter("surveyId", "demographics")
 					.filter("date >=", from)
@@ -158,6 +178,9 @@ public class DiagnosticController {
 			s5.put("description", "keys-only query with surveyId + date filter (composite index)");
 			s5.put("keysCount", keysCount);
 			result.put("strategy5_keysOnlyComposite", s5);
+		} catch (Exception e) {
+			result.put("strategy5_keysOnlyComposite", Map.of("error", e.getMessage()));
+			logger.warning("Strategy 5 failed: " + e.getMessage());
 		}
 
 		logger.info("Diagnostic results for " + date + ": " + result);
@@ -187,12 +210,13 @@ public class DiagnosticController {
 		CalendarUtils.truncateToDay(end);
 		end.add(Calendar.DAY_OF_MONTH, 1);
 
-		// Query all answers in the range using the composite index
+		// Query all answers in the range using the composite index — stream in chunks
 		Query<UserAnswer> q = ofy().load().type(UserAnswer.class)
 				.filter("surveyId", "demographics")
 				.filter("date >=", start.getTime())
 				.filter("date <", end.getTime())
-				.order("date");
+				.order("date")
+				.chunk(100);
 
 		Map<String, Integer> dailyCounts = new TreeMap<>();
 		int total = 0;
@@ -212,10 +236,11 @@ public class DiagnosticController {
 			dailyCounts.merge(day, 1, Integer::sum);
 		}
 
-		// Also run without surveyId filter for comparison
+		// Also run without surveyId filter for comparison — stream in chunks
 		Query<UserAnswer> qNoSurvey = ofy().load().type(UserAnswer.class)
 				.filter("date >=", start.getTime())
-				.filter("date <", end.getTime());
+				.filter("date <", end.getTime())
+				.chunk(100);
 
 		Map<String, Integer> dailyCountsNoSurveyFilter = new TreeMap<>();
 		int totalNoSurveyFilter = 0;
