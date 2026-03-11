@@ -97,6 +97,17 @@ public class DemographicsSnapshotService {
                 logger.info("No responses in BigQuery for " + dateStr + " either, skipping snapshot");
                 return null;
             }
+        } else {
+            // Datastore may have partial data (e.g. after a restore where entity IDs
+            // were reused). Check BigQuery and use whichever source has more valid entries.
+            long dsValid = answers.stream().filter(this::hasDemographicAnswers).count();
+            List<UserAnswer> bqAnswers = loadFromBigQuery(sortableDate);
+            long bqValid = bqAnswers.stream().filter(this::hasDemographicAnswers).count();
+            if (bqValid > dsValid) {
+                logger.info("BigQuery has more valid entries for " + dateStr
+                        + " (BQ=" + bqValid + " vs DS=" + dsValid + "), using BigQuery");
+                answers = bqAnswers;
+            }
         }
 
         DemographicsSnapshot snapshot = new DemographicsSnapshot();
