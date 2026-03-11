@@ -40,8 +40,9 @@ public class DatastoreRestoreController {
 	 */
 	@GetMapping("/tasks/compareDatastoreBigQuery")
 	public Map<String, Object> compareCounts(
-			@RequestParam String from, @RequestParam String to) throws ParseException {
-		List<Map<String, Object>> mismatches = restoreService.compareCounts(from, to);
+			@RequestParam String from, @RequestParam String to,
+			@RequestParam(required = false) String table) throws ParseException {
+		List<Map<String, Object>> mismatches = restoreService.compareCounts(from, to, table);
 
 		long totalDelta = 0;
 		for (Map<String, Object> row : mismatches) {
@@ -67,9 +68,15 @@ public class DatastoreRestoreController {
 	 * @param date date in yyyy-MM-dd format
 	 */
 	@GetMapping("/tasks/restoreDateFromBigQuery")
-	public Map<String, Object> restoreDate(@RequestParam String date) {
-		int restored = restoreService.restoreDate(date);
-		return Map.of("status", "ok", "date", date, "entitiesRestored", restored);
+	public Map<String, Object> restoreDate(@RequestParam String date,
+			@RequestParam(required = false) String table) {
+		int restored = restoreService.restoreDate(date, table);
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("status", "ok");
+		result.put("date", date);
+		result.put("entitiesRestored", restored);
+		if (table != null) result.put("table", table);
+		return result;
 	}
 
 	/**
@@ -84,7 +91,8 @@ public class DatastoreRestoreController {
 	 */
 	@GetMapping("/tasks/backfillRestoreFromBigQuery")
 	public Map<String, Object> backfillRestore(
-			@RequestParam String from, @RequestParam String to) throws ParseException {
+			@RequestParam String from, @RequestParam String to,
+			@RequestParam(required = false) String table) throws ParseException {
 		DateFormat df = SafeDateFormat.forPattern("yyyy-MM-dd");
 
 		Calendar start = Calendar.getInstance();
@@ -113,6 +121,7 @@ public class DatastoreRestoreController {
 				Map<String, String> params = new LinkedHashMap<>();
 				params.put("from", df.format(chunkStart.getTime()));
 				params.put("to", df.format(chunkEnd.getTime()));
+				if (table != null) params.put("table", table);
 				TaskUtils.queueTask("/tasks/backfillRestoreFromBigQuery", params);
 				chunksEnqueued++;
 
@@ -132,6 +141,7 @@ public class DatastoreRestoreController {
 			String dateStr = df.format(current.getTime());
 			Map<String, String> params = new LinkedHashMap<>();
 			params.put("date", dateStr);
+			if (table != null) params.put("table", table);
 			TaskUtils.queueTask("/tasks/restoreDateFromBigQuery", params);
 			current.add(Calendar.DAY_OF_MONTH, 1);
 			tasksEnqueued++;
@@ -153,8 +163,9 @@ public class DatastoreRestoreController {
 	 */
 	@GetMapping("/tasks/smartRestoreFromBigQuery")
 	public Map<String, Object> smartRestore(
-			@RequestParam String from, @RequestParam String to) throws ParseException {
-		List<Map<String, Object>> mismatches = restoreService.compareCounts(from, to);
+			@RequestParam String from, @RequestParam String to,
+			@RequestParam(required = false) String table) throws ParseException {
+		List<Map<String, Object>> mismatches = restoreService.compareCounts(from, to, table);
 
 		int tasksEnqueued = 0;
 		for (Map<String, Object> mismatch : mismatches) {
@@ -164,6 +175,7 @@ public class DatastoreRestoreController {
 				String date = (String) mismatch.get("date");
 				Map<String, String> params = new LinkedHashMap<>();
 				params.put("date", date);
+				if (table != null) params.put("table", table);
 				TaskUtils.queueTask("/tasks/restoreDateFromBigQuery", params);
 				tasksEnqueued++;
 			}
