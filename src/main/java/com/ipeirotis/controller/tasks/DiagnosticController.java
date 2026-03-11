@@ -288,6 +288,86 @@ public class DiagnosticController {
 	}
 
 	/**
+	 * Look up specific UserAnswer entities by their numeric IDs.
+	 * Use this to check whether entities from BigQuery still exist in Datastore.
+	 *
+	 * Example: /tasks/lookupEntities?ids=12345,67890,11111
+	 */
+	@GetMapping("/tasks/lookupEntities")
+	public Map<String, Object> lookupEntities(@RequestParam String ids) {
+		String[] idParts = ids.split(",");
+		List<Long> idList = new ArrayList<>();
+		for (String part : idParts) {
+			String trimmed = part.trim();
+			if (!trimmed.isEmpty()) {
+				idList.add(Long.parseLong(trimmed));
+			}
+		}
+
+		List<Key<UserAnswer>> keys = new ArrayList<>();
+		for (Long id : idList) {
+			keys.add(Key.create(UserAnswer.class, id));
+		}
+
+		Map<Key<UserAnswer>, UserAnswer> found = ofy().load().keys(keys);
+
+		List<Map<String, Object>> results = new ArrayList<>();
+		int existCount = 0;
+		int missingCount = 0;
+		for (Long id : idList) {
+			Key<UserAnswer> key = Key.create(UserAnswer.class, id);
+			UserAnswer ua = found.get(key);
+			Map<String, Object> entry = new LinkedHashMap<>();
+			entry.put("id", id);
+			if (ua != null) {
+				existCount++;
+				entry.put("exists", true);
+				entry.put("date", ua.getDate() != null ? ua.getDate().toString() : null);
+				entry.put("surveyId", ua.getSurveyId());
+				entry.put("hitId", ua.getHitId());
+			} else {
+				missingCount++;
+				entry.put("exists", false);
+			}
+			results.add(entry);
+		}
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("requestedCount", idList.size());
+		result.put("existCount", existCount);
+		result.put("missingCount", missingCount);
+		result.put("entities", results);
+		return result;
+	}
+
+	/**
+	 * Count total UserAnswer entities in Datastore using keys-only scan.
+	 * This gives us the true entity count regardless of indexes.
+	 * Warning: this scans ALL entities and may be slow/expensive.
+	 *
+	 * Example: /tasks/countAllEntities
+	 * With surveyId filter: /tasks/countAllEntities?surveyId=demographics
+	 */
+	@GetMapping("/tasks/countAllEntities")
+	public Map<String, Object> countAllEntities(
+			@RequestParam(required = false) String surveyId) {
+		Query<UserAnswer> q = ofy().load().type(UserAnswer.class);
+		if (surveyId != null) {
+			q = q.filter("surveyId", surveyId);
+		}
+
+		int count = 0;
+		for (Key<UserAnswer> key : q.keys()) {
+			count++;
+		}
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("surveyIdFilter", surveyId);
+		result.put("totalEntities", count);
+		return result;
+	}
+
+	/**
 	 * Re-index UserAnswer entities by loading via the surveyId single-property
 	 * index (bypassing the date index) and re-saving them. Re-saving forces
 	 * Datastore to rebuild all property indexes including date.
