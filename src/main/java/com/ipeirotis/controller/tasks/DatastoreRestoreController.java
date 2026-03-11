@@ -371,6 +371,17 @@ public class DatastoreRestoreController {
 	}
 
 	/**
+	 * Test: parse one BigQuery row and return diagnostic details (does NOT write to Datastore).
+	 * Example: /tasks/testParseRow?date=2021-01-15&table=test.UserAnswer_2025MAR20
+	 */
+	@GetMapping("/tasks/testParseRow")
+	public Map<String, Object> testParseRow(
+			@RequestParam String date,
+			@RequestParam(required = false) String table) {
+		return restoreService.testParseOneRow(date, table);
+	}
+
+	/**
 	 * Smart restore: compare counts and only restore days where
 	 * Datastore has fewer entries than BigQuery backup.
 	 * Enqueues restore tasks only for days with missing data.
