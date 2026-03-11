@@ -31,6 +31,18 @@ mvn appengine:deploy
 
 There are **no tests** configured in this project. No linter or formatter is set up.
 
+### Required CLI Tools
+
+When working on this project in a cloud/CI environment, ensure these tools are installed:
+
+- **`gcloud`** — Google Cloud SDK (for `gcloud datastore`, `gcloud app deploy`, `gcloud auth`, `gcloud secrets`)
+- **`bq`** — BigQuery CLI (bundled with Google Cloud SDK; for querying `demographics.responses` and `test.UserAnswer_2025MAR20`)
+- **`gh`** — GitHub CLI (for creating PRs, managing issues)
+- **`mvn`** — Maven 3.9+ (for building and deploying)
+- **Java 21** — Required runtime
+
+If `gcloud`/`bq` are unavailable, you can use the REST APIs with an access token from `gcloud auth print-access-token` (Datastore API, BigQuery API). The GCP project ID is `mturk-demographics`.
+
 ### Maven Proxy / Network Issues
 
 Maven 3.9+ uses Apache HttpClient by default for dependency resolution, which may fail with proxy authentication (407 errors) or DNS resolution failures in restricted network environments. If `mvn clean install` fails with network errors:

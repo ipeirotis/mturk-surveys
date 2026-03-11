@@ -1,5 +1,7 @@
 package com.ipeirotis.controller.tasks;
 
+import com.ipeirotis.dao.DemographicsSnapshotDao;
+import com.ipeirotis.entity.DemographicsSnapshot;
 import com.ipeirotis.service.DemographicsSnapshotService;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
@@ -13,10 +15,9 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
-import java.util.Calendar;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Logger;
 
 @RestController
@@ -26,6 +27,9 @@ public class SnapshotController {
 
     @Autowired
     private DemographicsSnapshotService snapshotService;
+
+    @Autowired
+    private DemographicsSnapshotDao snapshotDao;
 
     /**
      * Cron-triggered: pre-warms the chartData cache for the full date range.
@@ -216,5 +220,123 @@ public class SnapshotController {
 
         return Map.of("status", "ok", "mode", "daily",
                 "tasksEnqueued", tasksEnqueued, "from", from, "to", to);
+    }
+
+    /**
+     * Coverage report: checks which dates have DemographicsSnapshot entities
+     * and which are missing. Returns summary stats and lists of missing dates,
+     * grouped by year-month for readability.
+     *
+     * Optional backfill=true parameter will enqueue snapshot tasks for all missing dates.
+     *
+     * Example: /tasks/snapshotCoverage
+     * Example: /tasks/snapshotCoverage?from=2020-01-01&to=2024-12-31
+     * Example: /tasks/snapshotCoverage?backfill=true
+     */
+    @GetMapping("/tasks/snapshotCoverage")
+    public Map<String, Object> snapshotCoverage(
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false, defaultValue = "false") boolean backfill) {
+
+        LocalDate startDate = (from != null) ? LocalDate.parse(from) : LocalDate.of(2015, 3, 26);
+        LocalDate endDate = (to != null) ? LocalDate.parse(to) : LocalDate.now().minusDays(1);
+
+        // Load all existing snapshots in the range
+        DateFormat displayDf = SafeDateFormat.forPattern("MM/dd/yyyy");
+        java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy");
+        String displayFrom = startDate.format(dtf);
+        String displayTo = endDate.format(dtf);
+
+        List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(displayFrom, displayTo);
+
+        // Build set of dates that have snapshots
+        Set<String> existingDates = new HashSet<>();
+        int withData = 0;
+        int withoutData = 0;
+        for (DemographicsSnapshot s : snapshots) {
+            existingDates.add(s.getDate()); // yyyy-MM-dd format
+            if (s.getTotalResponses() > 0) {
+                withData++;
+            } else {
+                withoutData++;
+            }
+        }
+
+        // Walk every date and find missing ones
+        List<String> missingDates = new ArrayList<>();
+        Map<String, List<String>> missingByMonth = new LinkedHashMap<>();
+        LocalDate current = startDate;
+        long totalDays = 0;
+        while (!current.isAfter(endDate)) {
+            totalDays++;
+            String dateStr = current.toString(); // yyyy-MM-dd
+            if (!existingDates.contains(dateStr)) {
+                missingDates.add(dateStr);
+                String yearMonth = dateStr.substring(0, 7); // yyyy-MM
+                missingByMonth.computeIfAbsent(yearMonth, k -> new ArrayList<>()).add(dateStr);
+            }
+            current = current.plusDays(1);
+        }
+
+        // Build per-month summary: total days, present, missing
+        Map<String, Map<String, Object>> monthlySummary = new LinkedHashMap<>();
+        current = startDate.withDayOfMonth(1);
+        while (!current.isAfter(endDate)) {
+            String yearMonth = current.toString().substring(0, 7);
+            LocalDate monthEnd = current.plusMonths(1).minusDays(1);
+            if (monthEnd.isAfter(endDate)) monthEnd = endDate;
+            if (current.isBefore(startDate)) current = startDate;
+
+            long daysInRange = ChronoUnit.DAYS.between(current, monthEnd) + 1;
+            List<String> missing = missingByMonth.getOrDefault(yearMonth, List.of());
+            long present = daysInRange - missing.size();
+
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("days", daysInRange);
+            m.put("present", present);
+            m.put("missing", missing.size());
+            if (!missing.isEmpty()) {
+                m.put("missingDates", missing);
+            }
+            monthlySummary.put(yearMonth, m);
+
+            current = current.plusMonths(1).withDayOfMonth(1);
+        }
+
+        // Optionally trigger backfill for missing dates
+        int backfillTasks = 0;
+        if (backfill && !missingDates.isEmpty()) {
+            DateFormat mmddyyyy = SafeDateFormat.forPattern("MM/dd/yyyy");
+            for (String md : missingDates) {
+                try {
+                    DateFormat iso = SafeDateFormat.forPattern("yyyy-MM-dd");
+                    String display = mmddyyyy.format(iso.parse(md));
+                    Map<String, String> params = new LinkedHashMap<>();
+                    params.put("date", display);
+                    TaskUtils.queueTask("/tasks/snapshotDate", params);
+                    backfillTasks++;
+                } catch (ParseException e) {
+                    logger.warning("Failed to parse date for backfill: " + md);
+                }
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", "ok");
+        result.put("from", startDate.toString());
+        result.put("to", endDate.toString());
+        result.put("totalDays", totalDays);
+        result.put("snapshotsFound", snapshots.size());
+        result.put("snapshotsWithData", withData);
+        result.put("snapshotsEmpty", withoutData);
+        result.put("missingDays", missingDates.size());
+        result.put("coveragePercent", totalDays > 0
+                ? Math.round((double) snapshots.size() / totalDays * 10000.0) / 100.0 : 0);
+        if (backfill) {
+            result.put("backfillTasksEnqueued", backfillTasks);
+        }
+        result.put("monthlySummary", monthlySummary);
+        return result;
     }
 }

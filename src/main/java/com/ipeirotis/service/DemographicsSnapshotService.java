@@ -281,6 +281,7 @@ public class DemographicsSnapshotService {
     /**
      * Build and save a weekly rollup by merging daily snapshots for the ISO week
      * starting on the given Monday (yyyy-MM-dd format).
+     * Falls back to BigQuery if daily snapshots are missing.
      */
     public DemographicsRollup buildWeeklyRollup(String mondayDate) {
         LocalDate monday = LocalDate.parse(mondayDate);
@@ -298,6 +299,11 @@ public class DemographicsSnapshotService {
 
         List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(fromDisplay, toDisplay);
         DemographicsRollup rollup = mergeSnapshotsIntoRollup(snapshots, "weekly", mondayDate);
+        if (rollup == null) {
+            // No daily snapshots — try building directly from BigQuery
+            rollup = buildRollupFromBigQuery("weekly", mondayDate,
+                    monday.toString(), sunday.toString());
+        }
         if (rollup != null) {
             rollupDao.save(rollup);
             logger.info("Saved weekly rollup for " + mondayDate + " with " + rollup.getTotalResponses() + " responses");
@@ -308,6 +314,7 @@ public class DemographicsSnapshotService {
     /**
      * Build and save a monthly rollup by merging daily snapshots for the given month.
      * monthStart should be yyyy-MM-dd of the 1st of the month.
+     * Falls back to BigQuery if daily snapshots are missing.
      */
     public DemographicsRollup buildMonthlyRollup(String monthStart) {
         LocalDate start = LocalDate.parse(monthStart);
@@ -325,6 +332,11 @@ public class DemographicsSnapshotService {
 
         List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(fromDisplay, toDisplay);
         DemographicsRollup rollup = mergeSnapshotsIntoRollup(snapshots, "monthly", monthStart);
+        if (rollup == null) {
+            // No daily snapshots — try building directly from BigQuery
+            rollup = buildRollupFromBigQuery("monthly", monthStart,
+                    start.toString(), end.toString());
+        }
         if (rollup != null) {
             rollupDao.save(rollup);
             logger.info("Saved monthly rollup for " + monthStart + " with " + rollup.getTotalResponses() + " responses");
@@ -1204,6 +1216,189 @@ public class DemographicsSnapshotService {
 
     private boolean isNonEmpty(Map<String, Integer> map) {
         return map != null && !map.isEmpty();
+    }
+
+    /**
+     * Build a rollup directly from BigQuery data for a date range, bypassing
+     * the daily snapshot layer. Used when daily snapshots are missing.
+     *
+     * @param granularity "weekly" or "monthly"
+     * @param dateKey     the rollup key date (yyyy-MM-dd)
+     * @param fromDate    inclusive start date (yyyy-MM-dd)
+     * @param toDate      exclusive end date (yyyy-MM-dd)
+     */
+    private DemographicsRollup buildRollupFromBigQuery(String granularity, String dateKey,
+                                                        String fromDate, String toDate) {
+        List<UserAnswer> answers = loadFromBigQueryRange(fromDate, toDate);
+        if (answers.isEmpty()) {
+            logger.info("No BigQuery data for " + granularity + " rollup " + dateKey);
+            return null;
+        }
+
+        int totalResponses = 0;
+        Map<String, Integer> countries = new HashMap<>();
+        Map<String, Integer> yearOfBirth = new HashMap<>();
+        Map<String, Integer> gender = new HashMap<>();
+        Map<String, Integer> maritalStatus = new HashMap<>();
+        Map<String, Integer> householdSize = new HashMap<>();
+        Map<String, Integer> householdIncome = new HashMap<>();
+        Map<String, Integer> educationalLevel = new HashMap<>();
+        Map<String, Integer> timeSpentOnMturk = new HashMap<>();
+        Map<String, Integer> weeklyIncomeFromMturk = new HashMap<>();
+        Map<String, Integer> languagesSpoken = new HashMap<>();
+        Map<String, Integer> countriesDetailed = new HashMap<>();
+        Map<String, Integer> usStates = new HashMap<>();
+
+        for (UserAnswer ua : answers) {
+            if (!hasDemographicAnswers(ua)) continue;
+            totalResponses++;
+            incrementCountry(ua.getLocationCountry(), countries);
+            incrementCountryDetailed(ua.getLocationCountry(), countriesDetailed);
+            incrementUsState(ua.getLocationCountry(), ua.getLocationRegion(), usStates);
+            incrementDemographic("yearOfBirth", ua.getAnswers(), yearOfBirth, true);
+            incrementDemographic("gender", ua.getAnswers(), gender, false);
+            incrementDemographic("maritalStatus", ua.getAnswers(), maritalStatus, false);
+            incrementDemographic("householdSize", ua.getAnswers(), householdSize, false);
+            incrementDemographic("householdIncome", ua.getAnswers(), householdIncome, false);
+            incrementDemographic("educationalLevel", ua.getAnswers(), educationalLevel, false);
+            incrementDemographic("timeSpentOnMturk", ua.getAnswers(), timeSpentOnMturk, false);
+            incrementDemographic("weeklyIncomeFromMturk", ua.getAnswers(), weeklyIncomeFromMturk, false);
+            incrementMultiValue("languagesSpoken", ua.getAnswers(), languagesSpoken);
+        }
+
+        if (totalResponses == 0) {
+            logger.info("No valid demographics in BigQuery for " + granularity + " rollup " + dateKey
+                    + " (" + answers.size() + " rows), skipping");
+            return null;
+        }
+
+        DemographicsRollup rollup = new DemographicsRollup();
+        rollup.setId(granularity + ":" + dateKey);
+        rollup.setGranularity(granularity);
+        rollup.setDate(dateKey);
+        rollup.setTotalResponses(totalResponses);
+        rollup.setCountries(countries);
+        rollup.setYearOfBirth(yearOfBirth);
+        rollup.setGender(gender);
+        rollup.setMaritalStatus(maritalStatus);
+        rollup.setHouseholdSize(householdSize);
+        rollup.setHouseholdIncome(householdIncome);
+        rollup.setEducationalLevel(educationalLevel);
+        rollup.setTimeSpentOnMturk(timeSpentOnMturk);
+        rollup.setWeeklyIncomeFromMturk(weeklyIncomeFromMturk);
+        rollup.setLanguagesSpoken(languagesSpoken);
+        rollup.setCountriesDetailed(countriesDetailed);
+        rollup.setUsStates(usStates);
+
+        logger.info("Built " + granularity + " rollup for " + dateKey + " from BigQuery: "
+                + totalResponses + " valid of " + answers.size() + " rows");
+        return rollup;
+    }
+
+    /**
+     * Load UserAnswer-like objects from BigQuery for a date range.
+     * Tries the Datastore backup table first, then falls back to the daily export table.
+     *
+     * @param fromDate inclusive start date (yyyy-MM-dd)
+     * @param toDate   exclusive end date (yyyy-MM-dd)
+     */
+    private List<UserAnswer> loadFromBigQueryRange(String fromDate, String toDate) {
+        List<UserAnswer> results = loadFromBackupTableRange(fromDate, toDate);
+        if (!results.isEmpty()) {
+            return results;
+        }
+        return loadFromResponsesTableRange(fromDate, toDate);
+    }
+
+    private List<UserAnswer> loadFromBackupTableRange(String fromDate, String toDate) {
+        List<UserAnswer> results = new ArrayList<>();
+        try {
+            BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
+            String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
+
+            String sql = String.format(
+                    "SELECT date, locationCountry, locationRegion, answers "
+                    + "FROM `%s.%s.%s` WHERE DATE(date) >= '%s' AND DATE(date) < '%s'",
+                    projectId, BQ_BACKUP_DATASET, BQ_BACKUP_TABLE, fromDate, toDate);
+
+            QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
+            TableResult tableResult = bigQuery.query(queryConfig);
+            Schema tableSchema = tableResult.getSchema();
+
+            for (FieldValueList row : tableResult.iterateAll()) {
+                UserAnswer ua = new UserAnswer();
+                ua.setDate(parseTimestamp(row, "date"));
+                ua.setLocationCountry(getStringOrNull(row, "locationCountry"));
+                ua.setLocationRegion(getStringOrNull(row, "locationRegion"));
+
+                Map<String, String> answers = parseAnswersRecord(row, tableSchema);
+                if (!answers.isEmpty()) {
+                    ua.setAnswers(answers);
+                }
+                results.add(ua);
+            }
+
+            logger.info("Loaded " + results.size() + " rows from backup " + BQ_BACKUP_DATASET
+                    + "." + BQ_BACKUP_TABLE + " for range " + fromDate + " to " + toDate);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.log(Level.WARNING, "Interrupted querying BigQuery backup range", e);
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Failed to query BigQuery backup range " + fromDate
+                    + " to " + toDate + ": " + e.getMessage(), e);
+        }
+        return results;
+    }
+
+    private List<UserAnswer> loadFromResponsesTableRange(String fromDate, String toDate) {
+        List<UserAnswer> results = new ArrayList<>();
+        try {
+            BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
+            String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
+
+            String sql = String.format(
+                    "SELECT date, country, region, year_of_birth, gender, marital_status, "
+                    + "household_size, household_income, educational_level, "
+                    + "time_spent_on_mturk, weekly_income_from_mturk, languages_spoken "
+                    + "FROM `%s.%s.%s` WHERE DATE(date) >= '%s' AND DATE(date) < '%s'",
+                    projectId, BQ_DATASET, BQ_TABLE, fromDate, toDate);
+
+            QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
+            TableResult tableResult = bigQuery.query(queryConfig);
+
+            for (FieldValueList row : tableResult.iterateAll()) {
+                UserAnswer ua = new UserAnswer();
+                ua.setDate(parseTimestamp(row, "date"));
+                ua.setLocationCountry(getStringOrNull(row, "country"));
+                ua.setLocationRegion(getStringOrNull(row, "region"));
+
+                Map<String, String> answers = new LinkedHashMap<>();
+                putIfNotNull(answers, "yearOfBirth", getStringOrNull(row, "year_of_birth"));
+                putIfNotNull(answers, "gender", getStringOrNull(row, "gender"));
+                putIfNotNull(answers, "maritalStatus", getStringOrNull(row, "marital_status"));
+                putIfNotNull(answers, "householdSize", getStringOrNull(row, "household_size"));
+                putIfNotNull(answers, "householdIncome", getStringOrNull(row, "household_income"));
+                putIfNotNull(answers, "educationalLevel", getStringOrNull(row, "educational_level"));
+                putIfNotNull(answers, "timeSpentOnMturk", getStringOrNull(row, "time_spent_on_mturk"));
+                putIfNotNull(answers, "weeklyIncomeFromMturk", getStringOrNull(row, "weekly_income_from_mturk"));
+                putIfNotNull(answers, "languagesSpoken", getStringOrNull(row, "languages_spoken"));
+
+                if (!answers.isEmpty()) {
+                    ua.setAnswers(answers);
+                }
+                results.add(ua);
+            }
+
+            logger.info("Loaded " + results.size() + " rows from " + BQ_DATASET + "." + BQ_TABLE
+                    + " for range " + fromDate + " to " + toDate);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.log(Level.WARNING, "Interrupted querying BigQuery responses range", e);
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Failed to query BigQuery responses range " + fromDate
+                    + " to " + toDate + ": " + e.getMessage(), e);
+        }
+        return results;
     }
 
     /**
