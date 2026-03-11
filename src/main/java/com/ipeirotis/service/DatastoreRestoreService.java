@@ -27,6 +27,7 @@ public class DatastoreRestoreService {
 
 	private static final String BQ_BACKUP_DATASET = "test";
 	private static final String BQ_BACKUP_TABLE = "UserAnswer_2025MAR20";
+	private static final String DEFAULT_QUALIFIED_TABLE = BQ_BACKUP_DATASET + "." + BQ_BACKUP_TABLE;
 
 	@Autowired
 	private UserAnswerService userAnswerService;
@@ -37,10 +38,15 @@ public class DatastoreRestoreService {
 	 * Only includes days where delta != 0 (i.e., counts differ).
 	 */
 	public List<Map<String, Object>> compareCounts(String fromStr, String toStr) throws ParseException {
+		return compareCounts(fromStr, toStr, null);
+	}
+
+	public List<Map<String, Object>> compareCounts(String fromStr, String toStr, String table) throws ParseException {
 		DateFormat df = SafeDateFormat.forPattern("yyyy-MM-dd");
+		String qualifiedTable = resolveTable(table);
 
 		// 1. Get BigQuery daily counts in one query
-		Map<String, Long> bqCounts = getBigQueryDailyCounts(fromStr, toStr);
+		Map<String, Long> bqCounts = getBigQueryDailyCounts(fromStr, toStr, qualifiedTable);
 
 		// 2. Get Datastore daily counts day by day
 		Calendar start = Calendar.getInstance();
@@ -89,7 +95,12 @@ public class DatastoreRestoreService {
 	 * @return number of entities restored
 	 */
 	public int restoreDate(String dateStr) {
-		List<UserAnswer> entities = loadFullEntitiesFromBackup(dateStr);
+		return restoreDate(dateStr, null);
+	}
+
+	public int restoreDate(String dateStr, String table) {
+		String qualifiedTable = resolveTable(table);
+		List<UserAnswer> entities = loadFullEntitiesFromBackup(dateStr, qualifiedTable);
 		if (entities.isEmpty()) {
 			logger.info("No entries in BigQuery backup for " + dateStr + ", nothing to restore");
 			return 0;
@@ -112,7 +123,15 @@ public class DatastoreRestoreService {
 	/**
 	 * Get BigQuery daily counts for the backup table in one query.
 	 */
-	private Map<String, Long> getBigQueryDailyCounts(String fromDate, String toDate) {
+	private String resolveTable(String table) {
+		if (table != null && !table.isBlank()) {
+			// Allow "dataset.table" or just "table" (defaults to test dataset)
+			return table.contains(".") ? table : BQ_BACKUP_DATASET + "." + table;
+		}
+		return DEFAULT_QUALIFIED_TABLE;
+	}
+
+	private Map<String, Long> getBigQueryDailyCounts(String fromDate, String toDate, String qualifiedTable) {
 		Map<String, Long> counts = new LinkedHashMap<>();
 		try {
 			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
@@ -120,10 +139,10 @@ public class DatastoreRestoreService {
 
 			String sql = String.format(
 					"SELECT FORMAT_DATE('%%Y-%%m-%%d', DATE(date)) AS day, COUNT(*) AS cnt "
-					+ "FROM `%s.%s.%s` "
+					+ "FROM `%s.%s` "
 					+ "WHERE DATE(date) >= '%s' AND DATE(date) <= '%s' "
 					+ "GROUP BY day ORDER BY day",
-					projectId, BQ_BACKUP_DATASET, BQ_BACKUP_TABLE, fromDate, toDate);
+					projectId, qualifiedTable, fromDate, toDate);
 
 			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
 			TableResult result = bigQuery.query(queryConfig);
@@ -157,15 +176,15 @@ public class DatastoreRestoreService {
 	 * Uses SELECT * to avoid failures from unknown column names, then extracts
 	 * fields defensively. Entities get new Datastore IDs on save.
 	 */
-	private List<UserAnswer> loadFullEntitiesFromBackup(String sortableDate) {
+	private List<UserAnswer> loadFullEntitiesFromBackup(String sortableDate, String qualifiedTable) {
 		List<UserAnswer> results = new ArrayList<>();
 		try {
 			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
 			String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
 			String sql = String.format(
-					"SELECT * FROM `%s.%s.%s` WHERE DATE(date) = '%s'",
-					projectId, BQ_BACKUP_DATASET, BQ_BACKUP_TABLE, sortableDate);
+					"SELECT * FROM `%s.%s` WHERE DATE(date) = '%s'",
+					projectId, qualifiedTable, sortableDate);
 
 			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
 			TableResult tableResult = bigQuery.query(queryConfig);
