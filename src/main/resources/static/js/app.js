@@ -1,4 +1,8 @@
 angular.module('mturk', ['ngRoute', 'ngSanitize', 'ui.bootstrap', 'googlechart'])
+.config(['$locationProvider', function($locationProvider) {
+    $locationProvider.hashPrefix('');
+}])
+
 .config(['$routeProvider', 'views', function($routeProvider, views) {
     $routeProvider
     .when('/:id', {templateUrl: views.chart, controller: 'ChartController'})
