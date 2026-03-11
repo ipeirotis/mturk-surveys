@@ -1070,8 +1070,9 @@ public class DiagnosticController {
 
 	/**
 	 * Restore UserAnswer entities from BigQuery backup for a large date range
-	 * by splitting into monthly chunks and enqueuing each as a Cloud Task.
+	 * by splitting into weekly chunks and enqueuing each as a Cloud Task.
 	 * Uses force=true to overwrite existing entities that may have missing answers.
+	 * Weekly chunks avoid Cloud Task timeouts (~100 entities/day * 7 days = ~700 per task).
 	 *
 	 * Example: /tasks/backfillRestore?dataset=test&table=UserAnswer_2025MAR20&from=2015-03-26&to=2025-03-20
 	 * Add dryRun=true to preview without restoring.
@@ -1098,7 +1099,8 @@ public class DiagnosticController {
 
 			java.time.LocalDate chunkStart = startDate;
 			while (!chunkStart.isAfter(endDate)) {
-				java.time.LocalDate chunkEnd = chunkStart.plusMonths(1).minusDays(1);
+				// Use weekly chunks to avoid Cloud Task timeouts
+				java.time.LocalDate chunkEnd = chunkStart.plusWeeks(1).minusDays(1);
 				if (chunkEnd.isAfter(endDate)) {
 					chunkEnd = endDate;
 				}
