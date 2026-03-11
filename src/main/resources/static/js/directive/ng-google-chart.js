@@ -25,7 +25,61 @@
                         '#CE93D8', '#80DEEA', '#AED581', '#FFF176', '#BCAAA4'
                     ];
 
+                    // Track which dataset index is "focused" (all others dimmed).
+                    // null = no focus, all shown normally.
+                    var focusedIndex = null;
+
+                    function buildDonutConfig(data) {
+                        var colors = [];
+                        for (var i = 0; i < data.labels.length; i++) {
+                            colors.push(palette[i % palette.length]);
+                        }
+                        return {
+                            type: 'doughnut',
+                            data: {
+                                labels: data.labels,
+                                datasets: [{
+                                    data: data.datasets[0].data,
+                                    backgroundColor: colors,
+                                    borderWidth: 2,
+                                    borderColor: '#fff'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                cutout: '45%',
+                                animation: {
+                                    duration: 400,
+                                    easing: 'easeOutQuad'
+                                },
+                                plugins: {
+                                    legend: {
+                                        position: 'right',
+                                        labels: {
+                                            font: { size: 12 },
+                                            boxWidth: 14,
+                                            padding: 10
+                                        }
+                                    },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(context) {
+                                                var label = context.label || '';
+                                                var value = context.parsed;
+                                                return label + ': ' + value.toFixed(1) + '%';
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        };
+                    }
+
                     function buildConfig(data) {
+                        if (data.displayMode === 'donut') {
+                            return buildDonutConfig(data);
+                        }
                         if (data.displayMode === 'volume') {
                             return buildVolumeConfig(data);
                         }
@@ -105,6 +159,59 @@
                                             font: { size: 12 },
                                             boxWidth: 12,
                                             padding: 8
+                                        },
+                                        onClick: function(e, legendItem, legend) {
+                                            var ci = legend.chart;
+                                            var clickedIdx = legendItem.datasetIndex;
+
+                                            if (focusedIndex === clickedIdx) {
+                                                // Un-focus: restore all datasets
+                                                focusedIndex = null;
+                                                ci.data.datasets.forEach(function(ds, i) {
+                                                    ds.borderWidth = ds._origBorderWidth || ds.borderWidth;
+                                                    if (isLine) {
+                                                        ds.borderColor = palette[i % palette.length];
+                                                        ds.backgroundColor = palette[i % palette.length];
+                                                        ds.borderWidth = 2;
+                                                    } else if (isArea) {
+                                                        ds.backgroundColor = palette[i % palette.length] + 'B3';
+                                                        ds.borderColor = palette[i % palette.length];
+                                                    } else {
+                                                        ds.backgroundColor = palette[i % palette.length];
+                                                    }
+                                                    ci.setDatasetVisibility(i, true);
+                                                });
+                                            } else {
+                                                // Focus on clicked: dim all others
+                                                focusedIndex = clickedIdx;
+                                                ci.data.datasets.forEach(function(ds, i) {
+                                                    ci.setDatasetVisibility(i, true);
+                                                    if (i === clickedIdx) {
+                                                        if (isLine) {
+                                                            ds.borderColor = palette[i % palette.length];
+                                                            ds.backgroundColor = palette[i % palette.length];
+                                                            ds.borderWidth = 3;
+                                                        } else if (isArea) {
+                                                            ds.backgroundColor = palette[i % palette.length] + 'B3';
+                                                            ds.borderColor = palette[i % palette.length];
+                                                        } else {
+                                                            ds.backgroundColor = palette[i % palette.length];
+                                                        }
+                                                    } else {
+                                                        if (isLine) {
+                                                            ds.borderColor = palette[i % palette.length] + '30';
+                                                            ds.backgroundColor = palette[i % palette.length] + '30';
+                                                            ds.borderWidth = 1;
+                                                        } else if (isArea) {
+                                                            ds.backgroundColor = palette[i % palette.length] + '20';
+                                                            ds.borderColor = palette[i % palette.length] + '40';
+                                                        } else {
+                                                            ds.backgroundColor = palette[i % palette.length] + '30';
+                                                        }
+                                                    }
+                                                });
+                                            }
+                                            ci.update();
                                         }
                                     },
                                     tooltip: {
@@ -229,6 +336,7 @@
                     }
 
                     function renderChart() {
+                        focusedIndex = null;
                         var data = $scope.chartData;
                         if (!data || !data.labels || data.labels.length === 0) {
                             return;

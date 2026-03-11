@@ -2,25 +2,61 @@
 <div class="row stats-cards" ng-if="summaryStats">
 	<div class="col-6 col-sm-3">
 		<div class="stat-card">
-			<div class="stat-value">{{summaryStats.totalResponses | number}}</div>
+			<div class="stat-value">
+				{{summaryStats.totalResponses | number}}
+				<span class="trend-arrow" ng-if="summaryStats.totalTrend"
+					ng-class="{'trend-up': summaryStats.totalTrend.direction === 'up', 'trend-down': summaryStats.totalTrend.direction === 'down', 'trend-flat': summaryStats.totalTrend.direction === 'flat'}">
+					<i ng-if="summaryStats.totalTrend.direction === 'up'" class="bi bi-arrow-up-short"></i>
+					<i ng-if="summaryStats.totalTrend.direction === 'down'" class="bi bi-arrow-down-short"></i>
+					<i ng-if="summaryStats.totalTrend.direction === 'flat'" class="bi bi-dash"></i>
+					<small ng-if="summaryStats.totalTrend.pct > 0">{{summaryStats.totalTrend.pct}}%</small>
+				</span>
+			</div>
 			<div class="stat-label">Total Responses</div>
 		</div>
 	</div>
 	<div class="col-6 col-sm-3">
 		<div class="stat-card">
-			<div class="stat-value">{{summaryStats.avgPerPeriod | number}}</div>
+			<div class="stat-value">
+				{{summaryStats.avgPerPeriod | number}}
+				<span class="trend-arrow" ng-if="summaryStats.avgTrend"
+					ng-class="{'trend-up': summaryStats.avgTrend.direction === 'up', 'trend-down': summaryStats.avgTrend.direction === 'down', 'trend-flat': summaryStats.avgTrend.direction === 'flat'}">
+					<i ng-if="summaryStats.avgTrend.direction === 'up'" class="bi bi-arrow-up-short"></i>
+					<i ng-if="summaryStats.avgTrend.direction === 'down'" class="bi bi-arrow-down-short"></i>
+					<i ng-if="summaryStats.avgTrend.direction === 'flat'" class="bi bi-dash"></i>
+					<small ng-if="summaryStats.avgTrend.pct > 0">{{summaryStats.avgTrend.pct}}%</small>
+				</span>
+			</div>
 			<div class="stat-label">{{summaryStats.avgLabel}}</div>
 		</div>
 	</div>
 	<div class="col-6 col-sm-3">
 		<div class="stat-card">
-			<div class="stat-value">{{summaryStats.topCountry.label}}</div>
+			<div class="stat-value">
+				{{summaryStats.topCountry.label}}
+				<span class="trend-arrow" ng-if="summaryStats.countryTrend"
+					ng-class="{'trend-up': summaryStats.countryTrend.direction === 'up', 'trend-down': summaryStats.countryTrend.direction === 'down', 'trend-flat': summaryStats.countryTrend.direction === 'flat'}">
+					<i ng-if="summaryStats.countryTrend.direction === 'up'" class="bi bi-arrow-up-short"></i>
+					<i ng-if="summaryStats.countryTrend.direction === 'down'" class="bi bi-arrow-down-short"></i>
+					<i ng-if="summaryStats.countryTrend.direction === 'flat'" class="bi bi-dash"></i>
+					<small ng-if="summaryStats.countryTrend.pct > 0">{{summaryStats.countryTrend.pct}}%</small>
+				</span>
+			</div>
 			<div class="stat-label">Top Country ({{summaryStats.topCountry.pct}}%)</div>
 		</div>
 	</div>
 	<div class="col-6 col-sm-3">
 		<div class="stat-card">
-			<div class="stat-value">{{summaryStats.topGender.label}}</div>
+			<div class="stat-value">
+				{{summaryStats.topGender.label}}
+				<span class="trend-arrow" ng-if="summaryStats.genderTrend"
+					ng-class="{'trend-up': summaryStats.genderTrend.direction === 'up', 'trend-down': summaryStats.genderTrend.direction === 'down', 'trend-flat': summaryStats.genderTrend.direction === 'flat'}">
+					<i ng-if="summaryStats.genderTrend.direction === 'up'" class="bi bi-arrow-up-short"></i>
+					<i ng-if="summaryStats.genderTrend.direction === 'down'" class="bi bi-arrow-down-short"></i>
+					<i ng-if="summaryStats.genderTrend.direction === 'flat'" class="bi bi-dash"></i>
+					<small ng-if="summaryStats.genderTrend.pct > 0">{{summaryStats.genderTrend.pct}}%</small>
+				</span>
+			</div>
 			<div class="stat-label">Top Gender ({{summaryStats.topGender.pct}}%)</div>
 		</div>
 	</div>
@@ -50,6 +86,11 @@
 <!-- Display Mode (hidden for map views) -->
 <div class="row" ng-if="!isMapView">
 	<div class="col-12 col-sm-8">
+		<div class="btn-group btn-group-sm top-n-filter">
+			<button type="button" class="btn" ng-repeat="opt in topNOptions"
+				ng-class="topN === opt.value ? 'btn-primary' : 'btn-outline-secondary'"
+				ng-click="setTopN(opt.value)">{{opt.label}}</button>
+		</div>
 	</div>
 	<div class="col-12 col-sm-4 text-end display-mode-btns">
 		<div class="btn-group">
@@ -61,6 +102,9 @@
 			</button>
 			<button type="button" class="btn btn-sm" ng-class="displayMode === 'line' ? 'btn-primary' : 'btn-outline-secondary'" ng-click="setDisplayMode('line')">
 				<i class="bi bi-graph-down"></i> Line
+			</button>
+			<button type="button" class="btn btn-sm" ng-class="displayMode === 'donut' ? 'btn-primary' : 'btn-outline-secondary'" ng-click="setDisplayMode('donut')">
+				<i class="bi bi-pie-chart"></i> Donut
 			</button>
 		</div>
 	</div>
@@ -101,17 +145,25 @@
 </div>
 <!-- Demographics Chart Container -->
 <div ng-if="!isMapView">
-	<div id="dailyChart" class="chart-container" style="display:block;" chartjs-chart="dailyChart"></div>
-	<!-- Volume Chart -->
-	<div class="row" style="margin-top: 4px;">
-		<div class="col-12">
-			<p class="text-muted small" style="margin: 0 0 2px 0;">
-				Response Volume
-				<span ng-if="volumeGranularity" class="granularity-note" style="margin-left: 6px;">
-					<i class="bi bi-info-circle"></i> {{volumeGranularity}}
-				</span>
-			</p>
+	<div ng-if="displayMode !== 'donut'">
+		<div id="dailyChart" class="chart-container" style="display:block;" chartjs-chart="dailyChart"></div>
+		<!-- Volume Chart -->
+		<div class="row" style="margin-top: 4px;">
+			<div class="col-12">
+				<p class="text-muted small" style="margin: 0 0 2px 0;">
+					Response Volume
+					<span ng-if="volumeGranularity" class="granularity-note" style="margin-left: 6px;">
+						<i class="bi bi-info-circle"></i> {{volumeGranularity}}
+					</span>
+				</p>
+			</div>
 		</div>
+		<div id="volumeChart" class="volume-chart-container" style="display:block;" chartjs-chart="volumeChart"></div>
 	</div>
-	<div id="volumeChart" class="volume-chart-container" style="display:block;" chartjs-chart="volumeChart"></div>
+	<div ng-if="displayMode === 'donut'">
+		<p class="text-muted small" style="margin: 0 0 4px 0;">
+			<i class="bi bi-info-circle"></i> Latest period: {{donutChart.periodLabel}}
+		</p>
+		<div id="donutChart" class="chart-container" style="display:block;" chartjs-chart="donutChart"></div>
+	</div>
 </div>

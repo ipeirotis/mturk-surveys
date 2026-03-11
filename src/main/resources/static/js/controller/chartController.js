@@ -24,6 +24,13 @@ angular.module('mturk').controller('ChartController',
     $scope.countsData = null;
     $scope.summaryStats = null;
     $scope.granularityNote = null;
+    $scope.topN = 0; // 0 = show all
+    $scope.topNOptions = [
+        { value: 0, label: 'All' },
+        { value: 5, label: 'Top 5' },
+        { value: 10, label: 'Top 10' },
+        { value: 15, label: 'Top 15' }
+    ];
 
     // Map view state
     $scope.routeId = $routeParams.id;
@@ -55,12 +62,24 @@ angular.module('mturk').controller('ChartController',
 
     // --- End helpers ---
 
+    $scope.donutChart = {};
+
     $scope.setDisplayMode = function(mode) {
         $scope.displayMode = mode;
-        if ($scope.dailyChart && $scope.dailyChart.labels) {
+        if (mode === 'donut' && $scope.response) {
+            populateDonutChart($scope, $scope.response, $routeParams.id);
+        } else if ($scope.dailyChart && $scope.dailyChart.labels) {
             var copy = angular.copy($scope.dailyChart);
             copy.displayMode = mode;
             $scope.dailyChart = copy;
+        }
+    };
+
+    $scope.setTopN = function(n) {
+        $scope.topN = n;
+        if ($scope.response && $routeParams.id) {
+            populateDailyChart($scope, $scope.response, $routeParams.id);
+            populateVolumeChart($scope);
         }
     };
 
@@ -82,6 +101,14 @@ angular.module('mturk').controller('ChartController',
         var fromStr = $filter('date')($scope.from, 'MM/dd/yyyy');
         var toStr = $filter('date')($scope.to, 'MM/dd/yyyy');
 
+        // Compute prior period of same length for trend comparison
+        var rangeMs = $scope.to.getTime() - $scope.from.getTime();
+        var priorTo = new Date($scope.from.getTime() - 1); // day before current "from"
+        var priorFrom = new Date(priorTo.getTime() - rangeMs);
+        if (priorFrom < $scope.minDate) priorFrom = new Date($scope.minDate.getTime());
+        var priorFromStr = $filter('date')(priorFrom, 'MM/dd/yyyy');
+        var priorToStr = $filter('date')(priorTo, 'MM/dd/yyyy');
+
         $scope.loading = true;
         $scope.loadError = null;
 
@@ -89,7 +116,14 @@ angular.module('mturk').controller('ChartController',
             $scope.loading = false;
             $scope.response = chartData.aggregated;
             $scope.countsData = chartData.counts;
-            buildSummaryStats(chartData.counts);
+
+            // Load prior period for trend arrows (non-blocking)
+            dataService.loadChartData(priorFromStr, priorToStr, function(priorData) {
+                buildSummaryStats(chartData.counts, priorData.counts);
+            }, function() {
+                // If prior load fails, show stats without trends
+                buildSummaryStats(chartData.counts, null);
+            });
 
             if ($scope.isMapView) {
                 populateMapData(chartData.counts);
@@ -113,7 +147,17 @@ angular.module('mturk').controller('ChartController',
         }
     }
 
-    function buildSummaryStats(counts) {
+    function computeTrend(current, previous) {
+        if (previous === null || previous === undefined || previous === 0) return null;
+        var pctChange = ((current - previous) / previous) * 100;
+        if (Math.abs(pctChange) < 0.5) return { direction: 'flat', pct: 0 };
+        return {
+            direction: pctChange > 0 ? 'up' : 'down',
+            pct: Math.round(Math.abs(pctChange))
+        };
+    }
+
+    function buildSummaryStats(counts, priorCounts) {
         if (!counts) return;
         var stats = {};
         stats.totalResponses = counts.totalResponses || 0;
@@ -133,6 +177,25 @@ angular.module('mturk').controller('ChartController',
         stats.topGender = findTop(counts.totalGender);
         stats.topIncome = findTop(counts.totalHouseholdIncome);
         stats.topEducation = findTop(counts.totalEducationalLevel);
+
+        // Compute trends from prior period
+        if (priorCounts) {
+            var priorTotal = priorCounts.totalResponses || 0;
+            var priorNumPeriods = priorCounts.days ? priorCounts.days.length : 0;
+            var priorAvg = priorNumPeriods > 0 ? Math.round(priorTotal / priorNumPeriods) : 0;
+
+            stats.totalTrend = computeTrend(stats.totalResponses, priorTotal);
+            stats.avgTrend = computeTrend(stats.avgPerPeriod, priorAvg);
+
+            var priorTopCountry = findTop(priorCounts.totalCountries);
+            if (stats.topCountry.label !== 'N/A' && priorTopCountry.label !== 'N/A') {
+                stats.countryTrend = computeTrend(stats.topCountry.pct, priorTopCountry.pct);
+            }
+            var priorTopGender = findTop(priorCounts.totalGender);
+            if (stats.topGender.label !== 'N/A' && priorTopGender.label !== 'N/A') {
+                stats.genderTrend = computeTrend(stats.topGender.pct, priorTopGender.pct);
+            }
+        }
 
         $scope.summaryStats = stats;
     }
@@ -235,8 +298,36 @@ angular.module('mturk').controller('ChartController',
             });
         }
 
+        // Apply Top-N filter: rank categories by total value, group rest into "Other"
+        var topN = scope.topN || 0;
+        var labelsToShow = filteredLabelSet;
+        if (topN > 0 && filteredLabelSet.length > topN) {
+            var labelTotals = [];
+            angular.forEach(filteredLabelSet, function(label) {
+                var sum = 0;
+                for (var pp = 0; pp < periods.length; pp++) {
+                    var entry = periodData[periods[pp]];
+                    sum += entry[label] ? parseFloat(entry[label]) : 0;
+                }
+                labelTotals.push({ label: label, total: sum });
+            });
+            labelTotals.sort(function(a, b) { return b.total - a.total; });
+            labelsToShow = [];
+            for (var ti = 0; ti < topN; ti++) {
+                labelsToShow.push(labelTotals[ti].label);
+            }
+        }
+        var otherLabels = [];
+        if (topN > 0 && filteredLabelSet.length > topN) {
+            angular.forEach(filteredLabelSet, function(label) {
+                if (labelsToShow.indexOf(label) === -1) {
+                    otherLabels.push(label);
+                }
+            });
+        }
+
         var datasets = [];
-        angular.forEach(filteredLabelSet, function(label) {
+        angular.forEach(labelsToShow, function(label) {
             var values = [];
             for (var pp = 0; pp < periods.length; pp++) {
                 var entry = periodData[periods[pp]];
@@ -244,6 +335,20 @@ angular.module('mturk').controller('ChartController',
             }
             datasets.push({ label: label, data: values });
         });
+
+        // Add "Other" category if Top-N is active
+        if (otherLabels.length > 0) {
+            var otherValues = [];
+            for (var pp = 0; pp < periods.length; pp++) {
+                var sum = 0;
+                for (var oi = 0; oi < otherLabels.length; oi++) {
+                    var entry = periodData[periods[pp]];
+                    sum += entry[otherLabels[oi]] ? parseFloat(entry[otherLabels[oi]]) : 0;
+                }
+                otherValues.push(sum);
+            }
+            datasets.push({ label: 'Other', data: otherValues });
+        }
 
         // Attach counts data for tooltips if available
         var countsPerPeriod = null;
@@ -275,6 +380,77 @@ angular.module('mturk').controller('ChartController',
             countsPerPeriod: countsPerPeriod,
             demographicField: id,
             autoScaleY: (id === 'languagesSpoken')
+        };
+    }
+
+    function populateDonutChart(scope, data, id) {
+        var periodData = data.daily[id];
+        var labelSet = data.daily.labels[id];
+        if (!periodData || !labelSet) return;
+
+        // Find the latest period
+        var periods = [];
+        for (var propName in periodData) {
+            periods.push(propName);
+        }
+        if (periods.length === 0) return;
+        periods.sort(function(a, b) { return new Date(b) - new Date(a); });
+        var latestPeriod = periods[0];
+
+        var granularity = data.dailyGranularity || 'daily';
+        var periodLabel = formatDailyLabel(latestPeriod, granularity);
+
+        var entry = periodData[latestPeriod];
+
+        // Filter labels same as daily chart
+        var filteredLabelSet = labelSet;
+        if (id === 'languagesSpoken') {
+            filteredLabelSet = [];
+            angular.forEach(labelSet, function(label) {
+                if (label !== 'English') filteredLabelSet.push(label);
+            });
+        }
+
+        // Apply Top-N filter
+        var topN = scope.topN || 0;
+        var labelsToUse = filteredLabelSet;
+        if (topN > 0 && filteredLabelSet.length > topN) {
+            var sorted = filteredLabelSet.slice().sort(function(a, b) {
+                return (entry[b] || 0) - (entry[a] || 0);
+            });
+            labelsToUse = sorted.slice(0, topN);
+        }
+
+        var chartLabels = [];
+        var chartData = [];
+        var otherVal = 0;
+
+        angular.forEach(labelsToUse, function(label) {
+            var val = entry[label] ? parseFloat(entry[label]) : 0;
+            if (val > 0) {
+                chartLabels.push(label);
+                chartData.push(val);
+            }
+        });
+
+        // Sum "Other" if Top-N is active
+        if (topN > 0 && filteredLabelSet.length > topN) {
+            angular.forEach(filteredLabelSet, function(label) {
+                if (labelsToUse.indexOf(label) === -1) {
+                    otherVal += entry[label] ? parseFloat(entry[label]) : 0;
+                }
+            });
+            if (otherVal > 0) {
+                chartLabels.push('Other');
+                chartData.push(otherVal);
+            }
+        }
+
+        scope.donutChart = {
+            labels: chartLabels,
+            datasets: [{ data: chartData }],
+            displayMode: 'donut',
+            periodLabel: periodLabel
         };
     }
 }]);

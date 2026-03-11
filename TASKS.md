@@ -67,7 +67,7 @@ Incremental improvements to the demographics dashboard charts, from quick wins w
 - [x] **T7.4** — **Replace Google Charts with Chart.js** — Replaced the Google Charts directive (`ng-google-chart.js`) with a custom Chart.js 4.4.7 directive. Chart.js is lightweight (~60KB), supports offline use, and provides smooth animations, responsive resizing, and retina support. *(completed)*
 - [x] **T7.5** — **Add area/line chart option for time series** — Added a Bars/Area toggle button group to the dashboard. When "Area" is selected, charts render as stacked area (line with fill) using smooth curves, semi-transparent fills, and no point markers. The directive watches the chart type and re-renders on toggle. *(completed)*
 - [x] **T7.6** — **Add interactive tooltips and drill-down** — Tooltips now show absolute counts alongside percentages on hover (e.g., "Male: 62.3% (1,247 of 2,003)") for daily charts by loading data from the `/api/survey/demographics/counts` endpoint in parallel. Tooltip footer shows total responses for the period. *(completed)*
-- **T7.7** — **Add trend arrows to summary statistics cards** — T7.16 already added 4 stat cards. This task adds trend direction indicators (up/down arrows comparing current period vs previous period). Requires either a second API call for the prior window or a backend change to return the comparison. *Effort: ~1 day. Frontend + minor backend.*
+- [x] **T7.7** — **Add trend arrows to summary statistics cards** — Added up/down/flat trend arrows to all 4 stat cards comparing the current date range against the equivalent prior period. Loads prior period data via a second API call (non-blocking, cached). Shows percentage change with colored arrows (green up, red down, gray flat). *(completed)*
 - [x] **T7.8** — **Make the dashboard fully responsive** — Added viewport meta tag, collapsible sidebar menu (hamburger toggle on screens <992px), responsive chart container heights (500px/350px/280px breakpoints), responsive stat cards, and fluid footer for mobile. Date pickers and chart pills use `col-xs-*` classes for proper stacking. *(completed)*
 
 ### API & Data Pipeline Optimization (T7.9–T7.10)
@@ -94,24 +94,24 @@ Incremental improvements to the demographics dashboard charts, from quick wins w
 All frontend-only — no backend changes needed. Data for all categories already comes back in the `/chartData` response.
 
 - **T7.19** — **Small multiples / sparklines** — Instead of one chart with 20+ overlapping lines (e.g., countries), show a grid of small individual charts, one per category. Each sparkline is simple and self-contained. *Effort: ~2-3 days. **Easy** — New AngularJS directive following the `chartjsChart` pattern, rendering a grid of small `<canvas>` elements.*
-- **T7.20** — **Top-N filter** — Add a slider or dropdown to show only the top N categories (e.g., top 5 countries). This dramatically reduces visual clutter in both line and bar modes. *Effort: ~1 day. **Easy** — Add dropdown to `chart.html`, sort categories by total count from `countsData` in `populateDailyChart()`, group remainder into "Other."*
-- **T7.21** — **Highlight on legend click** — Currently clicking a legend item toggles visibility. An enhancement would be to dim all others instead of hiding, so you can focus on one series while keeping context. *Effort: ~0.5 day. **Easy** — Chart.js 4.x has built-in `legend.onClick` override. Set non-clicked datasets to low opacity instead of hiding.*
-- **T7.22** — **Pie/donut chart for latest period** — Show the most recent period's breakdown as a pie chart next to the time series. Good for a quick "current snapshot" view. *Effort: ~1 day. **Easy** — Add new display mode or companion directive using Chart.js `type: 'doughnut'`. Data for latest period already available.*
+- [x] **T7.20** — **Top-N filter** — Added an All/Top 5/Top 10/Top 15 button group that filters chart categories by total value, grouping the remainder into an "Other" series. Works with all display modes (bar, area, line, donut). Categories are ranked by sum of values across all periods. *(completed)*
+- [x] **T7.21** — **Highlight on legend click** — Clicking a legend item now dims all other datasets instead of hiding them. Clicked dataset gets full opacity and thicker border; others fade to ~20% opacity. Click again to restore all. Uses Chart.js 4.x `legend.onClick` override. *(completed)*
+- [x] **T7.22** — **Pie/donut chart for latest period** — Added a "Donut" display mode button. Shows the most recent period's breakdown as a doughnut chart with right-aligned legend, percentage tooltips, and Top-N filtering support. *(completed)*
 - **T7.23** — **Heatmap view** — For fields with many categories over time (countries, income brackets), a heatmap where color intensity = percentage could be more readable than either stacked bars or spaghetti lines. *Effort: ~2-3 days. **Moderate** — Chart.js has no native heatmap. Best approach: custom D3.js directive following the established choropleth pattern, or use `chartjs-chart-matrix` plugin.*
 
 ### Recommended Priority (Remaining Track 7)
 
 | Priority | Task | Effort | Backend? | Value |
 |----------|------|--------|----------|-------|
-| 1 | T7.20 Top-N filter | 1d | No | High — declutters charts immediately |
-| 2 | T7.21 Legend highlight | 0.5d | No | Medium — quick UX win |
-| 3 | T7.22 Pie/donut | 1d | No | Medium — snapshot view |
-| 4 | T7.7 Trend arrows | 1d | Minor | Medium — enhances existing cards |
-| 5 | T7.19 Sparklines | 2-3d | No | High — essential for countries |
-| 6 | T7.15 Response time | 2-3d | Medium | Medium — unique insight |
-| 7 | T7.23 Heatmap | 2-3d | No | Medium — nice to have |
-| 8 | T7.13 Cross-tabs | 1-2w | **Heavy** | High — defer for BigQuery read path |
-| 9 | T7.14 Worker retention | 1-2w | **Heavy** | High — defer for BigQuery read path |
+| ~~1~~ | ~~T7.20 Top-N filter~~ | ~~1d~~ | ~~No~~ | ~~High~~ — **Done** |
+| ~~2~~ | ~~T7.21 Legend highlight~~ | ~~0.5d~~ | ~~No~~ | ~~Medium~~ — **Done** |
+| ~~3~~ | ~~T7.22 Pie/donut~~ | ~~1d~~ | ~~No~~ | ~~Medium~~ — **Done** |
+| ~~4~~ | ~~T7.7 Trend arrows~~ | ~~1d~~ | ~~Minor~~ | ~~Medium~~ — **Done** |
+| 1 | T7.19 Sparklines | 2-3d | No | High — essential for countries |
+| 2 | T7.15 Response time | 2-3d | Medium | Medium — unique insight |
+| 3 | T7.23 Heatmap | 2-3d | No | Medium — nice to have |
+| 4 | T7.13 Cross-tabs | 1-2w | **Heavy** | High — defer for BigQuery read path |
+| 5 | T7.14 Worker retention | 1-2w | **Heavy** | High — defer for BigQuery read path |
 
 ## Track 8: Data Access & API Quality
 
