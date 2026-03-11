@@ -87,7 +87,6 @@ public class DemographicsSnapshotService {
         snapshot.setId(dateStr);
         snapshot.setDate(sortableDate);
         snapshot.setDayOfWeek(DAYS[dateFrom.get(Calendar.DAY_OF_WEEK) - 1]);
-        snapshot.setTotalResponses(answers.size());
 
         Map<String, Integer> countries = new HashMap<>();
         Map<String, Integer> yearOfBirth = new HashMap<>();
@@ -114,7 +113,18 @@ public class DemographicsSnapshotService {
         Map<String, Integer> hourlyWeeklyIncomeFromMturk = new HashMap<>();
         Map<String, Integer> hourlyLanguagesSpoken = new HashMap<>();
 
+        int validCount = 0;
         for (UserAnswer ua : answers) {
+            // Only count UserAnswers that have a populated answers map with at least
+            // one expected demographic key. This filters out non-demographics entities
+            // and old-format entities that only have locationCountry (from AppEngine
+            // headers) but no demographic answers — which would inflate country/total
+            // counts while leaving all other dimensions empty, causing chart gaps.
+            if (!hasDemographicAnswers(ua)) {
+                continue;
+            }
+            validCount++;
+
             Calendar cal = Calendar.getInstance();
             cal.setTime(ua.getDate());
             String hour = String.valueOf(cal.get(Calendar.HOUR_OF_DAY));
@@ -147,6 +157,12 @@ public class DemographicsSnapshotService {
             incrementMultiValue("languagesSpoken", ua.getAnswers(), hourlyLanguagesSpoken, hour);
         }
 
+        if (validCount == 0) {
+            logger.info("No valid demographics responses for " + dateStr + " (" + answers.size() + " total UAs), skipping snapshot");
+            return null;
+        }
+
+        snapshot.setTotalResponses(validCount);
         snapshot.setCountries(countries);
         snapshot.setYearOfBirth(yearOfBirth);
         snapshot.setGender(gender);
@@ -424,6 +440,9 @@ public class DemographicsSnapshotService {
 
         for (DemographicsRollup r : rollups) {
             if (r.getTotalResponses() == 0) continue;
+            // Skip rollups where all demographic maps are empty — these were built
+            // from snapshots that only had geolocation data (non-demographics entities)
+            if (!hasAnyDemographicData(r)) continue;
             // Use Date.toString() key for frontend compatibility
             String key = rollupDateToKey(r.getDate(), granularity);
             countries.put(key, toPercentageMap(r.getCountries(), labels, "countries"));
@@ -479,6 +498,8 @@ public class DemographicsSnapshotService {
         Map<String, Integer> totalUsStates = new HashMap<>();
 
         for (DemographicsRollup r : rollups) {
+            // Skip rollups where all demographic maps are empty
+            if (!hasAnyDemographicData(r)) continue;
             DemographicsCountsResponse.DailyCount period = new DemographicsCountsResponse.DailyCount();
             period.setDate(r.getDate()); // already yyyy-MM-dd
             period.setTotalResponses(r.getTotalResponses());
@@ -562,6 +583,7 @@ public class DemographicsSnapshotService {
 
         for (DemographicsSnapshot snap : snapshots) {
             if (snap.getTotalResponses() == 0) continue;
+            if (!hasAnyDemographicData(snap)) continue;
 
             String key;
             try {
@@ -672,6 +694,7 @@ public class DemographicsSnapshotService {
 
         for (DemographicsSnapshot snap : snapshots) {
             if (snap.getTotalResponses() == 0) continue;
+            if (!hasAnyDemographicData(snap)) continue;
             try {
                 Calendar cal = Calendar.getInstance();
                 cal.setTime(df.parse(snap.getId()));
@@ -822,6 +845,7 @@ public class DemographicsSnapshotService {
         Map<String, Integer> totalUsStates = new HashMap<>();
 
         for (DemographicsSnapshot snap : snapshots) {
+            if (!hasAnyDemographicData(snap)) continue;
             DemographicsCountsResponse.DailyCount day = new DemographicsCountsResponse.DailyCount();
             day.setDate(snap.getDate());
             day.setTotalResponses(snap.getTotalResponses());
@@ -880,6 +904,7 @@ public class DemographicsSnapshotService {
         // Group snapshots, using sortable date keys for the counts response
         Map<String, List<DemographicsSnapshot>> groups = new LinkedHashMap<>();
         for (DemographicsSnapshot snap : snapshots) {
+            if (!hasAnyDemographicData(snap)) continue;
             try {
                 Calendar cal = Calendar.getInstance();
                 cal.setTime(df.parse(snap.getId()));
@@ -1066,6 +1091,56 @@ public class DemographicsSnapshotService {
             }
             labels.put("householdIncome", filtered);
         }
+    }
+
+    /**
+     * Returns true if the rollup has at least one non-empty demographic map.
+     * Rollups with only country data (from non-demographics entities) are considered empty.
+     */
+    private boolean hasAnyDemographicData(DemographicsRollup r) {
+        return isNonEmpty(r.getGender()) || isNonEmpty(r.getYearOfBirth())
+                || isNonEmpty(r.getMaritalStatus()) || isNonEmpty(r.getHouseholdSize())
+                || isNonEmpty(r.getHouseholdIncome()) || isNonEmpty(r.getEducationalLevel())
+                || isNonEmpty(r.getTimeSpentOnMturk()) || isNonEmpty(r.getWeeklyIncomeFromMturk())
+                || isNonEmpty(r.getLanguagesSpoken());
+    }
+
+    /**
+     * Returns true if the snapshot has at least one non-empty demographic map.
+     */
+    private boolean hasAnyDemographicData(DemographicsSnapshot s) {
+        return isNonEmpty(s.getGender()) || isNonEmpty(s.getYearOfBirth())
+                || isNonEmpty(s.getMaritalStatus()) || isNonEmpty(s.getHouseholdSize())
+                || isNonEmpty(s.getHouseholdIncome()) || isNonEmpty(s.getEducationalLevel())
+                || isNonEmpty(s.getTimeSpentOnMturk()) || isNonEmpty(s.getWeeklyIncomeFromMturk())
+                || isNonEmpty(s.getLanguagesSpoken());
+    }
+
+    private boolean isNonEmpty(Map<String, Integer> map) {
+        return map != null && !map.isEmpty();
+    }
+
+    private static final Set<String> DEMOGRAPHIC_KEYS = Set.of(
+            "gender", "yearOfBirth", "maritalStatus", "householdSize",
+            "householdIncome", "educationalLevel", "timeSpentOnMturk",
+            "weeklyIncomeFromMturk", "languagesSpoken");
+
+    /**
+     * Returns true if the UserAnswer has a populated answers map containing
+     * at least one expected demographic key. This filters out non-demographics
+     * entities and old-format entities that lack the answers map.
+     */
+    private boolean hasDemographicAnswers(UserAnswer ua) {
+        Map<String, String> ans = ua.getAnswers();
+        if (ans == null || ans.isEmpty()) {
+            return false;
+        }
+        for (String key : DEMOGRAPHIC_KEYS) {
+            if (ans.containsKey(key)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void increment(Map<String, Integer> map, String key) {
