@@ -121,6 +121,80 @@ public class DatastoreRestoreService {
 	}
 
 	/**
+	 * Parse one row from BigQuery backup and return diagnostic info (does NOT write to Datastore).
+	 */
+	public Map<String, Object> testParseOneRow(String dateStr, String table) {
+		String qualifiedTable = resolveTable(table);
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("date", dateStr);
+		result.put("table", qualifiedTable);
+		try {
+			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
+			String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
+			String sql = String.format(
+					"SELECT * FROM `%s.%s` WHERE DATE(date) = '%s' AND surveyId = 'demographics' LIMIT 1",
+					projectId, qualifiedTable, dateStr);
+			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
+			TableResult tableResult = bigQuery.query(queryConfig);
+			Schema tableSchema = tableResult.getSchema();
+
+			// Schema info for the answers field
+			try {
+				com.google.cloud.bigquery.Field answersSchemaField = tableSchema.getFields().get("answers");
+				result.put("answersSchemaField_type", answersSchemaField.getType().name());
+				result.put("answersSchemaField_mode", answersSchemaField.getMode() != null ? answersSchemaField.getMode().name() : "null");
+				if (answersSchemaField.getSubFields() != null) {
+					List<String> subFieldNames = new ArrayList<>();
+					for (com.google.cloud.bigquery.Field sf : answersSchemaField.getSubFields()) {
+						subFieldNames.add(sf.getName() + ":" + sf.getType().name());
+					}
+					result.put("answersSchemaField_subFields", subFieldNames);
+				} else {
+					result.put("answersSchemaField_subFields", "NULL");
+				}
+			} catch (Exception e) {
+				result.put("answersSchemaField_error", e.getClass().getName() + ": " + e.getMessage());
+			}
+
+			for (FieldValueList row : tableResult.iterateAll()) {
+				// Test parseAnswersRecord
+				Map<String, String> parsedAnswers = parseAnswersRecord(row, tableSchema);
+				result.put("parsedAnswers", parsedAnswers);
+				result.put("parsedAnswersSize", parsedAnswers.size());
+
+				// Also show raw answers field info
+				try {
+					FieldValue af = row.get("answers");
+					result.put("rawAnswers_isNull", af.isNull());
+					result.put("rawAnswers_attribute", af.getAttribute().name());
+					if (!af.isNull() && af.getAttribute() == FieldValue.Attribute.RECORD) {
+						FieldValueList rec = af.getRecordValue();
+						result.put("rawAnswers_recordSize", rec.size());
+
+						// Test named access
+						Map<String, String> namedAccess = new LinkedHashMap<>();
+						for (String fn : ANSWER_FIELDS) {
+							try {
+								FieldValue v = rec.get(fn);
+								namedAccess.put(fn, v.isNull() ? "NULL" : v.getStringValue());
+							} catch (Exception e) {
+								namedAccess.put(fn, "ERROR: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+							}
+						}
+						result.put("namedFieldAccess", namedAccess);
+					}
+				} catch (Exception e) {
+					result.put("rawAnswers_error", e.getClass().getName() + ": " + e.getMessage());
+				}
+				break;
+			}
+		} catch (Exception e) {
+			result.put("error", e.getClass().getName() + ": " + e.getMessage());
+		}
+		return result;
+	}
+
+	/**
 	 * Get BigQuery daily counts for the backup table in one query.
 	 */
 	private String resolveTable(String table) {
@@ -194,8 +268,9 @@ public class DatastoreRestoreService {
 			TableResult tableResult = bigQuery.query(queryConfig);
 
 			// Build set of available column names from schema
+			Schema tableSchema = tableResult.getSchema();
 			Set<String> columns = new HashSet<>();
-			for (com.google.cloud.bigquery.Field field : tableResult.getSchema().getFields()) {
+			for (com.google.cloud.bigquery.Field field : tableSchema.getFields()) {
 				columns.add(field.getName());
 			}
 			logger.info("Backup table columns for " + sortableDate + ": " + columns);
@@ -233,7 +308,7 @@ public class DatastoreRestoreService {
 				ua.setAnswer(getStringOrNull(row, "answer"));
 
 				// Parse the 'answers' map (new format)
-				Map<String, String> answers = parseAnswersRecord(row);
+				Map<String, String> answers = parseAnswersRecord(row, tableSchema);
 				if (!answers.isEmpty()) {
 					ua.setAnswers(answers);
 				}
@@ -241,7 +316,12 @@ public class DatastoreRestoreService {
 				results.add(ua);
 			}
 
-			logger.info("Loaded " + results.size() + " full entities from backup for " + sortableDate);
+			long withAnswers = results.stream().filter(ua -> ua.getAnswers() != null && !ua.getAnswers().isEmpty()).count();
+		logger.info("Loaded " + results.size() + " full entities from backup for " + sortableDate
+				+ " (" + withAnswers + " with answers)");
+		if (withAnswers == 0 && !results.isEmpty()) {
+			logger.severe("WARNING: Loaded " + results.size() + " entities but NONE have answers — parsing may be broken!");
+		}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			logger.log(Level.WARNING, "Interrupted querying BigQuery backup for " + sortableDate, e);
@@ -251,44 +331,50 @@ public class DatastoreRestoreService {
 		return results;
 	}
 
+	/** Known answer field names in the Datastore export RECORD. */
+	private static final String[] ANSWER_FIELDS = {
+		"gender", "householdSize", "languagesSpoken", "timeSpentOnMturk",
+		"weeklyIncomeFromMturk", "householdIncome", "maritalStatus",
+		"yearOfBirth", "educationalLevel"
+	};
+
 	/**
 	 * Parse the 'answers' field from a Datastore export row.
-	 * Datastore maps export as nested RECORD with repeated {key, value} entries.
+	 * The backup table stores answers as a flat RECORD with named sub-fields
+	 * (e.g., answers.gender, answers.householdSize).
+	 * Uses named field access for robustness against column ordering differences.
 	 */
-	private Map<String, String> parseAnswersRecord(FieldValueList row) {
+	private Map<String, String> parseAnswersRecord(FieldValueList row, Schema tableSchema) {
 		Map<String, String> answers = new LinkedHashMap<>();
 		try {
 			FieldValue answersField = row.get("answers");
-			if (!answersField.isNull()) {
-				if (answersField.getAttribute() == FieldValue.Attribute.RECORD) {
-					FieldValueList record = answersField.getRecordValue();
-					for (int i = 0; i < record.size(); i++) {
-						FieldValue entry = record.get(i);
-						if (entry.getAttribute() == FieldValue.Attribute.RECORD) {
-							FieldValueList kv = entry.getRecordValue();
-							String key = kv.get("key").isNull() ? null : kv.get("key").getStringValue();
-							String value = kv.get("value").isNull() ? null : kv.get("value").getStringValue();
-							if (key != null) {
-								answers.put(key, value);
-							}
-						}
+			if (answersField.isNull()) {
+				return answers;
+			}
+			if (answersField.getAttribute() != FieldValue.Attribute.RECORD) {
+				logger.warning("answers field is not RECORD, attribute=" + answersField.getAttribute());
+				return answers;
+			}
+			FieldValueList record = answersField.getRecordValue();
+
+			// Use named access for each known answer field
+			for (String fieldName : ANSWER_FIELDS) {
+				try {
+					FieldValue val = record.get(fieldName);
+					if (val != null && !val.isNull()) {
+						answers.put(fieldName, val.getStringValue());
 					}
-				} else if (answersField.getAttribute() == FieldValue.Attribute.REPEATED) {
-					List<FieldValue> entries = answersField.getRepeatedValue();
-					for (FieldValue entry : entries) {
-						if (entry.getAttribute() == FieldValue.Attribute.RECORD) {
-							FieldValueList kv = entry.getRecordValue();
-							String key = kv.get("key").isNull() ? null : kv.get("key").getStringValue();
-							String value = kv.get("value").isNull() ? null : kv.get("value").getStringValue();
-							if (key != null) {
-								answers.put(key, value);
-							}
-						}
-					}
+				} catch (IllegalArgumentException e) {
+					// Field doesn't exist in this record — skip
+				} catch (Exception e) {
+					logger.warning("Failed to parse answer field '" + fieldName + "': " + e.getMessage());
 				}
 			}
+		} catch (IllegalArgumentException e) {
+			// 'answers' column doesn't exist in this table
+			logger.info("No 'answers' column in table: " + e.getMessage());
 		} catch (Exception e) {
-			// Field might not exist or have different structure
+			logger.warning("Failed to parse answers record: " + e.getClass().getName() + ": " + e.getMessage());
 		}
 		return answers;
 	}
