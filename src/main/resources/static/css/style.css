@@ -183,7 +183,7 @@ body {
     border-radius: 2px;
 }
 
-/* Bootstrap 3 compat for ui-bootstrap datepicker */
+/* ui-bootstrap 2.x datepicker compat with Bootstrap 5 */
 .btn-default {
     color: #333;
     background-color: #fff;
@@ -193,12 +193,16 @@ body {
     background-color: #e6e6e6;
     border-color: #adadad;
 }
-
-.input-group-btn {
-    display: contents;
+.btn-info-outline,
+.btn-default.btn-sm {
+    font-size: 13px;
 }
 
-/* ui-bootstrap datepicker uses glyphicons internally */
+.uib-datepicker-popup.dropdown-menu {
+    padding: 6px;
+}
+
+/* ui-bootstrap 2.x uses glyphicons for prev/next arrows */
 .glyphicon {
     display: inline-block;
     font-family: 'bootstrap-icons';

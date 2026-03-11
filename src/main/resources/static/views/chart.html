@@ -29,14 +29,14 @@
 <div class="row">
 	<div class="col-6 col-sm-3">
 		<div class="input-group input-group-sm">
-			<input type="text" class="form-control" datepicker-popup="MM/dd/yyyy" ng-model="from" is-open="openedFrom"
+			<input type="text" class="form-control" uib-datepicker-popup="MM/dd/yyyy" ng-model="from" is-open="openedFrom"
 			datepicker-options="dateOptions" min-date="minDate" max-date="to" show-weeks="false" show-button-bar="false" close-text="Close" />
 			<button type="button" class="btn btn-outline-secondary" ng-click="openFromPicker($event)"><i class="bi bi-calendar"></i></button>
 		</div>
 	</div>
 	<div class="col-6 col-sm-3">
 		<div class="input-group input-group-sm">
-			<input type="text" class="form-control" datepicker-popup="MM/dd/yyyy" ng-model="to" is-open="openedTo"
+			<input type="text" class="form-control" uib-datepicker-popup="MM/dd/yyyy" ng-model="to" is-open="openedTo"
 			datepicker-options="dateOptions" min-date="from" max-date="maxDate" show-weeks="false" show-button-bar="false" close-text="Close" />
 			<button type="button" class="btn btn-outline-secondary" ng-click="openToPicker($event)"><i class="bi bi-calendar"></i></button>
 		</div>
