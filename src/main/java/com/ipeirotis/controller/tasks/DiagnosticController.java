@@ -706,6 +706,7 @@ public class DiagnosticController {
 	 * Iterates day by day, restoring missing entities for each date.
 	 *
 	 * Example: /tasks/restoreRange?dataset=test&table=UserAnswer_2025MAR20&from=2021-01-01&to=2021-01-31&dryRun=false
+	 * Force-overwrite existing entities: /tasks/restoreRange?...&force=true
 	 */
 	@GetMapping("/tasks/restoreRange")
 	public Map<String, Object> restoreRange(
@@ -713,7 +714,8 @@ public class DiagnosticController {
 			@RequestParam String table,
 			@RequestParam String from,
 			@RequestParam String to,
-			@RequestParam(required = false, defaultValue = "true") boolean dryRun) {
+			@RequestParam(required = false, defaultValue = "true") boolean dryRun,
+			@RequestParam(required = false, defaultValue = "false") boolean force) {
 
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("dataset", dataset);
@@ -721,6 +723,7 @@ public class DiagnosticController {
 		result.put("from", from);
 		result.put("to", to);
 		result.put("dryRun", dryRun);
+		result.put("force", force);
 
 		try {
 			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
@@ -736,6 +739,7 @@ public class DiagnosticController {
 
 			int totalInBigQuery = 0;
 			int alreadyExist = 0;
+			int overwritten = 0;
 			int restored = 0;
 			int errors = 0;
 
@@ -764,14 +768,25 @@ public class DiagnosticController {
 					long entityId = row.get("entity_id").getLongValue();
 					Key<UserAnswer> key = Key.create(UserAnswer.class, entityId);
 
-					if (existingMap.containsKey(key)) {
+					boolean exists = existingMap.containsKey(key);
+					if (exists && !force) {
 						alreadyExist++;
 						continue;
 					}
 
 					if (dryRun) {
-						restored++;
+						if (exists) {
+							overwritten++;
+						} else {
+							restored++;
+						}
 						continue;
+					}
+
+					if (exists) {
+						overwritten++;
+					} else {
+						restored++;
 					}
 
 					try {
@@ -780,7 +795,6 @@ public class DiagnosticController {
 
 						if (saveBatch.size() >= 25) {
 							ofy().save().entities(saveBatch).now();
-							restored += saveBatch.size();
 							saveBatch.clear();
 						}
 					} catch (Exception e) {
@@ -793,11 +807,11 @@ public class DiagnosticController {
 			// Save remaining batch
 			if (!saveBatch.isEmpty()) {
 				ofy().save().entities(saveBatch).now();
-				restored += saveBatch.size();
 			}
 
 			result.put("totalInBigQuery", totalInBigQuery);
 			result.put("alreadyInDatastore", alreadyExist);
+			result.put("overwritten", overwritten);
 			result.put(dryRun ? "wouldRestore" : "restored", restored);
 			if (errors > 0) {
 				result.put("errors", errors);
