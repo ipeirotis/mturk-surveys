@@ -154,7 +154,8 @@ public class DatastoreRestoreService {
 
 	/**
 	 * Load full UserAnswer entities from the BigQuery backup table for a given date.
-	 * Reconstructs UserAnswer objects with their original Datastore IDs.
+	 * Uses SELECT * to avoid failures from unknown column names, then extracts
+	 * fields defensively. Entities get new Datastore IDs on save.
 	 */
 	private List<UserAnswer> loadFullEntitiesFromBackup(String sortableDate) {
 		List<UserAnswer> results = new ArrayList<>();
@@ -163,26 +164,36 @@ public class DatastoreRestoreService {
 			String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
 			String sql = String.format(
-					"SELECT __key__.id AS entity_id, date, answer, answers, "
-					+ "hitId, hitCreationDate, surveyId, workerId, ip, "
-					+ "locationCountry, locationRegion, locationCity "
-					+ "FROM `%s.%s.%s` WHERE DATE(date) = '%s'",
+					"SELECT * FROM `%s.%s.%s` WHERE DATE(date) = '%s'",
 					projectId, BQ_BACKUP_DATASET, BQ_BACKUP_TABLE, sortableDate);
 
 			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
 			TableResult tableResult = bigQuery.query(queryConfig);
 
+			// Build set of available column names from schema
+			Set<String> columns = new HashSet<>();
+			for (com.google.cloud.bigquery.Field field : tableResult.getSchema().getFields()) {
+				columns.add(field.getName());
+			}
+			logger.info("Backup table columns for " + sortableDate + ": " + columns);
+
 			for (FieldValueList row : tableResult.iterateAll()) {
 				UserAnswer ua = new UserAnswer();
 
-				// Restore original Datastore entity ID
-				try {
-					FieldValue idField = row.get("entity_id");
-					if (!idField.isNull()) {
-						ua.setId(idField.getLongValue());
+				// Try to restore original Datastore entity ID from __key__ struct
+				if (columns.contains("__key__")) {
+					try {
+						FieldValue keyField = row.get("__key__");
+						if (!keyField.isNull() && keyField.getAttribute() == FieldValue.Attribute.RECORD) {
+							FieldValueList keyRecord = keyField.getRecordValue();
+							FieldValue idField = keyRecord.get("id");
+							if (!idField.isNull()) {
+								ua.setId(idField.getLongValue());
+							}
+						}
+					} catch (Exception e) {
+						// Auto-generate ID
 					}
-				} catch (Exception e) {
-					// If no __key__.id, Objectify will auto-generate one
 				}
 
 				ua.setDate(parseTimestamp(row, "date"));
