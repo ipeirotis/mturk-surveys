@@ -141,6 +141,7 @@ public class DatastoreRestoreService {
 					"SELECT FORMAT_DATE('%%Y-%%m-%%d', DATE(date)) AS day, COUNT(*) AS cnt "
 					+ "FROM `%s.%s` "
 					+ "WHERE DATE(date) >= '%s' AND DATE(date) <= '%s' "
+					+ "AND surveyId = 'demographics' "
 					+ "GROUP BY day ORDER BY day",
 					projectId, qualifiedTable, fromDate, toDate);
 
