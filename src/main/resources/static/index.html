@@ -1,6 +1,6 @@
 <!DOCTYPE HTML>
 
-<html ng-app="mturk" id="ng-app">
+<html>
   <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,34 +10,27 @@
     <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="/css/style.css?v=20260311" />
 
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
-    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js" type="text/javascript"></script>
-    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-cookies.min.js" type="text/javascript"></script>
-    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-resource.min.js" type="text/javascript"></script>
-    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-route.min.js" type="text/javascript"></script>
-    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-sanitize.min.js" type="text/javascript"></script>
-    <script src="/lib/ui-bootstrap-tpls-2.5.0.min.js" type="text/javascript"></script>
-
     <script src="//cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" type="text/javascript"></script>
     <script src="//cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" type="text/javascript"></script>
     <script src="//cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js" type="text/javascript"></script>
     <script src="//cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js" type="text/javascript"></script>
 
-    <!-- App JS (loaded individually, no bundler needed) -->
-    <script src="/js/app.js" type="text/javascript"></script>
-    <script src="/js/views.js" type="text/javascript"></script>
-    <script src="/js/service/loading.js" type="text/javascript"></script>
-    <script src="/js/service/interceptor.js" type="text/javascript"></script>
-    <script src="/js/service/dataService.js" type="text/javascript"></script>
-    <script src="/js/controller/chartController.js" type="text/javascript"></script>
-    <script src="/js/directive/navpills.js" type="text/javascript"></script>
-    <script src="/js/directive/pills.js" type="text/javascript"></script>
-    <script src="/js/directive/ng-google-chart.js" type="text/javascript"></script>
-    <script src="/js/directive/choropleth.js" type="text/javascript"></script>
+    <!-- Vue 3 -->
+    <script src="//cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js" type="text/javascript"></script>
+    <script src="//cdn.jsdelivr.net/npm/vue-router@4/dist/vue-router.global.prod.js" type="text/javascript"></script>
+
+    <!-- App JS (Vue 3 components, loaded individually) -->
+    <script src="/vue/composables/useLoading.js" type="text/javascript"></script>
+    <script src="/vue/composables/useDateFilter.js" type="text/javascript"></script>
+    <script src="/vue/composables/useChartData.js" type="text/javascript"></script>
+    <script src="/vue/components/ChartjsChart.js" type="text/javascript"></script>
+    <script src="/vue/components/ChoroplethMap.js" type="text/javascript"></script>
+    <script src="/vue/components/ChartView.js" type="text/javascript"></script>
+    <script src="/vue/app.js" type="text/javascript"></script>
   </head>
 
   <body>
-    <div class="container content">
+    <div class="container content" id="app">
         <div class="row">
             <a href="https://demographics.mturk-tracker.com/">
                 <img src="/img/mturktracker_logo.png" alt="">
@@ -49,23 +42,23 @@
 					<i class="bi bi-list"></i> Menu
 				</button>
 				<div id="sidebarNav" class="sidebar-collapse show">
-					<ul class="nav nav-pills flex-column" navpills>
-                        <li class="nav-item" data-match-route="/countries"><a class="nav-link" ng-href="#/countries">Countries</a></li>
-						<li class="nav-item" data-match-route="/gender"><a class="nav-link" ng-href="#/gender">Gender</a></li>
-                        <li class="nav-item" data-match-route="/yearOfBirth"><a class="nav-link" ng-href="#/yearOfBirth">Year of Birth</a></li>
-                        <li class="nav-item" data-match-route="/maritalStatus"><a class="nav-link" ng-href="#/maritalStatus">Marital Status</a></li>
-                        <li class="nav-item" data-match-route="/householdSize"><a class="nav-link" ng-href="#/householdSize">Household Size</a></li>
-                        <li class="nav-item" data-match-route="/householdIncome"><a class="nav-link" ng-href="#/householdIncome">Household Income</a></li>
-                        <li class="nav-item" data-match-route="/educationalLevel"><a class="nav-link" ng-href="#/educationalLevel">Education Level</a></li>
-                        <li class="nav-item" data-match-route="/timeSpentOnMturk"><a class="nav-link" ng-href="#/timeSpentOnMturk">Time on MTurk</a></li>
-                        <li class="nav-item" data-match-route="/weeklyIncomeFromMturk"><a class="nav-link" ng-href="#/weeklyIncomeFromMturk">MTurk Income</a></li>
-                        <li class="nav-item" data-match-route="/languagesSpoken"><a class="nav-link" ng-href="#/languagesSpoken">Languages</a></li>
+					<ul class="nav nav-pills flex-column">
+                        <li class="nav-item"><router-link class="nav-link" to="/countries" :class="{ active: $route.params.id === 'countries' }">Countries</router-link></li>
+						<li class="nav-item"><router-link class="nav-link" to="/gender" :class="{ active: $route.params.id === 'gender' }">Gender</router-link></li>
+                        <li class="nav-item"><router-link class="nav-link" to="/yearOfBirth" :class="{ active: $route.params.id === 'yearOfBirth' }">Year of Birth</router-link></li>
+                        <li class="nav-item"><router-link class="nav-link" to="/maritalStatus" :class="{ active: $route.params.id === 'maritalStatus' }">Marital Status</router-link></li>
+                        <li class="nav-item"><router-link class="nav-link" to="/householdSize" :class="{ active: $route.params.id === 'householdSize' }">Household Size</router-link></li>
+                        <li class="nav-item"><router-link class="nav-link" to="/householdIncome" :class="{ active: $route.params.id === 'householdIncome' }">Household Income</router-link></li>
+                        <li class="nav-item"><router-link class="nav-link" to="/educationalLevel" :class="{ active: $route.params.id === 'educationalLevel' }">Education Level</router-link></li>
+                        <li class="nav-item"><router-link class="nav-link" to="/timeSpentOnMturk" :class="{ active: $route.params.id === 'timeSpentOnMturk' }">Time on MTurk</router-link></li>
+                        <li class="nav-item"><router-link class="nav-link" to="/weeklyIncomeFromMturk" :class="{ active: $route.params.id === 'weeklyIncomeFromMturk' }">MTurk Income</router-link></li>
+                        <li class="nav-item"><router-link class="nav-link" to="/languagesSpoken" :class="{ active: $route.params.id === 'languagesSpoken' }">Languages</router-link></li>
                     </ul>
                     <hr style="margin:10px 0;">
                     <p class="sidebar-heading">Maps</p>
-                    <ul class="nav nav-pills flex-column" navpills>
-                        <li class="nav-item" data-match-route="/worldMap"><a class="nav-link" ng-href="#/worldMap"><i class="bi bi-globe-americas"></i> World Map</a></li>
-                        <li class="nav-item" data-match-route="/usStates"><a class="nav-link" ng-href="#/usStates"><i class="bi bi-geo-alt"></i> US States</a></li>
+                    <ul class="nav nav-pills flex-column">
+                        <li class="nav-item"><router-link class="nav-link" to="/worldMap" :class="{ active: $route.params.id === 'worldMap' }"><i class="bi bi-globe-americas"></i> World Map</router-link></li>
+                        <li class="nav-item"><router-link class="nav-link" to="/usStates" :class="{ active: $route.params.id === 'usStates' }"><i class="bi bi-geo-alt"></i> US States</router-link></li>
                     </ul>
                     <hr style="margin:10px 0;">
                     <p class="sidebar-heading">Data Access</p>
@@ -76,7 +69,9 @@
                     </ul>
 				</div>
 			</div>
-			<div class="col-md-10" ng-view></div>
+			<div class="col-md-10">
+                <router-view :key="$route.params.id"></router-view>
+            </div>
 		</div>
 	</div>
     <footer id="footer">

@@ -56,7 +56,7 @@ The largest effort. Spring Boot 3 requires Java 17+ and the `jakarta.*` namespac
 
 AngularJS 1.x is EOL but functional. Only pursue if the frontend needs active development.
 
-- **T7.1** — Evaluate migration path (Angular 17+, React, or plain JS)
+- [x] **T7.1** — **Migrate from AngularJS to Vue 3** — Replaced the entire AngularJS 1.8.3 frontend with Vue 3 (CDN, no build step) + Vue Router 4. Removed jQuery, angular-cookies, angular-resource, angular-route, angular-sanitize, ui-bootstrap. Created Vue composables (useLoading, useDateFilter, useChartData) and components (ChartView, ChartjsChart, ChoroplethMap). Chart.js 4.4.7, D3.js v7, Bootstrap 5.3.3 remain unchanged. All 12 navigation views, 4 chart types, 2 map views, trend arrows, Top-N filtering, and date range selection preserved. *(completed)*
 - [x] **T7.2** — **Update Bootstrap 3.1.1 to Bootstrap 5.3.3** — Replaced Bootstrap 3 CDN with Bootstrap 5.3.3, added Bootstrap Icons 1.11.3. Updated all CSS classes (`col-xs-*` → `col-*`, `btn-default` → `btn-outline-secondary`, `glyphicon` → `bi`, `text-right` → `text-end`, sidebar collapse `in` → `show`). Added CSS compatibility layer for ui-bootstrap datepicker (maps `.glyphicon-chevron-*` to Bootstrap Icons font, `.btn-default` and `.input-group-btn` shims). Updated nav-pills directive to toggle `.active` on `<a>` instead of `<li>`. *(completed)*
 - [x] **T7.3** — **Replace YUI Compressor with individual script loading** — Removed the unmaintained `yuicompressor-maven-plugin` from pom.xml. JS files are now loaded individually in `index.html` (no bundling step needed). This simplifies the build, improves debuggability, and eliminates the last non-standard Maven plugin. *(completed)*
 
