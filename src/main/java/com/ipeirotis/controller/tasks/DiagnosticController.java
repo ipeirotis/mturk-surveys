@@ -915,26 +915,34 @@ public class DiagnosticController {
 			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
 			String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
-			// Get all entity IDs from BigQuery for the date range
+			// Get entity IDs AND dates from BigQuery for the date range
 			String sql = String.format(
-					"SELECT __key__.id as entity_id FROM `%s.%s.%s` WHERE DATE(date) >= '%s' AND DATE(date) <= '%s'",
+					"SELECT __key__.id as entity_id, date FROM `%s.%s.%s` WHERE DATE(date) >= '%s' AND DATE(date) <= '%s'",
 					projectId, dataset, table, from, to);
 
 			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
 			TableResult tableResult = bigQuery.query(queryConfig);
 
-			List<Long> entityIds = new ArrayList<>();
+			// Build a map of entity ID -> date from BigQuery
+			Map<Long, Date> bqDates = new LinkedHashMap<>();
 			for (FieldValueList row : tableResult.iterateAll()) {
-				entityIds.add(row.get("entity_id").getLongValue());
+				long entityId = row.get("entity_id").getLongValue();
+				Date date = null;
+				if (!row.get("date").isNull()) {
+					date = parseTimestamp(row.get("date").getStringValue());
+				}
+				bqDates.put(entityId, date);
 			}
 
-			result.put("totalIdsFromBigQuery", entityIds.size());
+			result.put("totalIdsFromBigQuery", bqDates.size());
 
 			int found = 0;
 			int notFound = 0;
 			int resaved = 0;
+			int datesFixed = 0;
 
 			// Process in batches of 100
+			List<Long> entityIds = new ArrayList<>(bqDates.keySet());
 			for (int i = 0; i < entityIds.size(); i += 100) {
 				int end = Math.min(i + 100, entityIds.size());
 				List<Long> batch = entityIds.subList(i, end);
@@ -949,8 +957,20 @@ public class DiagnosticController {
 				found += existing.size();
 				notFound += (batch.size() - existing.size());
 
+				// Fix null dates from BigQuery data before re-saving
+				for (Map.Entry<Key<UserAnswer>, UserAnswer> entry : existing.entrySet()) {
+					UserAnswer ua = entry.getValue();
+					if (ua.getDate() == null) {
+						Date bqDate = bqDates.get(ua.getId());
+						if (bqDate != null) {
+							ua.setDate(bqDate);
+							datesFixed++;
+						}
+					}
+				}
+
 				if (!dryRun && !existing.isEmpty()) {
-					// Re-save to rebuild indexes
+					// Re-save to rebuild indexes (and fix null dates)
 					ofy().save().entities(existing.values()).now();
 					resaved += existing.size();
 				}
@@ -958,6 +978,7 @@ public class DiagnosticController {
 
 			result.put("foundInDatastore", found);
 			result.put("notFoundInDatastore", notFound);
+			result.put("datesFixed", datesFixed);
 			result.put(dryRun ? "wouldResave" : "resaved", dryRun ? found : resaved);
 			result.put("status", "ok");
 
