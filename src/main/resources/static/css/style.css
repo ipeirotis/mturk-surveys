@@ -211,36 +211,6 @@ body {
     border-radius: 2px;
 }
 
-/* ui-bootstrap 2.x datepicker compat with Bootstrap 5 */
-.btn-default {
-    color: #333;
-    background-color: #fff;
-    border-color: #ccc;
-}
-.btn-default:hover {
-    background-color: #e6e6e6;
-    border-color: #adadad;
-}
-.btn-info-outline,
-.btn-default.btn-sm {
-    font-size: 13px;
-}
-
-.uib-datepicker-popup.dropdown-menu {
-    padding: 6px;
-}
-
-/* ui-bootstrap 2.x uses glyphicons for prev/next arrows */
-.glyphicon {
-    display: inline-block;
-    font-family: 'bootstrap-icons';
-    font-style: normal;
-    font-weight: normal;
-    line-height: 1;
-}
-.glyphicon-chevron-left::before { content: "\F284"; }
-.glyphicon-chevron-right::before { content: "\F285"; }
-
 /* Mobile sidebar toggle */
 .sidebar-toggle {
     display: none;
