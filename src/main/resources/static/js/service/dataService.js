@@ -22,12 +22,16 @@ angular.module('mturk').factory('dataService', ['$http', '$cacheFactory', functi
 	        var fromCache = chartDataCache.get(key);
             if(!fromCache) {
                 $http.get(this.getApiUrl() + '/survey/demographics/chartData?from=' + from + '&to=' + to, { timeout: 300000 })
-                .success(function(response) {
-                    chartDataCache.put(key, response);
+                .then(function(response) {
+                    chartDataCache.put(key, response.data);
                     if(angular.isFunction(success)){
-                        success(response);
+                        success(response.data);
                     }
-                }).error(error);
+                }, function(resp) {
+                    if(angular.isFunction(error)){
+                        error(resp.data, resp.status, resp.headers, resp.config);
+                    }
+                });
             } else {
                 if(angular.isFunction(success)){
                     success(fromCache);
