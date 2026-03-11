@@ -153,8 +153,10 @@ This means **no npm, no node, no bundler, no package.json** — the same deploym
 | `dateFilterState` factory | Singleton state object | `reactive()` object (shared via provide/inject or module-level) |
 | `chartjsChart` directive | link fn + $scope.$watch | Vue component with `watch()` + `onMounted()`/`onUnmounted()` |
 | `choroplethMap` directive | link fn + D3 rendering | Vue component with `watch()` + `onMounted()` |
-| `navpills` directive | Watches $location.path() | Component using `vue-router`'s `useRoute()` or simple reactive prop |
-| `pills` directive | Watches ng-model | `v-model` with `:class` binding (no component needed) |
+| `navpills` directive | Watches $location.path() | Eliminated — Vue Router's `linkActiveClass: 'active'` handles this automatically |
+| `pills` directive | Watches ng-model | **Dead code** — no template uses the `pills` attribute. Delete entirely. |
+| `angular-cookies` | Loaded but never injected | **Dead code** — remove CDN reference |
+| `angular-resource` | Loaded but never injected | **Dead code** — remove CDN reference |
 | `ngRoute /:id` | Hash-based routing | `vue-router` (hash mode) or reactive variable (routing is trivial here) |
 | `ng-model="from"` | Two-way binding | `v-model` (same concept) |
 | `$scope.$watch('chartData', fn, true)` | Deep watcher | `watch(chartData, fn, { deep: true })` |
@@ -320,9 +322,11 @@ static/
 
 | Risk | Mitigation |
 |------|-----------|
-| **Date picker UX change** | Moving from UI Bootstrap popup calendar to `<input type="date">` changes the UX slightly. Native date inputs vary by browser. Test on Chrome, Firefox, Safari. If unacceptable, add a Vue datepicker component via CDN. |
+| **Route change: component reuse** | **Important gotcha.** AngularJS ngRoute destroys and recreates the controller on every route change (`#/gender` → `#/countries`). Vue Router **reuses** the component by default when only the route param changes. Fix: add `watch(() => route.params.id, () => { resetState(); load(); })` in the ChartView component, or add `:key="$route.params.id"` to `<router-view>` to force re-creation. |
+| **Date picker UX change** | Moving from UI Bootstrap popup calendar to `<input type="date">` changes the UX slightly. Native date inputs vary by browser. Test on Chrome, Firefox, Safari. If unacceptable, add flatpickr (6KB, CDN) as a fallback. |
 | **Digest cycle timing differences** | AngularJS `$timeout` calls exist to work around digest cycles. Vue's reactivity is synchronous by default, so some rendering timing may differ. Use `nextTick()` if needed. |
 | **Deep watcher performance** | The current deep watcher on `chartData` is expensive in AngularJS. Vue's deep watchers are more efficient, but the large data object should ideally be replaced with a reactive reference that's replaced (not mutated) to avoid deep comparison. |
+| **Chart.js legend focusedIndex on route change** | The `focusedIndex` closure variable tracking which legend item is focused may not reset if the component is reused. Fix: reset `focusedIndex = null` inside `renderChart()` (already done in the AngularJS version). |
 
 ### High Risk
 
@@ -443,7 +447,37 @@ Several Track 7 tasks are pending. Here's how they interact with the migration:
 
 ---
 
-## 10. Summary
+## 10. Template Conversion Reference
+
+The migration is largely mechanical for templates. Here is the directive-by-directive mapping:
+
+### chart.html (~50 AngularJS directives)
+
+| AngularJS Syntax | Count | Vue 3 Syntax |
+|---|---|---|
+| `ng-if="expr"` | 18 | `v-if="state.expr"` |
+| `ng-click="fn()"` | 11 | `@click="fn()"` |
+| `ng-class="expr ? 'a' : 'b'"` | 9 | `:class="expr ? 'a' : 'b'"` |
+| `ng-repeat="x in xs"` | 1 | `v-for="x in xs" :key="x.value"` |
+| `ng-model="from"` | 2 | `v-model="state.from"` |
+| `{{expr \| number}}` | 2 | `{{expr.toLocaleString()}}` |
+| `{{expr}}` | 14 | `{{state.expr}}` |
+| `uib-datepicker-popup` | 2 | `<input type="date">` |
+| `chartjs-chart="dailyChart"` | 3 | `<chartjs-chart :chart-data="state.dailyChart" />` |
+| `choropleth-map` | 1 | `<choropleth-map :map-data="state.mapData" />` |
+
+### index.html
+
+| AngularJS Syntax | Vue 3 Syntax |
+|---|---|
+| `ng-app="mturk"` | `id="app"` (mounted via `createApp().mount('#app')`) |
+| `ng-href="#/gender"` | `<router-link to="/gender">` or plain `<a href="#/gender">` |
+| `navpills` attribute | Removed — `router-link-active` handles it |
+| `ng-view` | `<router-view />` |
+
+---
+
+## 11. Summary
 
 | Dimension | Current | After Migration |
 |-----------|---------|----------------|
@@ -457,5 +491,7 @@ Several Track 7 tasks are pending. Here's how they interact with the migration:
 | **CSS** | Bootstrap 5.3.3 (unchanged) | Bootstrap 5.3.3 (unchanged) |
 | **Build** | No bundler (unchanged) | No bundler (unchanged) |
 | **jQuery** | Used for loading spinner | Removed |
-| **Bundle size** | ~230KB (AngularJS + modules) | ~40KB (Vue 3 global) |
+| **Bundle size** | ~195KB gzipped (AngularJS + jQuery + UI Bootstrap) | ~45KB gzipped (Vue 3 + Vue Router) |
+| **Custom JS lines** | 1,294 | ~1,085 (16% reduction) |
+| **CDN scripts** | 12 (7 framework + 5 lib) | 7 (2 framework + 5 lib) |
 | **Estimated effort** | — | **4-5 days** |
