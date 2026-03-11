@@ -17,3 +17,6 @@ cron:
 - url: '/tasks/exportToBigQuery'
   schedule: 'every day 05:00'
   description: 'Export yesterday demographics to BigQuery'
+- url: '/tasks/backupDatastore'
+  schedule: 'every sunday 06:00'
+  description: 'Weekly full Datastore backup to GCS'

@@ -167,6 +167,110 @@ For **local development**, the app falls back to the default AWS credential prov
 |---|---|
 | `GCP_SA_KEY` | JSON key for a GCP service account with App Engine Admin + Secret Manager access |
 
+## Backup & Recovery
+
+The system has multiple layers of backup for disaster recovery.
+
+### Backup Layers
+
+| Layer | Frequency | Location | What |
+|---|---|---|---|
+| **Datastore export** | Weekly (Sun 06:00 UTC) | `gs://demographics_data_export/<date>/` | Full raw entity backup of all Datastore kinds |
+| **BigQuery export** | Daily (05:00 UTC) | `demographics.responses` table | Individual UserAnswer rows with hashed worker IDs |
+| **DemographicsSnapshot** | Daily (04:00 UTC) | Datastore | Pre-aggregated daily demographic counts |
+| **DemographicsRollup** | Daily (04:15 UTC) | Datastore | Weekly/monthly aggregates built from snapshots |
+
+### BigQuery Tables
+
+| Table | Description |
+|---|---|
+| `demographics.responses` | Public dataset. Daily export of UserAnswer data (worker IDs + IPs SHA256-hashed). Covers 2015-03-26 to present. |
+| `test.UserAnswer_2025MAR20` | One-time Datastore backup from 2025-03-20 (raw entity export via GCS). Covers 2020-11-03 to 2025-03-20. |
+| `test.userAnswers_oct2020` | Older Datastore backup. Covers 2015-03-26 to 2021-06-10. |
+
+### GCS Bucket
+
+- **`gs://demographics_data_export/`** — Stores weekly Datastore exports. Each export creates a timestamped subfolder with all entity data in Datastore's native export format.
+
+### IAM Requirements
+
+The App Engine default service account (`mturk-demographics@appspot.gserviceaccount.com`) needs:
+
+- `roles/datastore.importExportAdmin` — For the weekly Datastore export to GCS
+- `roles/secretmanager.secretAccessor` — For reading AWS credentials (already configured)
+
+```bash
+gcloud projects add-iam-policy-binding mturk-demographics \
+  --member="serviceAccount:mturk-demographics@appspot.gserviceaccount.com" \
+  --role="roles/datastore.importExportAdmin"
+```
+
+### Recovery Procedures
+
+#### Full Datastore restore from GCS backup
+
+```bash
+# List available backups
+gsutil ls gs://demographics_data_export/
+
+# Import a specific backup (restores ALL entity kinds)
+gcloud datastore import gs://demographics_data_export/2026-03-09/ --project=mturk-demographics
+
+# Import only specific kinds
+gcloud datastore import gs://demographics_data_export/2026-03-09/ \
+  --kinds=UserAnswer,DemographicsSnapshot --project=mturk-demographics
+```
+
+#### Restore individual dates from BigQuery
+
+```
+# Compare Datastore vs BigQuery counts for a date range
+GET /tasks/compareDatastoreBigQuery?from=2024-01-01&to=2024-12-31
+
+# Restore a single day from BigQuery backup
+GET /tasks/restoreDateFromBigQuery?date=2024-06-15
+
+# Smart restore: only restore days where Datastore has fewer entries
+GET /tasks/smartRestoreFromBigQuery?from=2024-01-01&to=2024-12-31
+```
+
+#### Rebuild snapshots and rollups
+
+```
+# Check snapshot coverage (shows missing dates per month)
+GET /tasks/snapshotCoverage
+
+# Backfill missing snapshots (enqueues Cloud Tasks)
+GET /tasks/snapshotCoverage?backfill=true
+
+# Rebuild all weekly + monthly rollups
+GET /tasks/backfillRollups
+```
+
+#### Trigger manual backups
+
+```
+# Full Datastore export to GCS
+GET /tasks/backupDatastore
+
+# Export specific kinds only
+GET /tasks/backupDatastore?kinds=UserAnswer,DemographicsSnapshot
+
+# Export a single date to BigQuery demographics.responses
+GET /tasks/exportDateToBigQuery?date=01/15/2024
+
+# Full BigQuery backfill (all dates)
+GET /tasks/backfillBigQuery?from=03/26/2015&to=03/11/2026
+```
+
+### Known Data Gaps
+
+- **2019-02-21 to 2019-03-17** (~24 days) — Survey was paused, no data in any source
+- **2019-11-09 to 2019-12-31** (~53 days) — Survey was paused
+- **2020-01-01 to 2020-01-13** (~13 days) — Survey was paused
+
+These gaps are legitimate (no survey activity) and appear as zero-response entries in snapshots/rollups.
+
 ## Important Notes
 
 - The frontend JS files are **minified and concatenated** during build via YUI Compressor into `target/classes/static/js/script.js`
