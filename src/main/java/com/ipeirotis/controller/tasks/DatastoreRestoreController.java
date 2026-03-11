@@ -1,5 +1,6 @@
 package com.ipeirotis.controller.tasks;
 
+import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.service.DatastoreRestoreService;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
@@ -8,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import static com.googlecode.objectify.ObjectifyService.ofy;
 
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -149,6 +152,81 @@ public class DatastoreRestoreController {
 
 		return Map.of("status", "ok", "mode", "daily",
 				"tasksEnqueued", tasksEnqueued, "from", from, "to", to);
+	}
+
+	/**
+	 * Diagnostic endpoint to debug Datastore counting discrepancies.
+	 * Tests multiple counting approaches for a single date.
+	 *
+	 * Example: /tasks/debugCount?date=2016-04-15
+	 */
+	@GetMapping("/tasks/debugCount")
+	public Map<String, Object> debugCount(@RequestParam String date) throws ParseException {
+		DateFormat df = SafeDateFormat.forPattern("yyyy-MM-dd");
+
+		Calendar cal = Calendar.getInstance();
+		cal.setTime(df.parse(date));
+		CalendarUtils.truncateToDay(cal);
+		Date from = cal.getTime();
+
+		cal.add(Calendar.DAY_OF_MONTH, 1);
+		Date to = cal.getTime();
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("date", date);
+		result.put("fromEpochMs", from.getTime());
+		result.put("toEpochMs", to.getTime());
+		result.put("fromUtc", from.toString());
+		result.put("toUtc", to.toString());
+		result.put("jvmTimezone", TimeZone.getDefault().getID());
+
+		// Method 1: .count() without surveyId (what compare uses)
+		int countNoSurvey = ofy().load().type(UserAnswer.class)
+				.filter("date >=", from)
+				.filter("date <", to)
+				.count();
+		result.put("countNoSurveyId", countNoSurvey);
+
+		// Method 2: .count() with surveyId = "demographics"
+		int countWithSurvey = ofy().load().type(UserAnswer.class)
+				.filter("surveyId", "demographics")
+				.filter("date >=", from)
+				.filter("date <", to)
+				.count();
+		result.put("countWithSurveyId", countWithSurvey);
+
+		// Method 3: keys-only query, iterate and count (no surveyId)
+		int keysCount = 0;
+		for (@SuppressWarnings("unused") com.googlecode.objectify.Key<UserAnswer> key :
+				ofy().load().type(UserAnswer.class)
+						.filter("date >=", from)
+						.filter("date <", to)
+						.keys()) {
+			keysCount++;
+		}
+		result.put("keysIterateNoSurveyId", keysCount);
+
+		// Method 4: keys-only query with surveyId
+		int keysCountWithSurvey = 0;
+		for (@SuppressWarnings("unused") com.googlecode.objectify.Key<UserAnswer> key :
+				ofy().load().type(UserAnswer.class)
+						.filter("surveyId", "demographics")
+						.filter("date >=", from)
+						.filter("date <", to)
+						.keys()) {
+			keysCountWithSurvey++;
+		}
+		result.put("keysIterateWithSurveyId", keysCountWithSurvey);
+
+		// Method 5: full entity load with surveyId, count
+		List<UserAnswer> entities = ofy().load().type(UserAnswer.class)
+				.filter("surveyId", "demographics")
+				.filter("date >=", from)
+				.filter("date <", to)
+				.list();
+		result.put("fullLoadWithSurveyId", entities.size());
+
+		return result;
 	}
 
 	/**

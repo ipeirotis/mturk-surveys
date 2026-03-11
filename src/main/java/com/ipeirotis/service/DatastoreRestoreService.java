@@ -163,9 +163,12 @@ public class DatastoreRestoreService {
 
 	/**
 	 * Count Datastore UserAnswer entries for a day.
+	 * Uses the composite index (surveyId, date) which is reliable,
+	 * rather than the built-in single-property date index which undercounts.
 	 */
 	private int countDatastoreEntries(Date from, Date to) {
 		return ofy().load().type(UserAnswer.class)
+				.filter("surveyId", "demographics")
 				.filter("date >=", from)
 				.filter("date <", to)
 				.count();
