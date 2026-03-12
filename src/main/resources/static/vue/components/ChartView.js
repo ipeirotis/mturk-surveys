@@ -11,6 +11,15 @@ const ChartView = {
         viewId: { type: String, required: true }
     },
     template: `
+<!-- Skeleton stat cards while loading -->
+<div class="row stats-cards" v-if="!summaryStats">
+    <div class="col-6 col-sm-3" v-for="n in 4" :key="n">
+        <div class="stat-card stat-card-skeleton">
+            <div class="stat-value">&nbsp;</div>
+            <div class="stat-label">&nbsp;</div>
+        </div>
+    </div>
+</div>
 <!-- Summary Statistics Cards -->
 <div class="row stats-cards" v-if="summaryStats">
     <div class="col-6 col-sm-3">
@@ -61,16 +70,16 @@ const ChartView = {
     <div class="col-6 col-sm-3">
         <div class="stat-card">
             <div class="stat-value">
-                {{summaryStats.topGender.label}}
-                <span class="trend-arrow" v-if="summaryStats.genderTrend"
-                    :class="{'trend-up': summaryStats.genderTrend.direction === 'up', 'trend-down': summaryStats.genderTrend.direction === 'down', 'trend-flat': summaryStats.genderTrend.direction === 'flat'}">
-                    <i v-if="summaryStats.genderTrend.direction === 'up'" class="bi bi-arrow-up-short"></i>
-                    <i v-if="summaryStats.genderTrend.direction === 'down'" class="bi bi-arrow-down-short"></i>
-                    <i v-if="summaryStats.genderTrend.direction === 'flat'" class="bi bi-dash"></i>
-                    <small v-if="summaryStats.genderTrend.pct > 0">{{summaryStats.genderTrend.pct}}%</small>
+                {{summaryStats.contextual.label}}
+                <span class="trend-arrow" v-if="summaryStats.contextual.trend"
+                    :class="{'trend-up': summaryStats.contextual.trend.direction === 'up', 'trend-down': summaryStats.contextual.trend.direction === 'down', 'trend-flat': summaryStats.contextual.trend.direction === 'flat'}">
+                    <i v-if="summaryStats.contextual.trend.direction === 'up'" class="bi bi-arrow-up-short"></i>
+                    <i v-if="summaryStats.contextual.trend.direction === 'down'" class="bi bi-arrow-down-short"></i>
+                    <i v-if="summaryStats.contextual.trend.direction === 'flat'" class="bi bi-dash"></i>
+                    <small v-if="summaryStats.contextual.trend.pct > 0">{{summaryStats.contextual.trend.pct}}%</small>
                 </span>
             </div>
-            <div class="stat-label">Top Gender ({{summaryStats.topGender.pct}}%)</div>
+            <div class="stat-label">{{summaryStats.contextual.statLabel}}</div>
         </div>
     </div>
 </div>
@@ -109,7 +118,7 @@ const ChartView = {
                 <i class="bi bi-graph-up"></i> Area
             </button>
             <button type="button" class="btn btn-sm" :class="displayMode === 'line' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('line')">
-                <i class="bi bi-graph-down"></i> Line
+                <i class="bi bi-graph-up"></i> Line
             </button>
             <button type="button" class="btn btn-sm" :class="displayMode === 'donut' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('donut')">
                 <i class="bi bi-pie-chart"></i> Donut
@@ -231,7 +240,7 @@ const ChartView = {
             { label: '5Y', years: 5 },
             { label: 'All', years: null }
         ];
-        var activePreset = ref(null);
+        var activePreset = ref('2Y');
 
         function applyPreset(preset) {
             var to = new Date();
@@ -248,7 +257,64 @@ const ChartView = {
             dateFilterState.from.value = from;
             dateFilterState.to.value = to;
             activePreset.value = preset.label;
+            setHashParams({ from: fromStr.value, to: toStr.value, preset: preset.label });
             load();
+        }
+
+        // --- URL state persistence ---
+        function getHashParams() {
+            var hash = window.location.hash || '';
+            var qIdx = hash.indexOf('?');
+            if (qIdx === -1) return {};
+            var qs = hash.substring(qIdx + 1);
+            var params = {};
+            qs.split('&').forEach(function(pair) {
+                var parts = pair.split('=');
+                if (parts.length === 2) params[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1]);
+            });
+            return params;
+        }
+
+        function setHashParams(updates) {
+            var hash = window.location.hash || '';
+            var baseHash = hash.split('?')[0];
+            var params = getHashParams();
+            for (var k in updates) {
+                if (updates[k] === null || updates[k] === undefined) {
+                    delete params[k];
+                } else {
+                    params[k] = updates[k];
+                }
+            }
+            var pairs = [];
+            for (var key in params) {
+                pairs.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
+            }
+            var newHash = baseHash + (pairs.length > 0 ? '?' + pairs.join('&') : '');
+            if (newHash !== window.location.hash) {
+                history.replaceState(null, '', newHash);
+            }
+        }
+
+        // Restore state from URL on init
+        var hashParams = getHashParams();
+        if (hashParams.from) {
+            fromStr.value = hashParams.from;
+            dateFilterState.from.value = fromDateStr(hashParams.from);
+        }
+        if (hashParams.to) {
+            toStr.value = hashParams.to;
+            dateFilterState.to.value = fromDateStr(hashParams.to);
+        }
+        if (hashParams.mode && ['bar', 'area', 'line', 'donut'].indexOf(hashParams.mode) >= 0) {
+            displayMode.value = hashParams.mode;
+        }
+        if (hashParams.topN) {
+            var parsedN = parseInt(hashParams.topN);
+            if ([0, 5, 10, 15].indexOf(parsedN) >= 0) topN.value = parsedN;
+        }
+        if (hashParams.preset) {
+            activePreset.value = hashParams.preset;
         }
 
         var isMapView = ref(!!MAP_VIEWS[props.viewId]);
@@ -307,6 +373,33 @@ const ChartView = {
             return best;
         }
 
+        // Maps viewId to the counts field name for contextual stat
+        var VIEW_TO_COUNTS_FIELD = {
+            'gender': 'totalGender',
+            'yearOfBirth': 'totalYearOfBirth',
+            'maritalStatus': 'totalMaritalStatus',
+            'householdSize': 'totalHouseholdSize',
+            'householdIncome': 'totalHouseholdIncome',
+            'educationalLevel': 'totalEducationalLevel',
+            'timeSpentOnMturk': 'totalTimeSpentOnMturk',
+            'weeklyIncomeFromMturk': 'totalWeeklyIncomeFromMturk',
+            'languagesSpoken': 'totalLanguagesSpoken',
+            'countries': 'totalCountries'
+        };
+
+        var VIEW_LABELS = {
+            'gender': 'Top Gender',
+            'yearOfBirth': 'Top Birth Year',
+            'maritalStatus': 'Top Marital Status',
+            'householdSize': 'Top Household Size',
+            'householdIncome': 'Top Income',
+            'educationalLevel': 'Top Education',
+            'timeSpentOnMturk': 'Top Time on MTurk',
+            'weeklyIncomeFromMturk': 'Top MTurk Income',
+            'languagesSpoken': 'Top Language',
+            'countries': 'Top Country'
+        };
+
         function buildSummaryStats(counts, priorCounts) {
             if (!counts) return;
             var stats = {};
@@ -324,7 +417,18 @@ const ChartView = {
             }
 
             stats.topCountry = findTop(counts.totalCountries);
-            stats.topGender = findTop(counts.totalGender);
+
+            // Build contextual 4th stat based on current view
+            var contextField = VIEW_TO_COUNTS_FIELD[props.viewId] || 'totalGender';
+            var contextLabel = VIEW_LABELS[props.viewId] || 'Top Gender';
+            var contextData = counts[contextField];
+            var topContextual = findTop(contextData);
+            stats.contextual = {
+                label: topContextual.label,
+                pct: topContextual.pct,
+                statLabel: contextLabel + ' (' + topContextual.pct + '%)',
+                trend: null
+            };
 
             if (priorCounts) {
                 var priorTotal = priorCounts.totalResponses || 0;
@@ -338,9 +442,11 @@ const ChartView = {
                 if (stats.topCountry.label !== 'N/A' && priorTopCountry.label !== 'N/A') {
                     stats.countryTrend = computeTrend(stats.topCountry.pct, priorTopCountry.pct);
                 }
-                var priorTopGender = findTop(priorCounts.totalGender);
-                if (stats.topGender.label !== 'N/A' && priorTopGender.label !== 'N/A') {
-                    stats.genderTrend = computeTrend(stats.topGender.pct, priorTopGender.pct);
+
+                var priorContextData = priorCounts[contextField];
+                var priorTopContextual = findTop(priorContextData);
+                if (topContextual.label !== 'N/A' && priorTopContextual.label !== 'N/A') {
+                    stats.contextual.trend = computeTrend(topContextual.pct, priorTopContextual.pct);
                 }
             }
 
@@ -559,6 +665,7 @@ const ChartView = {
 
         function setDisplayMode(mode) {
             displayMode.value = mode;
+            setHashParams({ mode: mode });
             if (mode === 'donut' && response.value) {
                 populateDonutChart(props.viewId);
             } else if (dailyChart.value && dailyChart.value.labels) {
@@ -568,6 +675,7 @@ const ChartView = {
 
         function setTopN(n) {
             topN.value = n;
+            setHashParams({ topN: n > 0 ? String(n) : null });
             if (response.value && props.viewId) {
                 if (displayMode.value === 'donut') {
                     populateDonutChart(props.viewId);
@@ -579,9 +687,10 @@ const ChartView = {
         }
 
         function applyDateRange() {
-            activePreset.value = null; // clear preset highlight when manually updating
+            activePreset.value = null;
             dateFilterState.from.value = fromDateStr(fromStr.value);
             dateFilterState.to.value = fromDateStr(toStr.value);
+            setHashParams({ from: fromStr.value, to: toStr.value, preset: null });
             load();
         }
 

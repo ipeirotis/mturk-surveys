@@ -180,15 +180,43 @@ body {
 }
 
 .trend-up {
-    color: #22c55e;
+    color: #3b82f6;
 }
 
 .trend-down {
-    color: #ef4444;
+    color: #94a3b8;
 }
 
 .trend-flat {
     color: #a0aec0;
+}
+
+/* ── Skeleton loading for stat cards ── */
+.stat-card-skeleton .stat-value,
+.stat-card-skeleton .stat-label {
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 4px;
+    color: transparent !important;
+    user-select: none;
+}
+
+.stat-card-skeleton .stat-value {
+    height: 28px;
+    width: 70%;
+    margin: 0 auto;
+}
+
+.stat-card-skeleton .stat-label {
+    height: 12px;
+    width: 50%;
+    margin: 6px auto 0;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 /* ── Date Range Controls ── */
