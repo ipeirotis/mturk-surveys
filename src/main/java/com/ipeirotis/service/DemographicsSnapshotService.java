@@ -36,7 +36,7 @@ public class DemographicsSnapshotService {
     private static final String[] DAYS = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     private static final Set<String> INCOME_LABELS = new LinkedHashSet<>();
 
-    private static final int WEEKLY_THRESHOLD = 90;    // >90 days → weekly
+    private static final int WEEKLY_THRESHOLD = 365;   // >365 days → weekly
     private static final int MONTHLY_THRESHOLD = 730;  // >2 years → monthly
 
     private static final String BQ_DATASET = "demographics";
@@ -429,7 +429,7 @@ public class DemographicsSnapshotService {
 
     /**
      * Get aggregated answers from pre-computed snapshots.
-     * Auto-selects granularity: ≤90 days → daily, 91–365 → weekly, >365 → monthly.
+     * Auto-selects granularity: ≤365 days → daily, 366–730 → weekly, >730 → monthly.
      */
     @Cacheable(value = "aggregatedAnswers", key = "#from + '_' + #to")
     public DemographicsSurveyAnswersByPeriod getAggregatedAnswers(String from, String to) {

@@ -207,6 +207,8 @@ const ChartView = {
 
         // Date range presets
         var datePresets = [
+            { label: '3M', months: 3 },
+            { label: '6M', months: 6 },
             { label: '1Y', years: 1 },
             { label: '2Y', years: 2 },
             { label: '5Y', years: 5 },
@@ -217,8 +219,12 @@ const ChartView = {
         function applyPreset(preset) {
             var to = new Date();
             var from;
-            if (preset.years === null) {
+            if (preset.years === null && !preset.months) {
                 from = new Date(minDate.getTime());
+            } else if (preset.months) {
+                from = new Date();
+                from.setMonth(from.getMonth() - preset.months);
+                if (from < minDate) from = new Date(minDate.getTime());
             } else {
                 from = new Date();
                 from.setFullYear(from.getFullYear() - preset.years);
