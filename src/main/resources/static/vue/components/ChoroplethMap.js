@@ -1,5 +1,6 @@
 /**
- * Choropleth Map component - replaces choropleth.js directive
+ * Choropleth Map Vue Component
+ * Replaces the choroplethMap AngularJS directive
  */
 const ChoroplethMap = {
     props: {
@@ -12,7 +13,7 @@ const ChoroplethMap = {
         const { ref, watch, onMounted, nextTick } = Vue;
         const container = ref(null);
 
-        var US_STATE_POP = {
+        const US_STATE_POP = {
             'AL':5024279,'AK':733391,'AZ':7151502,'AR':3011524,'CA':39538223,
             'CO':5773714,'CT':3605944,'DE':989948,'FL':21538187,'GA':10711908,
             'HI':1455271,'ID':1839106,'IL':12812508,'IN':6785528,'IA':3190369,
@@ -26,7 +27,7 @@ const ChoroplethMap = {
             'DC':689545
         };
 
-        var FIPS_TO_STATE = {
+        const FIPS_TO_STATE = {
             '01':'AL','02':'AK','04':'AZ','05':'AR','06':'CA','08':'CO','09':'CT',
             '10':'DE','11':'DC','12':'FL','13':'GA','15':'HI','16':'ID','17':'IL',
             '18':'IN','19':'IA','20':'KS','21':'KY','22':'LA','23':'ME','24':'MD',
@@ -37,7 +38,7 @@ const ChoroplethMap = {
             '55':'WI','56':'WY'
         };
 
-        var STATE_NAMES = {
+        const STATE_NAMES = {
             'AL':'Alabama','AK':'Alaska','AZ':'Arizona','AR':'Arkansas','CA':'California',
             'CO':'Colorado','CT':'Connecticut','DE':'Delaware','DC':'District of Columbia',
             'FL':'Florida','GA':'Georgia','HI':'Hawaii','ID':'Idaho','IL':'Illinois',
@@ -51,9 +52,9 @@ const ChoroplethMap = {
             'VA':'Virginia','WA':'Washington','WV':'West Virginia','WI':'Wisconsin','WY':'Wyoming'
         };
 
-        var worldTopoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
-        var usTopoUrl = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
-        var topoCache = {};
+        const worldTopoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+        const usTopoUrl = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
+        const topoCache = {};
 
         function loadTopo(url) {
             if (topoCache[url]) return Promise.resolve(topoCache[url]);
@@ -267,11 +268,11 @@ const ChoroplethMap = {
             }
         }
 
-        watch(function() { return props.mapData; }, function(newVal) {
+        watch(() => props.mapData, (newVal) => {
             if (newVal) nextTick(render);
         });
 
-        watch(function() { return props.normalized; }, function() {
+        watch(() => props.normalized, () => {
             if (props.mapData) nextTick(render);
         });
 

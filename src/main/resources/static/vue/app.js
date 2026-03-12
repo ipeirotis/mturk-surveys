@@ -1,48 +1,41 @@
 /**
- * Vue 3 App - replaces AngularJS module
- * Uses hash-based routing with Vue Router
+ * Vue 3 App - Main entry point
+ * Replaces AngularJS module (app.js, views.js, routing)
  */
 (function() {
-    const { createApp } = Vue;
-    const { createRouter, createWebHashHistory } = VueRouter;
+    const { createApp, ref, computed, watch } = Vue;
 
-    const router = createRouter({
-        history: createWebHashHistory(),
-        routes: [
-            {
-                path: '/:id',
-                component: {
-                    props: ['id'],
-                    template: '<chart-view :route-id="id"></chart-view>',
-                    components: { 'chart-view': ChartView }
-                },
-                props: function(route) { return { id: route.params.id }; }
-            },
-            { path: '/', redirect: '/gender' }
-        ]
+    const routes = [
+        { path: '/:id', component: ChartView, props: function(route) { return { viewId: route.params.id }; } }
+    ];
+
+    const router = VueRouter.createRouter({
+        history: VueRouter.createWebHashHistory(),
+        routes: routes
+    });
+
+    // Redirect root to /gender
+    router.beforeEach(function(to, from, next) {
+        if (to.path === '/') {
+            next('/gender');
+        } else {
+            next();
+        }
     });
 
     const app = createApp({
         setup() {
-            const { ref, computed, watch } = Vue;
-            const route = VueRouter.useRoute();
-            const currentId = computed(function() {
-                return route.params.id || '';
+            const currentRoute = computed(() => {
+                return router.currentRoute.value.params.id || 'gender';
             });
 
-            // Sidebar toggle
-            function toggleSidebar() {
-                var el = document.getElementById('sidebarNav');
-                if (el.className.indexOf('show') >= 0) {
-                    el.className = 'sidebar-collapse';
-                } else {
-                    el.className = 'sidebar-collapse show';
-                }
-            }
-
-            return { currentId, toggleSidebar };
+            return { currentRoute };
         }
     });
+
+    app.component('chartjs-chart', ChartjsChart);
+    app.component('choropleth-map', ChoroplethMap);
+    app.component('chart-view', ChartView);
 
     app.use(router);
     app.mount('#app');

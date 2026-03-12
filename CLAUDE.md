@@ -87,8 +87,8 @@ src/main/resources/
 │   ├── index.html                   # Main page (Vue 3 app)
 │   ├── css/style.css
 │   └── vue/                         # Vue 3 components and composables
-│       ├── app.js                   # App creation + Vue Router setup
-│       ├── composables/             # Shared state (useLoading, useDateFilter, useChartData)
+│       ├── app.js                   # Vue app creation + Vue Router
+│       ├── composables/             # useLoading, useDateFilter, useChartData
 │       └── components/              # ChartView, ChartjsChart, ChoroplethMap
 └── templates/                       # FreeMarker templates for MTurk HIT HTML
 
@@ -274,13 +274,12 @@ These gaps are legitimate (no survey activity) and appear as zero-response entri
 
 ## Important Notes
 
-- The frontend uses **Vue 3 via CDN** (no build step, no npm/node required). JS files are loaded individually from `static/vue/`
+- The frontend uses **Vue 3 via CDN** (no build step, no npm/node required). JS files are loaded individually from `static/vue/`.
 - The app uses **Jetty** (Tomcat is explicitly excluded in pom.xml)
 - MTurk sandbox vs production is toggled in `MturkService`
 - Datastore queries require composite indexes defined in `index.yaml`
 - **CI/CD pipeline** configured via GitHub Actions (`.github/workflows/ci.yml` and `deploy.yml`)
 - No test framework is present — be careful when modifying business logic
-- **jQuery and AngularJS have been removed.** The frontend was migrated to Vue 3 (CDN-based, no build step)
 - **Spring Boot 3.4.1 / Jakarta namespace:** The project uses `jakarta.*` imports (not `javax.*`). Objectify 6.1.3 ships with both — use `ObjectifyService.Filter` (jakarta) not the deprecated `ObjectifyFilter` (javax)
 
 ## Task Progress
@@ -295,5 +294,5 @@ See [TASKS.md](TASKS.md) for the full task list. Summary:
 - [x] **Track 4** — Java 21 + Spring Boot 3.x Migration (T4.1–T4.7 completed)
 - [x] **Track 5** — AWS SDK Update (T5.1–T5.3 completed)
 - [x] **Track 6** — Google Cloud Libraries Update (T6.1–T6.3 completed)
-- [ ] **Track 7** — Frontend Modernization (T7.1–T7.3 done, T7.4–T7.8 done, T7.11 done, T7.16–T7.18 done, T7.20–T7.22 done)
+- [ ] **Track 7** — Frontend Modernization (T7.1 done: Vue 3 migration, T7.2–T7.3 done, T7.4–T7.8 done, T7.11 done, T7.16–T7.18 done, T7.20–T7.22 done)
 - [x] **Track 8** — Data Access & API Quality (T8.1–T8.6: CORS, OpenAPI, counts endpoint, CSV export, enhanced filtering, BigQuery export)

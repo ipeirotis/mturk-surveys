@@ -1,24 +1,26 @@
 /**
- * Chart.js wrapper component - replaces ng-google-chart.js directive
+ * Chart.js Vue Component
+ * Replaces the chartjsChart AngularJS directive
  */
 const ChartjsChart = {
     props: {
         chartData: { type: Object, default: null }
     },
-    template: '<div ref="container" style="width:100%;height:100%;"></div>',
+    template: '<div ref="container" style="display:block;"></div>',
     setup(props) {
         const { ref, watch, onMounted, onUnmounted, nextTick } = Vue;
         const container = ref(null);
-        var chart = null;
-        var focusedIndex = null;
+        let chart = null;
 
-        var palette = [
+        const palette = [
             '#4285F4', '#EA4335', '#FBBC04', '#34A853', '#FF6D01',
             '#46BDC6', '#7B1FA2', '#C2185B', '#0097A7', '#689F38',
             '#F06292', '#BA68C8', '#4DB6AC', '#FFD54F', '#A1887F',
             '#90A4AE', '#E57373', '#81C784', '#64B5F6', '#FFB74D',
             '#CE93D8', '#80DEEA', '#AED581', '#FFF176', '#BCAAA4'
         ];
+
+        let focusedIndex = null;
 
         function buildDonutConfig(data) {
             var colors = [];
@@ -49,9 +51,7 @@ const ChartjsChart = {
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    var label = context.label || '';
-                                    var value = context.parsed;
-                                    return label + ': ' + value.toFixed(1) + '%';
+                                    return (context.label || '') + ': ' + context.parsed.toFixed(1) + '%';
                                 }
                             }
                         }
@@ -69,7 +69,7 @@ const ChartjsChart = {
                     datasets: [{
                         label: ds.label,
                         data: ds.data,
-                        backgroundColor: '#4285F4' + '99',
+                        backgroundColor: '#4285F499',
                         borderColor: '#4285F4',
                         borderWidth: 0,
                         barPercentage: 1.0,
@@ -109,6 +109,7 @@ const ChartjsChart = {
             var isArea = data.displayMode === 'area';
             var isLine = data.displayMode === 'line';
             var datasets = [];
+
             for (var i = 0; i < data.datasets.length; i++) {
                 var ds = data.datasets[i];
                 var color = palette[i % palette.length];
@@ -279,13 +280,13 @@ const ChartjsChart = {
             chart = new Chart(ctx, buildConfig(data));
         }
 
-        watch(function() { return props.chartData; }, function(newVal) {
+        watch(() => props.chartData, (newVal) => {
             if (newVal && newVal.labels && newVal.labels.length > 0) {
                 nextTick(renderChart);
             }
         }, { deep: true });
 
-        onUnmounted(function() {
+        onUnmounted(() => {
             if (chart) {
                 chart.destroy();
                 chart = null;

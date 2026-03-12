@@ -1,5 +1,6 @@
 /**
- * Loading state composable - replaces jQuery-based loading.js
+ * Loading state composable
+ * Replaces the jQuery-based loading.js service
  */
 const useLoading = () => {
     const { ref } = Vue;
@@ -21,3 +22,6 @@ const useLoading = () => {
 
     return { loading, show, hide };
 };
+
+// Shared singleton instance
+const loadingState = useLoading();

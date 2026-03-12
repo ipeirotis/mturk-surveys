@@ -19,20 +19,6 @@
 	padding-top: 10px;
 }
 
-.notification {
-	font: normal 16px Verdana, Tahoma;
-	background-color: #f9edbe;
-	border: 1px solid #F0C36D;
-	border-radius: 2px;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-	line-height: 18px;
-	padding: 2px 5px;
-	text-align: center;
-	vertical-align: middle;
-	position: absolute;
-	top: 100px;
-	z-index: 100001;
-}
 
 .search-bar {
 	margin-bottom: 20px;

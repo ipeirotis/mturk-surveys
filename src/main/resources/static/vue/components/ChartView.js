@@ -1,5 +1,6 @@
 /**
- * ChartView component - replaces ChartController + chart.html
+ * ChartView Component
+ * Replaces ChartController + chart.html
  */
 const ChartView = {
     components: {
@@ -7,7 +8,7 @@ const ChartView = {
         'choropleth-map': ChoroplethMap
     },
     props: {
-        routeId: { type: String, required: true }
+        viewId: { type: String, required: true }
     },
     template: `
 <!-- Summary Statistics Cards -->
@@ -77,16 +78,16 @@ const ChartView = {
 <div class="row">
     <div class="col-6 col-sm-3">
         <div class="input-group input-group-sm">
-            <input type="date" class="form-control" :value="fromInput" @change="onFromChange" :min="minDateInput" :max="toInput" />
+            <input type="date" class="form-control" v-model="fromStr" :min="minDateStr" :max="toStr" />
         </div>
     </div>
     <div class="col-6 col-sm-3">
         <div class="input-group input-group-sm">
-            <input type="date" class="form-control" :value="toInput" @change="onToChange" :min="fromInput" :max="maxDateInput" />
+            <input type="date" class="form-control" v-model="toStr" :min="fromStr" :max="maxDateStr" />
         </div>
     </div>
     <div class="col-6 col-sm-3">
-        <button type="button" class="btn btn-primary btn-sm" @click="applyDateRange">
+        <button type="button" class="btn btn-primary btn-sm" @click="applyDateRange()">
             <i class="bi bi-arrow-clockwise"></i> Update
         </button>
     </div>
@@ -141,11 +142,11 @@ const ChartView = {
 </div>
 <!-- Map View -->
 <div v-if="isMapView && !loading">
-    <div class="row" v-if="mapNormalized !== undefined">
+    <div class="row" v-if="mapNormalized !== null">
         <div class="col-12 text-end" style="margin-bottom: 8px;">
-            <div class="btn-group btn-group-sm" v-if="routeId === 'usStates'">
-                <button type="button" class="btn" :class="mapNormalized ? 'btn-primary' : 'btn-outline-secondary'" @click="setMapNormalized(true)">Per Capita</button>
-                <button type="button" class="btn" :class="!mapNormalized ? 'btn-primary' : 'btn-outline-secondary'" @click="setMapNormalized(false)">Raw Counts</button>
+            <div class="btn-group btn-group-sm" v-if="viewId === 'usStates'">
+                <button type="button" class="btn" :class="mapNormalized ? 'btn-primary' : 'btn-outline-secondary'" @click="mapNormalized = true">Per Capita</button>
+                <button type="button" class="btn" :class="!mapNormalized ? 'btn-primary' : 'btn-outline-secondary'" @click="mapNormalized = false">Raw Counts</button>
             </div>
         </div>
     </div>
@@ -154,9 +155,7 @@ const ChartView = {
 <!-- Demographics Chart Container -->
 <div v-if="!isMapView">
     <div v-if="displayMode !== 'donut'">
-        <div class="chart-container" style="display:block;">
-            <chartjs-chart :chart-data="dailyChart"></chartjs-chart>
-        </div>
+        <chartjs-chart :chart-data="dailyChart" class="chart-container" style="display:block;"></chartjs-chart>
         <!-- Volume Chart -->
         <div class="row" style="margin-top: 4px;">
             <div class="col-12">
@@ -168,75 +167,70 @@ const ChartView = {
                 </p>
             </div>
         </div>
-        <div class="volume-chart-container" style="display:block;">
-            <chartjs-chart :chart-data="volumeChart"></chartjs-chart>
-        </div>
+        <chartjs-chart :chart-data="volumeChart" class="volume-chart-container" style="display:block;"></chartjs-chart>
     </div>
     <div v-if="displayMode === 'donut'">
         <p class="text-muted small" style="margin: 0 0 4px 0;">
             <i class="bi bi-info-circle"></i> Latest period: {{donutChart.periodLabel}}
         </p>
-        <div class="chart-container" style="display:block;">
-            <chartjs-chart :chart-data="donutChart"></chartjs-chart>
-        </div>
+        <chartjs-chart :chart-data="donutChart" class="chart-container" style="display:block;"></chartjs-chart>
     </div>
 </div>
-    `,
+`,
     setup(props) {
-        const { ref, watch, onMounted, computed } = Vue;
+        const { ref, watch, onMounted } = Vue;
 
         var MAP_VIEWS = { 'worldMap': 'world', 'usStates': 'us' };
         var MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-        // Date filter
-        const dateFilter = useDateFilter();
-        const fromDate = ref(new Date(dateFilter.from.value.getTime()));
-        const toDate = ref(new Date(dateFilter.to.value.getTime()));
+        // Date validation limits
+        var minDate = new Date(2015, 2, 26);
+        var maxDate = new Date();
 
-        const fromInput = computed(function() { return dateFilter.toInputValue(fromDate.value); });
-        const toInput = computed(function() { return dateFilter.toInputValue(toDate.value); });
-        const minDateInput = computed(function() { return dateFilter.toInputValue(dateFilter.minDate); });
-        const maxDateInput = computed(function() { return dateFilter.toInputValue(dateFilter.maxDate); });
+        // Clamp persisted dates to valid range
+        var initFrom = new Date(dateFilterState.from.value.getTime());
+        var initTo = new Date(dateFilterState.to.value.getTime());
+        if (initFrom < minDate) initFrom = new Date(minDate.getTime());
+        if (initTo > maxDate) initTo = new Date(maxDate.getTime());
+        if (initFrom > initTo) initFrom = new Date(initTo.getTime());
 
-        function onFromChange(e) {
-            fromDate.value = dateFilter.fromInputValue(e.target.value);
+        function toDateStr(d) {
+            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
         }
-        function onToChange(e) {
-            toDate.value = dateFilter.fromInputValue(e.target.value);
+        function fromDateStr(s) {
+            var p = s.split('-');
+            return new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
         }
 
-        // Data service
-        const dataService = useChartData();
+        var fromStr = ref(toDateStr(initFrom));
+        var toStr = ref(toDateStr(initTo));
+        var minDateStr = toDateStr(minDate);
+        var maxDateStr = toDateStr(maxDate);
 
-        // State
-        const dailyChart = ref({});
-        const volumeChart = ref({});
-        const donutChart = ref({});
-        const displayMode = ref('bar');
-        const countsData = ref(null);
-        const summaryStats = ref(null);
-        const dailyGranularity = ref(null);
-        const volumeGranularity = ref(null);
-        const topN = ref(0);
-        const topNOptions = [
+        var dailyChart = ref({});
+        var volumeChart = ref({});
+        var donutChart = ref({});
+        var displayMode = ref('bar');
+        var countsData = ref(null);
+        var summaryStats = ref(null);
+        var dailyGranularity = ref(null);
+        var volumeGranularity = ref(null);
+        var topN = ref(0);
+        var topNOptions = [
             { value: 0, label: 'All' },
             { value: 5, label: 'Top 5' },
             { value: 10, label: 'Top 10' },
             { value: 15, label: 'Top 15' }
         ];
 
-        // Map state
-        const isMapView = computed(function() { return !!MAP_VIEWS[props.routeId]; });
-        const mapType = computed(function() { return MAP_VIEWS[props.routeId] || null; });
-        const mapData = ref(null);
-        const mapNormalized = ref(props.routeId === 'usStates' ? true : undefined);
+        var isMapView = ref(!!MAP_VIEWS[props.viewId]);
+        var mapType = ref(MAP_VIEWS[props.viewId] || null);
+        var mapData = ref(null);
+        var mapNormalized = ref(props.viewId === 'usStates' ? true : null);
 
-        // Loading state
-        const loading = ref(false);
-        const loadError = ref(null);
-
-        // Response data (kept for re-processing on display mode change)
-        var responseData = null;
+        var response = ref(null);
+        var loading = ref(false);
+        var loadError = ref(null);
 
         // --- Label formatting helpers ---
         function formatDailyLabel(periodKey, granularity) {
@@ -258,7 +252,16 @@ const ChartView = {
             return new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
         }
 
-        // --- Data population functions ---
+        function computeTrend(current, previous) {
+            if (previous === null || previous === undefined || previous === 0) return null;
+            var pctChange = ((current - previous) / previous) * 100;
+            if (Math.abs(pctChange) < 0.5) return { direction: 'flat', pct: 0 };
+            return {
+                direction: pctChange > 0 ? 'up' : 'down',
+                pct: Math.round(Math.abs(pctChange))
+            };
+        }
+
         function findTop(map) {
             if (!map) return { label: 'N/A', count: 0, pct: 0 };
             var best = null, total = 0;
@@ -274,16 +277,6 @@ const ChartView = {
                 return { label: 'N/A', count: 0, pct: 0 };
             }
             return best;
-        }
-
-        function computeTrend(current, previous) {
-            if (previous === null || previous === undefined || previous === 0) return null;
-            var pctChange = ((current - previous) / previous) * 100;
-            if (Math.abs(pctChange) < 0.5) return { direction: 'flat', pct: 0 };
-            return {
-                direction: pctChange > 0 ? 'up' : 'down',
-                pct: Math.round(Math.abs(pctChange))
-            };
         }
 
         function buildSummaryStats(counts, priorCounts) {
@@ -366,19 +359,14 @@ const ChartView = {
             };
         }
 
-        function populateDailyChart() {
-            var data = responseData;
-            var id = props.routeId;
-            if (!data || !data.daily || !data.daily[id]) return;
-
+        function populateDailyChart(id) {
+            var data = response.value;
             var periodData = data.daily[id];
             var labelSet = data.daily.labels[id];
+
             if (!periodData || !labelSet) return;
 
-            var periods = [];
-            for (var propName in periodData) {
-                periods.push(propName);
-            }
+            var periods = Object.keys(periodData);
             if (periods.length === 0) return;
 
             var granularity = data.dailyGranularity || 'daily';
@@ -393,16 +381,13 @@ const ChartView = {
             // For languages, filter out English by default
             var filteredLabelSet = labelSet;
             if (id === 'languagesSpoken') {
-                filteredLabelSet = [];
-                labelSet.forEach(function(label) {
-                    if (label !== 'English') filteredLabelSet.push(label);
-                });
+                filteredLabelSet = labelSet.filter(function(label) { return label !== 'English'; });
             }
 
             // Apply Top-N filter
-            var topNVal = topN.value || 0;
+            var currentTopN = topN.value || 0;
             var labelsToShow = filteredLabelSet;
-            if (topNVal > 0 && filteredLabelSet.length > topNVal) {
+            if (currentTopN > 0 && filteredLabelSet.length > currentTopN) {
                 var labelTotals = [];
                 filteredLabelSet.forEach(function(label) {
                     var sum = 0;
@@ -414,12 +399,12 @@ const ChartView = {
                 });
                 labelTotals.sort(function(a, b) { return b.total - a.total; });
                 labelsToShow = [];
-                for (var ti = 0; ti < topNVal; ti++) {
+                for (var ti = 0; ti < currentTopN; ti++) {
                     labelsToShow.push(labelTotals[ti].label);
                 }
             }
             var otherLabels = [];
-            if (topNVal > 0 && filteredLabelSet.length > topNVal) {
+            if (currentTopN > 0 && filteredLabelSet.length > currentTopN) {
                 filteredLabelSet.forEach(function(label) {
                     if (labelsToShow.indexOf(label) === -1) {
                         otherLabels.push(label);
@@ -482,42 +467,34 @@ const ChartView = {
             };
         }
 
-        function populateDonutChart() {
-            var data = responseData;
-            var id = props.routeId;
-            if (!data || !data.daily || !data.daily[id]) return;
-
+        function populateDonutChart(id) {
+            var data = response.value;
             var periodData = data.daily[id];
             var labelSet = data.daily.labels[id];
             if (!periodData || !labelSet) return;
 
-            var periods = [];
-            for (var propName in periodData) {
-                periods.push(propName);
-            }
+            var periods = Object.keys(periodData);
             if (periods.length === 0) return;
             periods.sort(function(a, b) { return new Date(b) - new Date(a); });
             var latestPeriod = periods[0];
 
             var granularity = data.dailyGranularity || 'daily';
             var periodLabel = formatDailyLabel(latestPeriod, granularity);
+
             var entry = periodData[latestPeriod];
 
             var filteredLabelSet = labelSet;
             if (id === 'languagesSpoken') {
-                filteredLabelSet = [];
-                labelSet.forEach(function(label) {
-                    if (label !== 'English') filteredLabelSet.push(label);
-                });
+                filteredLabelSet = labelSet.filter(function(label) { return label !== 'English'; });
             }
 
-            var topNVal = topN.value || 0;
+            var currentTopN = topN.value || 0;
             var labelsToUse = filteredLabelSet;
-            if (topNVal > 0 && filteredLabelSet.length > topNVal) {
+            if (currentTopN > 0 && filteredLabelSet.length > currentTopN) {
                 var sorted = filteredLabelSet.slice().sort(function(a, b) {
                     return (entry[b] || 0) - (entry[a] || 0);
                 });
-                labelsToUse = sorted.slice(0, topNVal);
+                labelsToUse = sorted.slice(0, currentTopN);
             }
 
             var chartLabels = [];
@@ -532,7 +509,7 @@ const ChartView = {
                 }
             });
 
-            if (topNVal > 0 && filteredLabelSet.length > topNVal) {
+            if (currentTopN > 0 && filteredLabelSet.length > currentTopN) {
                 filteredLabelSet.forEach(function(label) {
                     if (labelsToUse.indexOf(label) === -1) {
                         otherVal += entry[label] ? parseFloat(entry[label]) : 0;
@@ -552,58 +529,50 @@ const ChartView = {
             };
         }
 
-        // --- Actions ---
         function setDisplayMode(mode) {
             displayMode.value = mode;
-            if (mode === 'donut' && responseData) {
-                populateDonutChart();
+            if (mode === 'donut' && response.value) {
+                populateDonutChart(props.viewId);
             } else if (dailyChart.value && dailyChart.value.labels) {
-                // Re-create with new display mode
-                populateDailyChart();
+                dailyChart.value = Object.assign({}, dailyChart.value, { displayMode: mode });
             }
         }
 
         function setTopN(n) {
             topN.value = n;
-            if (responseData && props.routeId) {
-                populateDailyChart();
+            if (response.value && props.viewId) {
+                populateDailyChart(props.viewId);
                 populateVolumeChart();
-                if (displayMode.value === 'donut') {
-                    populateDonutChart();
-                }
             }
         }
 
-        function setMapNormalized(val) {
-            mapNormalized.value = val;
-        }
-
         function applyDateRange() {
+            dateFilterState.from.value = fromDateStr(fromStr.value);
+            dateFilterState.to.value = fromDateStr(toStr.value);
             load();
         }
 
-        function load() {
-            var fromStr = dateFilter.formatDate(fromDate.value);
-            var toStr = dateFilter.formatDate(toDate.value);
+        async function load() {
+            var from = fromDateStr(fromStr.value);
+            var to = fromDateStr(toStr.value);
 
-            // Compute prior period
-            var rangeMs = toDate.value.getTime() - fromDate.value.getTime();
-            var priorTo = new Date(fromDate.value.getTime() - 1);
+            // Compute prior period for trend comparison
+            var rangeMs = to.getTime() - from.getTime();
+            var priorTo = new Date(from.getTime() - 1);
             var priorFrom = new Date(priorTo.getTime() - rangeMs);
-            if (priorFrom < dateFilter.minDate) priorFrom = new Date(dateFilter.minDate.getTime());
-            var priorFromStr = dateFilter.formatDate(priorFrom);
-            var priorToStr = dateFilter.formatDate(priorTo);
+            if (priorFrom < minDate) priorFrom = new Date(minDate.getTime());
 
             loading.value = true;
             loadError.value = null;
 
-            dataService.loadChartData(fromStr, toStr).then(function(chartData) {
+            try {
+                var chartData = await chartDataService.loadChartData(from, to);
                 loading.value = false;
-                responseData = chartData.aggregated;
+                response.value = chartData.aggregated;
                 countsData.value = chartData.counts;
 
                 // Load prior period for trend arrows (non-blocking)
-                dataService.loadChartData(priorFromStr, priorToStr).then(function(priorData) {
+                chartDataService.loadChartData(priorFrom, priorTo).then(function(priorData) {
                     buildSummaryStats(chartData.counts, priorData.counts);
                 }).catch(function() {
                     buildSummaryStats(chartData.counts, null);
@@ -612,51 +581,40 @@ const ChartView = {
                 if (isMapView.value) {
                     populateMapData(chartData.counts);
                 } else {
-                    populateDailyChart();
+                    populateDailyChart(props.viewId);
                     populateVolumeChart();
-                    if (displayMode.value === 'donut') {
-                        populateDonutChart();
-                    }
                 }
-            }).catch(function(error) {
+            } catch(error) {
                 loading.value = false;
                 loadError.value = 'Failed to load chart data. The date range may be too large \u2014 try a shorter period.';
                 console.log(error);
-            });
+            }
         }
 
-        // Load on mount
-        onMounted(load);
-
-        // Watch for route changes (Vue reuses the component when only the param changes)
-        watch(function() { return props.routeId; }, function(newId, oldId) {
-            if (newId !== oldId) {
-                // Reset state for new view
-                dailyChart.value = {};
-                volumeChart.value = {};
-                donutChart.value = {};
-                mapData.value = null;
-                summaryStats.value = null;
-                dailyGranularity.value = null;
-                volumeGranularity.value = null;
-                responseData = null;
-                mapNormalized.value = (newId === 'usStates') ? true : undefined;
-                load();
-            }
+        // Watch for viewId changes (route param changes)
+        watch(() => props.viewId, (newId) => {
+            isMapView.value = !!MAP_VIEWS[newId];
+            mapType.value = MAP_VIEWS[newId] || null;
+            mapData.value = null;
+            mapNormalized.value = (newId === 'usStates') ? true : null;
+            displayMode.value = 'bar';
+            dailyChart.value = {};
+            volumeChart.value = {};
+            donutChart.value = {};
+            load();
         });
 
+        // Initial load
+        onMounted(load);
+
         return {
-            // State
-            summaryStats, loading, loadError, dailyGranularity, volumeGranularity,
-            displayMode, topN, topNOptions, isMapView, mapType, mapData, mapNormalized,
+            fromStr, toStr, minDateStr, maxDateStr,
             dailyChart, volumeChart, donutChart,
-            // Date pickers
-            fromInput, toInput, minDateInput, maxDateInput,
-            onFromChange, onToChange,
-            // Actions
-            setDisplayMode, setTopN, setMapNormalized, applyDateRange,
-            // Props pass-through
-            routeId: Vue.toRef(props, 'routeId')
+            displayMode, summaryStats, dailyGranularity, volumeGranularity,
+            topN, topNOptions,
+            isMapView, mapType, mapData, mapNormalized,
+            loading, loadError,
+            setDisplayMode, setTopN, applyDateRange
         };
     }
 };
