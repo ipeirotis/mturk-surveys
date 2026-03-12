@@ -140,6 +140,8 @@ public class DemographicsSnapshotService {
         Map<String, Integer> hourlyWeeklyIncomeFromMturk = new HashMap<>();
         Map<String, Integer> hourlyLanguagesSpoken = new HashMap<>();
 
+        List<Long> responseTimesMinutes = new ArrayList<>();
+
         int validCount = 0;
         for (UserAnswer ua : answers) {
             // Only count UserAnswers that have a populated answers map with at least
@@ -182,6 +184,9 @@ public class DemographicsSnapshotService {
             incrementDemographic("timeSpentOnMturk", ua.getAnswers(), hourlyTimeSpentOnMturk, hour, false);
             incrementDemographic("weeklyIncomeFromMturk", ua.getAnswers(), hourlyWeeklyIncomeFromMturk, hour, false);
             incrementMultiValue("languagesSpoken", ua.getAnswers(), hourlyLanguagesSpoken, hour);
+
+            // Response time: time between HIT creation and answer submission
+            collectResponseTime(ua, responseTimesMinutes);
         }
 
         if (validCount == 0) {
@@ -203,6 +208,7 @@ public class DemographicsSnapshotService {
             hourlyHouseholdIncome.clear(); hourlyEducationalLevel.clear();
             hourlyTimeSpentOnMturk.clear(); hourlyWeeklyIncomeFromMturk.clear();
             hourlyLanguagesSpoken.clear();
+            responseTimesMinutes.clear();
 
             for (UserAnswer ua : bqAnswers) {
                 if (!hasDemographicAnswers(ua)) {
@@ -238,6 +244,8 @@ public class DemographicsSnapshotService {
                 incrementDemographic("timeSpentOnMturk", ua.getAnswers(), hourlyTimeSpentOnMturk, hour, false);
                 incrementDemographic("weeklyIncomeFromMturk", ua.getAnswers(), hourlyWeeklyIncomeFromMturk, hour, false);
                 incrementMultiValue("languagesSpoken", ua.getAnswers(), hourlyLanguagesSpoken, hour);
+
+                collectResponseTime(ua, responseTimesMinutes);
             }
 
             if (validCount == 0) {
@@ -272,6 +280,15 @@ public class DemographicsSnapshotService {
         snapshot.setHourlyTimeSpentOnMturk(hourlyTimeSpentOnMturk);
         snapshot.setHourlyWeeklyIncomeFromMturk(hourlyWeeklyIncomeFromMturk);
         snapshot.setHourlyLanguagesSpoken(hourlyLanguagesSpoken);
+
+        // Response time percentiles
+        if (!responseTimesMinutes.isEmpty()) {
+            Collections.sort(responseTimesMinutes);
+            snapshot.setResponseTimeCount(responseTimesMinutes.size());
+            snapshot.setP25ResponseTimeMinutes(percentile(responseTimesMinutes, 25));
+            snapshot.setMedianResponseTimeMinutes(percentile(responseTimesMinutes, 50));
+            snapshot.setP75ResponseTimeMinutes(percentile(responseTimesMinutes, 75));
+        }
 
         snapshotDao.save(snapshot);
         logger.info("Saved snapshot for " + dateStr + " with " + answers.size() + " responses");
@@ -361,6 +378,10 @@ public class DemographicsSnapshotService {
         Map<String, Integer> countriesDetailed = new HashMap<>();
         Map<String, Integer> usStates = new HashMap<>();
 
+        // Weighted response time accumulators
+        long rtWeightedMedian = 0, rtWeightedP25 = 0, rtWeightedP75 = 0;
+        int rtTotalCount = 0;
+
         for (DemographicsSnapshot snap : snapshots) {
             totalResponses += snap.getTotalResponses();
             mergeCounts(snap.getCountries(), countries);
@@ -375,6 +396,15 @@ public class DemographicsSnapshotService {
             mergeCounts(snap.getLanguagesSpoken(), languagesSpoken);
             mergeCounts(snap.getCountriesDetailed(), countriesDetailed);
             mergeCounts(snap.getUsStates(), usStates);
+
+            // Weighted-average response time percentiles
+            Integer rtCount = snap.getResponseTimeCount();
+            if (rtCount != null && rtCount > 0) {
+                rtTotalCount += rtCount;
+                if (snap.getMedianResponseTimeMinutes() != null) rtWeightedMedian += snap.getMedianResponseTimeMinutes() * rtCount;
+                if (snap.getP25ResponseTimeMinutes() != null) rtWeightedP25 += snap.getP25ResponseTimeMinutes() * rtCount;
+                if (snap.getP75ResponseTimeMinutes() != null) rtWeightedP75 += snap.getP75ResponseTimeMinutes() * rtCount;
+            }
         }
 
         DemographicsRollup rollup = new DemographicsRollup();
@@ -394,6 +424,12 @@ public class DemographicsSnapshotService {
         rollup.setLanguagesSpoken(languagesSpoken);
         rollup.setCountriesDetailed(countriesDetailed);
         rollup.setUsStates(usStates);
+        if (rtTotalCount > 0) {
+            rollup.setMedianResponseTimeMinutes(rtWeightedMedian / rtTotalCount);
+            rollup.setP25ResponseTimeMinutes(rtWeightedP25 / rtTotalCount);
+            rollup.setP75ResponseTimeMinutes(rtWeightedP75 / rtTotalCount);
+            rollup.setResponseTimeCount(rtTotalCount);
+        }
         return rollup;
     }
 
@@ -594,6 +630,8 @@ public class DemographicsSnapshotService {
         Map<String, Integer> totalLanguagesSpoken = new HashMap<>();
         Map<String, Integer> totalCountriesDetailed = new HashMap<>();
         Map<String, Integer> totalUsStates = new HashMap<>();
+        long rtWeightedMedian = 0, rtWeightedP25 = 0, rtWeightedP75 = 0;
+        int rtTotalCount = 0;
 
         for (DemographicsRollup r : rollups) {
             // Skip rollups where all demographic maps are empty
@@ -613,6 +651,9 @@ public class DemographicsSnapshotService {
             period.setLanguagesSpoken(r.getLanguagesSpoken());
             period.setCountriesDetailed(r.getCountriesDetailed());
             period.setUsStates(r.getUsStates());
+            period.setMedianResponseTimeMinutes(r.getMedianResponseTimeMinutes());
+            period.setP25ResponseTimeMinutes(r.getP25ResponseTimeMinutes());
+            period.setP75ResponseTimeMinutes(r.getP75ResponseTimeMinutes());
             periods.add(period);
 
             totalResponses += r.getTotalResponses();
@@ -628,6 +669,14 @@ public class DemographicsSnapshotService {
             mergeCounts(r.getLanguagesSpoken(), totalLanguagesSpoken);
             mergeCounts(r.getCountriesDetailed(), totalCountriesDetailed);
             mergeCounts(r.getUsStates(), totalUsStates);
+
+            Integer rtCount = r.getResponseTimeCount();
+            if (rtCount != null && rtCount > 0) {
+                rtTotalCount += rtCount;
+                if (r.getMedianResponseTimeMinutes() != null) rtWeightedMedian += r.getMedianResponseTimeMinutes() * rtCount;
+                if (r.getP25ResponseTimeMinutes() != null) rtWeightedP25 += r.getP25ResponseTimeMinutes() * rtCount;
+                if (r.getP75ResponseTimeMinutes() != null) rtWeightedP75 += r.getP75ResponseTimeMinutes() * rtCount;
+            }
         }
 
         DemographicsCountsResponse response = new DemographicsCountsResponse();
@@ -646,6 +695,11 @@ public class DemographicsSnapshotService {
         response.setTotalLanguagesSpoken(totalLanguagesSpoken);
         response.setTotalCountriesDetailed(totalCountriesDetailed);
         response.setTotalUsStates(totalUsStates);
+        if (rtTotalCount > 0) {
+            response.setTotalMedianResponseTimeMinutes(rtWeightedMedian / rtTotalCount);
+            response.setTotalP25ResponseTimeMinutes(rtWeightedP25 / rtTotalCount);
+            response.setTotalP75ResponseTimeMinutes(rtWeightedP75 / rtTotalCount);
+        }
         return response;
     }
 
@@ -941,6 +995,8 @@ public class DemographicsSnapshotService {
         Map<String, Integer> totalLanguagesSpoken = new HashMap<>();
         Map<String, Integer> totalCountriesDetailed = new HashMap<>();
         Map<String, Integer> totalUsStates = new HashMap<>();
+        long rtWeightedMedian = 0, rtWeightedP25 = 0, rtWeightedP75 = 0;
+        int rtTotalCount = 0;
 
         for (DemographicsSnapshot snap : snapshots) {
             if (!hasAnyDemographicData(snap)) continue;
@@ -959,6 +1015,9 @@ public class DemographicsSnapshotService {
             day.setLanguagesSpoken(snap.getLanguagesSpoken());
             day.setCountriesDetailed(snap.getCountriesDetailed());
             day.setUsStates(snap.getUsStates());
+            day.setMedianResponseTimeMinutes(snap.getMedianResponseTimeMinutes());
+            day.setP25ResponseTimeMinutes(snap.getP25ResponseTimeMinutes());
+            day.setP75ResponseTimeMinutes(snap.getP75ResponseTimeMinutes());
             days.add(day);
 
             totalResponses += snap.getTotalResponses();
@@ -974,6 +1033,14 @@ public class DemographicsSnapshotService {
             mergeCounts(snap.getLanguagesSpoken(), totalLanguagesSpoken);
             mergeCounts(snap.getCountriesDetailed(), totalCountriesDetailed);
             mergeCounts(snap.getUsStates(), totalUsStates);
+
+            Integer rtCount = snap.getResponseTimeCount();
+            if (rtCount != null && rtCount > 0) {
+                rtTotalCount += rtCount;
+                if (snap.getMedianResponseTimeMinutes() != null) rtWeightedMedian += snap.getMedianResponseTimeMinutes() * rtCount;
+                if (snap.getP25ResponseTimeMinutes() != null) rtWeightedP25 += snap.getP25ResponseTimeMinutes() * rtCount;
+                if (snap.getP75ResponseTimeMinutes() != null) rtWeightedP75 += snap.getP75ResponseTimeMinutes() * rtCount;
+            }
         }
 
         DemographicsCountsResponse response = new DemographicsCountsResponse();
@@ -992,6 +1059,11 @@ public class DemographicsSnapshotService {
         response.setTotalLanguagesSpoken(totalLanguagesSpoken);
         response.setTotalCountriesDetailed(totalCountriesDetailed);
         response.setTotalUsStates(totalUsStates);
+        if (rtTotalCount > 0) {
+            response.setTotalMedianResponseTimeMinutes(rtWeightedMedian / rtTotalCount);
+            response.setTotalP25ResponseTimeMinutes(rtWeightedP25 / rtTotalCount);
+            response.setTotalP75ResponseTimeMinutes(rtWeightedP75 / rtTotalCount);
+        }
         return response;
     }
 
@@ -1029,6 +1101,8 @@ public class DemographicsSnapshotService {
         Map<String, Integer> totalLanguagesSpoken = new HashMap<>();
         Map<String, Integer> totalCountriesDetailed = new HashMap<>();
         Map<String, Integer> totalUsStates = new HashMap<>();
+        long rtWeightedMedian = 0, rtWeightedP25 = 0, rtWeightedP75 = 0;
+        int rtTotalCount = 0;
 
         for (Map.Entry<String, List<DemographicsSnapshot>> group : groups.entrySet()) {
             DemographicsCountsResponse.DailyCount period = new DemographicsCountsResponse.DailyCount();
@@ -1047,6 +1121,8 @@ public class DemographicsSnapshotService {
             Map<String, Integer> pCountriesDetailed = new HashMap<>();
             Map<String, Integer> pUsStates = new HashMap<>();
             int periodResponses = 0;
+            long pRtWeightedMedian = 0, pRtWeightedP25 = 0, pRtWeightedP75 = 0;
+            int pRtCount = 0;
 
             for (DemographicsSnapshot snap : group.getValue()) {
                 periodResponses += snap.getTotalResponses();
@@ -1062,6 +1138,14 @@ public class DemographicsSnapshotService {
                 mergeCounts(snap.getLanguagesSpoken(), pLanguagesSpoken);
                 mergeCounts(snap.getCountriesDetailed(), pCountriesDetailed);
                 mergeCounts(snap.getUsStates(), pUsStates);
+
+                Integer rtCount = snap.getResponseTimeCount();
+                if (rtCount != null && rtCount > 0) {
+                    pRtCount += rtCount;
+                    if (snap.getMedianResponseTimeMinutes() != null) pRtWeightedMedian += snap.getMedianResponseTimeMinutes() * rtCount;
+                    if (snap.getP25ResponseTimeMinutes() != null) pRtWeightedP25 += snap.getP25ResponseTimeMinutes() * rtCount;
+                    if (snap.getP75ResponseTimeMinutes() != null) pRtWeightedP75 += snap.getP75ResponseTimeMinutes() * rtCount;
+                }
             }
 
             period.setTotalResponses(periodResponses);
@@ -1077,6 +1161,11 @@ public class DemographicsSnapshotService {
             period.setLanguagesSpoken(pLanguagesSpoken);
             period.setCountriesDetailed(pCountriesDetailed);
             period.setUsStates(pUsStates);
+            if (pRtCount > 0) {
+                period.setMedianResponseTimeMinutes(pRtWeightedMedian / pRtCount);
+                period.setP25ResponseTimeMinutes(pRtWeightedP25 / pRtCount);
+                period.setP75ResponseTimeMinutes(pRtWeightedP75 / pRtCount);
+            }
             periods.add(period);
 
             totalResponses += periodResponses;
@@ -1092,6 +1181,12 @@ public class DemographicsSnapshotService {
             mergeCounts(pLanguagesSpoken, totalLanguagesSpoken);
             mergeCounts(pCountriesDetailed, totalCountriesDetailed);
             mergeCounts(pUsStates, totalUsStates);
+            if (pRtCount > 0) {
+                rtTotalCount += pRtCount;
+                rtWeightedMedian += pRtWeightedMedian;
+                rtWeightedP25 += pRtWeightedP25;
+                rtWeightedP75 += pRtWeightedP75;
+            }
         }
 
         DemographicsCountsResponse response = new DemographicsCountsResponse();
@@ -1110,6 +1205,11 @@ public class DemographicsSnapshotService {
         response.setTotalLanguagesSpoken(totalLanguagesSpoken);
         response.setTotalCountriesDetailed(totalCountriesDetailed);
         response.setTotalUsStates(totalUsStates);
+        if (rtTotalCount > 0) {
+            response.setTotalMedianResponseTimeMinutes(rtWeightedMedian / rtTotalCount);
+            response.setTotalP25ResponseTimeMinutes(rtWeightedP25 / rtTotalCount);
+            response.setTotalP75ResponseTimeMinutes(rtWeightedP75 / rtTotalCount);
+        }
         return response;
     }
 
@@ -1626,6 +1726,24 @@ public class DemographicsSnapshotService {
 
     private void increment(Map<String, Integer> map, String key) {
         map.merge(key, 1, Integer::sum);
+    }
+
+    private void collectResponseTime(UserAnswer ua, List<Long> responseTimesMinutes) {
+        if (ua.getDate() != null && ua.getHitCreationDate() != null) {
+            long diffMs = ua.getDate().getTime() - ua.getHitCreationDate().getTime();
+            if (diffMs > 0 && diffMs < 7L * 24 * 60 * 60 * 1000) { // cap at 7 days to filter outliers
+                responseTimesMinutes.add(diffMs / (60 * 1000));
+            }
+        }
+    }
+
+    private static long percentile(List<Long> sorted, int pct) {
+        if (sorted.isEmpty()) return 0;
+        double idx = (pct / 100.0) * (sorted.size() - 1);
+        int lower = (int) Math.floor(idx);
+        int upper = Math.min(lower + 1, sorted.size() - 1);
+        double frac = idx - lower;
+        return Math.round(sorted.get(lower) + frac * (sorted.get(upper) - sorted.get(lower)));
     }
 
     private void incrementCountry(String countryCode, Map<String, Integer> map) {

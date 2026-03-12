@@ -42,6 +42,13 @@ public class DemographicsCountsResponse {
 	@Schema(description = "US state counts (2-letter codes) summed across all days")
 	private Map<String, Integer> totalUsStates;
 
+	@Schema(description = "Weighted-average median response time in minutes across all periods")
+	private Long totalMedianResponseTimeMinutes;
+	@Schema(description = "Weighted-average 25th percentile response time in minutes")
+	private Long totalP25ResponseTimeMinutes;
+	@Schema(description = "Weighted-average 75th percentile response time in minutes")
+	private Long totalP75ResponseTimeMinutes;
+
 	public List<DailyCount> getDays() {
 		return days;
 	}
@@ -162,6 +169,30 @@ public class DemographicsCountsResponse {
 		this.granularity = granularity;
 	}
 
+	public Long getTotalMedianResponseTimeMinutes() {
+		return totalMedianResponseTimeMinutes;
+	}
+
+	public void setTotalMedianResponseTimeMinutes(Long totalMedianResponseTimeMinutes) {
+		this.totalMedianResponseTimeMinutes = totalMedianResponseTimeMinutes;
+	}
+
+	public Long getTotalP25ResponseTimeMinutes() {
+		return totalP25ResponseTimeMinutes;
+	}
+
+	public void setTotalP25ResponseTimeMinutes(Long totalP25ResponseTimeMinutes) {
+		this.totalP25ResponseTimeMinutes = totalP25ResponseTimeMinutes;
+	}
+
+	public Long getTotalP75ResponseTimeMinutes() {
+		return totalP75ResponseTimeMinutes;
+	}
+
+	public void setTotalP75ResponseTimeMinutes(Long totalP75ResponseTimeMinutes) {
+		this.totalP75ResponseTimeMinutes = totalP75ResponseTimeMinutes;
+	}
+
 	@Schema(description = "Demographics counts for a single day")
 	public static class DailyCount {
 		@Schema(description = "Date in yyyy-MM-dd format")
@@ -180,6 +211,13 @@ public class DemographicsCountsResponse {
 		private Map<String, Integer> languagesSpoken;
 		private Map<String, Integer> countriesDetailed;
 		private Map<String, Integer> usStates;
+
+		@Schema(description = "Median response time in minutes for this period")
+		private Long medianResponseTimeMinutes;
+		@Schema(description = "25th percentile response time in minutes")
+		private Long p25ResponseTimeMinutes;
+		@Schema(description = "75th percentile response time in minutes")
+		private Long p75ResponseTimeMinutes;
 
 		public String getDate() {
 			return date;
@@ -291,6 +329,30 @@ public class DemographicsCountsResponse {
 
 		public void setUsStates(Map<String, Integer> usStates) {
 			this.usStates = usStates;
+		}
+
+		public Long getMedianResponseTimeMinutes() {
+			return medianResponseTimeMinutes;
+		}
+
+		public void setMedianResponseTimeMinutes(Long medianResponseTimeMinutes) {
+			this.medianResponseTimeMinutes = medianResponseTimeMinutes;
+		}
+
+		public Long getP25ResponseTimeMinutes() {
+			return p25ResponseTimeMinutes;
+		}
+
+		public void setP25ResponseTimeMinutes(Long p25ResponseTimeMinutes) {
+			this.p25ResponseTimeMinutes = p25ResponseTimeMinutes;
+		}
+
+		public Long getP75ResponseTimeMinutes() {
+			return p75ResponseTimeMinutes;
+		}
+
+		public void setP75ResponseTimeMinutes(Long p75ResponseTimeMinutes) {
+			this.p75ResponseTimeMinutes = p75ResponseTimeMinutes;
 		}
 	}
 }

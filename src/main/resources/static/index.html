@@ -53,6 +53,11 @@
                             <li class="nav-item"><router-link class="nav-link" to="/languagesSpoken" :class="{ active: $route.params.id === 'languagesSpoken' }" @click="closeSidebarOnMobile">Languages</router-link></li>
                         </ul>
                         <hr style="margin:10px 0;">
+                        <p class="sidebar-heading">Insights</p>
+                        <ul class="nav nav-pills flex-column">
+                            <li class="nav-item"><router-link class="nav-link" to="/responseTime" :class="{ active: $route.params.id === 'responseTime' }" @click="closeSidebarOnMobile"><i class="bi bi-stopwatch"></i> Response Time</router-link></li>
+                        </ul>
+                        <hr style="margin:10px 0;">
                         <p class="sidebar-heading">Maps</p>
                         <ul class="nav nav-pills flex-column">
                             <li class="nav-item"><router-link class="nav-link" to="/worldMap" :class="{ active: $route.params.id === 'worldMap' }" @click="closeSidebarOnMobile"><i class="bi bi-globe-americas"></i> World Map</router-link></li>
@@ -89,6 +94,7 @@
     <script src="/vue/composables/useChartData.js"></script>
     <script src="/vue/components/ChartjsChart.js"></script>
     <script src="/vue/components/ChoroplethMap.js"></script>
+    <script src="/vue/components/SparklineGrid.js"></script>
     <script src="/vue/components/ChartView.js"></script>
     <script src="/vue/app.js"></script>
 </body>

@@ -51,6 +51,12 @@ public class DemographicsSnapshot {
     private Map<String, Integer> hourlyWeeklyIncomeFromMturk;
     private Map<String, Integer> hourlyLanguagesSpoken;
 
+    // Response time percentiles (minutes between HIT creation and answer submission)
+    private Long medianResponseTimeMinutes;
+    private Long p25ResponseTimeMinutes;
+    private Long p75ResponseTimeMinutes;
+    private Integer responseTimeCount; // number of answers with valid response times
+
     // Day of week (Sun, Mon, etc.)
     private String dayOfWeek;
 
@@ -268,5 +274,37 @@ public class DemographicsSnapshot {
 
     public void setUsStates(Map<String, Integer> usStates) {
         this.usStates = usStates;
+    }
+
+    public Long getMedianResponseTimeMinutes() {
+        return medianResponseTimeMinutes;
+    }
+
+    public void setMedianResponseTimeMinutes(Long medianResponseTimeMinutes) {
+        this.medianResponseTimeMinutes = medianResponseTimeMinutes;
+    }
+
+    public Long getP25ResponseTimeMinutes() {
+        return p25ResponseTimeMinutes;
+    }
+
+    public void setP25ResponseTimeMinutes(Long p25ResponseTimeMinutes) {
+        this.p25ResponseTimeMinutes = p25ResponseTimeMinutes;
+    }
+
+    public Long getP75ResponseTimeMinutes() {
+        return p75ResponseTimeMinutes;
+    }
+
+    public void setP75ResponseTimeMinutes(Long p75ResponseTimeMinutes) {
+        this.p75ResponseTimeMinutes = p75ResponseTimeMinutes;
+    }
+
+    public Integer getResponseTimeCount() {
+        return responseTimeCount;
+    }
+
+    public void setResponseTimeCount(Integer responseTimeCount) {
+        this.responseTimeCount = responseTimeCount;
     }
 }

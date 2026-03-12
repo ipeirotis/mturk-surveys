@@ -184,10 +184,123 @@ const ChartjsChart = {
             };
         }
 
+        function buildResponseTimeConfig(data) {
+            // 3 datasets: p75, median, p25
+            var p75Color = '#4285F4';
+            var medianColor = '#EA4335';
+            var p25Color = '#34A853';
+            var numLabels = data.labels ? data.labels.length : 0;
+            return {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: data.datasets[0].label,
+                            data: data.datasets[0].data,
+                            borderColor: p75Color,
+                            backgroundColor: p75Color + '18',
+                            borderWidth: 1.5,
+                            fill: '+2',
+                            tension: 0.35,
+                            pointRadius: numLabels > 60 ? 0 : 2,
+                            pointHitRadius: 6,
+                            pointBackgroundColor: '#fff',
+                            pointBorderColor: p75Color,
+                            borderDash: [4, 2]
+                        },
+                        {
+                            label: data.datasets[1].label,
+                            data: data.datasets[1].data,
+                            borderColor: medianColor,
+                            backgroundColor: 'transparent',
+                            borderWidth: 2.5,
+                            fill: false,
+                            tension: 0.35,
+                            pointRadius: numLabels > 60 ? 0 : 3,
+                            pointHitRadius: 8,
+                            pointBackgroundColor: '#fff',
+                            pointBorderColor: medianColor,
+                            pointBorderWidth: 2
+                        },
+                        {
+                            label: data.datasets[2].label,
+                            data: data.datasets[2].data,
+                            borderColor: p25Color,
+                            backgroundColor: p25Color + '18',
+                            borderWidth: 1.5,
+                            fill: false,
+                            tension: 0.35,
+                            pointRadius: numLabels > 60 ? 0 : 2,
+                            pointHitRadius: 6,
+                            pointBackgroundColor: '#fff',
+                            pointBorderColor: p25Color,
+                            borderDash: [4, 2]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    animation: { duration: 400, easing: 'easeOutQuart' },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                font: { size: 12, weight: '500' },
+                                boxWidth: 12, padding: 12,
+                                usePointStyle: true,
+                                pointStyle: 'line'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.92)',
+                            titleFont: { size: 13, weight: '600' },
+                            bodyFont: { size: 12 },
+                            padding: 10,
+                            cornerRadius: 6,
+                            callbacks: {
+                                label: function(context) {
+                                    var val = context.parsed.y;
+                                    if (val == null) return context.dataset.label + ': N/A';
+                                    if (val < 60) return context.dataset.label + ': ' + val + ' min';
+                                    var hours = Math.floor(val / 60);
+                                    var mins = val % 60;
+                                    return context.dataset.label + ': ' + hours + 'h ' + mins + 'm';
+                                }
+                            }
+                        },
+                        filler: { propagate: true }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                font: { size: 11 }, color: '#718096',
+                                maxRotation: 45, minRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: Math.min(numLabels, 20)
+                            },
+                            grid: { display: false },
+                            border: { color: '#e2e8f0' }
+                        },
+                        y: {
+                            min: 0,
+                            title: { display: true, text: 'Minutes', font: { size: 12 }, color: '#718096' },
+                            ticks: { font: { size: 11 }, color: '#718096' },
+                            grid: { color: '#f0f4f8', drawBorder: false },
+                            border: { display: false }
+                        }
+                    }
+                }
+            };
+        }
+
         function buildConfig(data) {
             if (data.displayMode === 'donut') return buildDonutConfig(data);
             if (data.displayMode === 'volume') return buildVolumeConfig(data);
             if (data.displayMode === 'volumeLine') return buildVolumeLineConfig(data);
+            if (data.displayMode === 'responseTime') return buildResponseTimeConfig(data);
 
             var isArea = data.displayMode === 'area';
             var isLine = data.displayMode === 'line';

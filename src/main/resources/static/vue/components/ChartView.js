@@ -69,7 +69,7 @@ const ChartView = {
                 :class="activePreset === p.label ? 'btn-primary' : 'btn-outline-secondary'"
                 @click="applyPreset(p)">{{p.label}}</button>
         </div>
-        <template v-if="!isMapView">
+        <template v-if="!isMapView && !isResponseTimeView">
             <div class="toolbar-separator"></div>
             <div class="toolbar-group">
                 <div class="btn-group btn-group-sm">
@@ -92,6 +92,9 @@ const ChartView = {
                     </button>
                     <button type="button" class="btn" :class="displayMode === 'donut' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('donut')">
                         <i class="bi bi-pie-chart"></i> Donut
+                    </button>
+                    <button type="button" class="btn" :class="displayMode === 'sparklines' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('sparklines')">
+                        <i class="bi bi-grid-3x3-gap"></i> Grid
                     </button>
                 </div>
             </div>
@@ -134,9 +137,19 @@ const ChartView = {
     </div>
     <choropleth-map :map-data="mapData" :map-type="mapType" :normalized="mapNormalized"></choropleth-map>
 </div>
+<!-- Response Time Chart -->
+<div v-if="isResponseTimeView && !loading">
+    <chartjs-chart :chart-data="dailyChart" class="chart-container" style="display:block;"></chartjs-chart>
+    <p class="text-muted small" style="margin-top: 6px;">
+        <i class="bi bi-info-circle"></i> Time in minutes between HIT creation and worker response submission. Shaded band shows 25th&ndash;75th percentile range.
+    </p>
+</div>
 <!-- Demographics Chart Container -->
-<div v-if="!isMapView">
-    <div v-if="displayMode !== 'donut'">
+<div v-if="!isMapView && !isResponseTimeView">
+    <div v-if="displayMode === 'sparklines'">
+        <sparkline-grid :chart-data="dailyChart"></sparkline-grid>
+    </div>
+    <div v-if="displayMode !== 'donut' && displayMode !== 'sparklines'">
         <chartjs-chart :chart-data="dailyChart" class="chart-container" style="display:block;"></chartjs-chart>
         <!-- Volume Chart -->
         <div class="row" style="margin-top: 8px;">
@@ -163,6 +176,7 @@ const ChartView = {
         const { ref, watch, onMounted } = Vue;
 
         var MAP_VIEWS = { 'worldMap': 'world', 'usStates': 'us' };
+        var RESPONSE_TIME_VIEW = 'responseTime';
         var MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
         // Date validation limits
@@ -284,7 +298,7 @@ const ChartView = {
             toStr.value = hashParams.to;
             dateFilterState.to.value = fromDateStr(hashParams.to);
         }
-        if (hashParams.mode && ['bar', 'area', 'line', 'donut'].indexOf(hashParams.mode) >= 0) {
+        if (hashParams.mode && ['bar', 'area', 'line', 'donut', 'sparklines'].indexOf(hashParams.mode) >= 0) {
             displayMode.value = hashParams.mode;
         }
         if (hashParams.topN) {
@@ -296,6 +310,7 @@ const ChartView = {
         }
 
         var isMapView = ref(!!MAP_VIEWS[props.viewId]);
+        var isResponseTimeView = ref(props.viewId === RESPONSE_TIME_VIEW);
         var mapType = ref(MAP_VIEWS[props.viewId] || null);
         var mapData = ref(null);
         var mapNormalized = ref(props.viewId === 'usStates' ? true : null);
@@ -399,6 +414,45 @@ const ChartView = {
                 labels: labels,
                 datasets: [{ label: 'Responses', data: data }],
                 displayMode: 'volumeLine'
+            };
+        }
+
+        function populateResponseTimeChart() {
+            var counts = countsData.value;
+            if (!counts || !counts.days || counts.days.length === 0) return;
+
+            var days = counts.days.slice().sort(function(a, b) {
+                return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+            });
+
+            var gran = counts.granularity || 'daily';
+            dailyGranularity.value = granularityLabel(gran, days.length);
+
+            var labels = [];
+            var medianData = [];
+            var p25Data = [];
+            var p75Data = [];
+            for (var i = 0; i < days.length; i++) {
+                if (gran === 'monthly') {
+                    var d = parseCountsDate(days[i].date);
+                    labels.push(MONTH_ABBR[d.getMonth()] + ' ' + d.getFullYear());
+                } else {
+                    var parts = days[i].date.split('-');
+                    labels.push(parseInt(parts[1]) + '/' + parseInt(parts[2]) + '/' + parts[0]);
+                }
+                medianData.push(days[i].medianResponseTimeMinutes != null ? days[i].medianResponseTimeMinutes : null);
+                p25Data.push(days[i].p25ResponseTimeMinutes != null ? days[i].p25ResponseTimeMinutes : null);
+                p75Data.push(days[i].p75ResponseTimeMinutes != null ? days[i].p75ResponseTimeMinutes : null);
+            }
+
+            dailyChart.value = {
+                labels: labels,
+                datasets: [
+                    { label: '75th Percentile', data: p75Data },
+                    { label: 'Median', data: medianData },
+                    { label: '25th Percentile', data: p25Data }
+                ],
+                displayMode: 'responseTime'
             };
         }
 
@@ -577,6 +631,8 @@ const ChartView = {
             setHashParams({ mode: mode });
             if (mode === 'donut' && response.value) {
                 populateDonutChart(props.viewId);
+            } else if (mode === 'sparklines' && response.value) {
+                populateDailyChart(props.viewId);
             } else if (dailyChart.value && dailyChart.value.labels) {
                 dailyChart.value = Object.assign({}, dailyChart.value, { displayMode: mode });
             }
@@ -631,6 +687,8 @@ const ChartView = {
 
                 if (isMapView.value) {
                     populateMapData(chartData.counts);
+                } else if (props.viewId === RESPONSE_TIME_VIEW) {
+                    populateResponseTimeChart();
                 } else {
                     populateDailyChart(props.viewId);
                     populateVolumeChart();
@@ -645,6 +703,7 @@ const ChartView = {
         // Watch for viewId changes (route param changes)
         watch(() => props.viewId, (newId) => {
             isMapView.value = !!MAP_VIEWS[newId];
+            isResponseTimeView.value = (newId === RESPONSE_TIME_VIEW);
             mapType.value = MAP_VIEWS[newId] || null;
             mapData.value = null;
             mapNormalized.value = (newId === 'usStates') ? true : null;
@@ -664,7 +723,7 @@ const ChartView = {
             displayMode, summaryStats, dailyGranularity, volumeGranularity,
             topN, topNOptions,
             datePresets, activePreset, applyPreset,
-            isMapView, mapType, mapData, mapNormalized,
+            isMapView, isResponseTimeView, mapType, mapData, mapNormalized,
             loading, loadError,
             setDisplayMode, setTopN, applyDateRange
         };
