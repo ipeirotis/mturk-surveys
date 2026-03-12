@@ -467,3 +467,53 @@ body {
         justify-content: flex-start;
     }
 }
+
+/* ── Sparkline Grid ── */
+.sparkline-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.sparkline-item {
+    background: #fff;
+    border: 1px solid #f0f4f8;
+    border-radius: 8px;
+    padding: 10px 12px 6px;
+    transition: box-shadow 0.15s ease;
+}
+
+.sparkline-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.sparkline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+}
+
+.sparkline-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #2d3748;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 70%;
+}
+
+.sparkline-value {
+    font-size: 12px;
+    font-weight: 500;
+    color: #718096;
+}
+
+@media (max-width: 767px) {
+    .sparkline-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 8px;
+    }
+}

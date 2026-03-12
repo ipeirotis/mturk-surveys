@@ -55,6 +55,7 @@
 
     app.component('chartjs-chart', ChartjsChart);
     app.component('choropleth-map', ChoroplethMap);
+    app.component('sparkline-grid', SparklineGrid);
     app.component('chart-view', ChartView);
 
     app.use(router);

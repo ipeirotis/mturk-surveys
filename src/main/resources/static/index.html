@@ -38,7 +38,7 @@
 				<button class="btn btn-outline-secondary btn-sm sidebar-toggle" type="button" @click="toggleSidebar">
 					<i class="bi bi-list"></i> Menu
 				</button>
-				<div id="sidebarNav" class="sidebar-collapse show" ref="sidebarNav">
+				<div id="sidebarNav" class="sidebar-collapse" ref="sidebarNav">
 					<div class="sidebar-wrapper">
 						<ul class="nav nav-pills flex-column">
                             <li class="nav-item"><router-link class="nav-link" to="/countries" :class="{ active: $route.params.id === 'countries' }" @click="closeSidebarOnMobile">Countries</router-link></li>
@@ -51,6 +51,11 @@
                             <li class="nav-item"><router-link class="nav-link" to="/timeSpentOnMturk" :class="{ active: $route.params.id === 'timeSpentOnMturk' }" @click="closeSidebarOnMobile">Time on MTurk</router-link></li>
                             <li class="nav-item"><router-link class="nav-link" to="/weeklyIncomeFromMturk" :class="{ active: $route.params.id === 'weeklyIncomeFromMturk' }" @click="closeSidebarOnMobile">MTurk Income</router-link></li>
                             <li class="nav-item"><router-link class="nav-link" to="/languagesSpoken" :class="{ active: $route.params.id === 'languagesSpoken' }" @click="closeSidebarOnMobile">Languages</router-link></li>
+                        </ul>
+                        <hr style="margin:10px 0;">
+                        <p class="sidebar-heading">Insights</p>
+                        <ul class="nav nav-pills flex-column">
+                            <li class="nav-item"><router-link class="nav-link" to="/responseTime" :class="{ active: $route.params.id === 'responseTime' }" @click="closeSidebarOnMobile"><i class="bi bi-stopwatch"></i> Response Time</router-link></li>
                         </ul>
                         <hr style="margin:10px 0;">
                         <p class="sidebar-heading">Maps</p>
@@ -89,6 +94,7 @@
     <script src="/vue/composables/useChartData.js"></script>
     <script src="/vue/components/ChartjsChart.js"></script>
     <script src="/vue/components/ChoroplethMap.js"></script>
+    <script src="/vue/components/SparklineGrid.js"></script>
     <script src="/vue/components/ChartView.js"></script>
     <script src="/vue/app.js"></script>
 </body>
