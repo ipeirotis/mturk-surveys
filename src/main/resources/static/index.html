@@ -38,7 +38,7 @@
 				<button class="btn btn-outline-secondary btn-sm sidebar-toggle" type="button" @click="toggleSidebar">
 					<i class="bi bi-list"></i> Menu
 				</button>
-				<div id="sidebarNav" class="sidebar-collapse show" ref="sidebarNav">
+				<div id="sidebarNav" class="sidebar-collapse" ref="sidebarNav">
 					<div class="sidebar-wrapper">
 						<ul class="nav nav-pills flex-column">
                             <li class="nav-item"><router-link class="nav-link" to="/countries" :class="{ active: $route.params.id === 'countries' }" @click="closeSidebarOnMobile">Countries</router-link></li>
