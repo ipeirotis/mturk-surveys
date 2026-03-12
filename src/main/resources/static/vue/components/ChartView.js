@@ -541,8 +541,12 @@ const ChartView = {
         function setTopN(n) {
             topN.value = n;
             if (response.value && props.viewId) {
-                populateDailyChart(props.viewId);
-                populateVolumeChart();
+                if (displayMode.value === 'donut') {
+                    populateDonutChart(props.viewId);
+                } else {
+                    populateDailyChart(props.viewId);
+                    populateVolumeChart();
+                }
             }
         }
 
