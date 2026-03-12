@@ -29,7 +29,27 @@
                 return router.currentRoute.value.params.id || 'gender';
             });
 
-            return { currentRoute };
+            const sidebarNav = ref(null);
+
+            function toggleSidebar() {
+                var el = document.getElementById('sidebarNav');
+                if (el) {
+                    el.className = el.className.indexOf('show') >= 0
+                        ? 'sidebar-collapse'
+                        : 'sidebar-collapse show';
+                }
+            }
+
+            function closeSidebarOnMobile() {
+                if (window.innerWidth < 992) {
+                    var el = document.getElementById('sidebarNav');
+                    if (el) {
+                        el.className = 'sidebar-collapse';
+                    }
+                }
+            }
+
+            return { currentRoute, sidebarNav, toggleSidebar, closeSidebarOnMobile };
         }
     });
 
