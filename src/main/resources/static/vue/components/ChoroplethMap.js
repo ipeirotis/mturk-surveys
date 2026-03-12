@@ -61,6 +61,9 @@ const ChoroplethMap = {
             return d3.json(url).then(function(data) {
                 topoCache[url] = data;
                 return data;
+            }).catch(function(err) {
+                console.error('Failed to load TopoJSON from ' + url, err);
+                return null;
             });
         }
 
@@ -120,6 +123,7 @@ const ChoroplethMap = {
 
         function renderWorldMap(el, data) {
             loadTopo(worldTopoUrl).then(function(world) {
+                if (!world) return;
                 var countries = topojson.feature(world, world.objects.countries);
                 var width = el.clientWidth || 900;
                 var height = width * 0.5;
@@ -183,6 +187,7 @@ const ChoroplethMap = {
 
         function renderUsMap(el, data, normalized) {
             loadTopo(usTopoUrl).then(function(us) {
+                if (!us) return;
                 var states = topojson.feature(us, us.objects.states);
                 var width = el.clientWidth || 900;
                 var height = width * 0.6;
@@ -274,6 +279,10 @@ const ChoroplethMap = {
 
         watch(() => props.normalized, () => {
             if (props.mapData) nextTick(render);
+        });
+
+        onMounted(function() {
+            if (props.mapData && props.mapType) nextTick(render);
         });
 
         return { container };
