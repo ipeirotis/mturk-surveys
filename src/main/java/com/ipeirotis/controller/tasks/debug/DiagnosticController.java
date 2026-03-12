@@ -1,4 +1,4 @@
-package com.ipeirotis.controller.tasks;
+package com.ipeirotis.controller.tasks.debug;
 
 import com.google.cloud.bigquery.*;
 import com.googlecode.objectify.Key;
@@ -40,7 +40,7 @@ public class DiagnosticController {
 	 * Example: /tasks/diagnoseVolume?date=01/15/2021
 	 * Add full=true to include Strategy 3 (slow full-scan): /tasks/diagnoseVolume?date=01/15/2021&full=true
 	 */
-	@GetMapping("/tasks/diagnoseVolume")
+	@GetMapping("/tasks/debug/diagnoseVolume")
 	public Map<String, Object> diagnoseVolume(
 			@RequestParam String date,
 			@RequestParam(required = false, defaultValue = "false") boolean full) throws ParseException {
@@ -196,7 +196,7 @@ public class DiagnosticController {
 	 *
 	 * Example: /tasks/diagnoseVolumeRange?from=10/01/2020&to=12/31/2022
 	 */
-	@GetMapping("/tasks/diagnoseVolumeRange")
+	@GetMapping("/tasks/debug/diagnoseVolumeRange")
 	public Map<String, Object> diagnoseVolumeRange(
 			@RequestParam String from, @RequestParam String to) throws ParseException {
 
@@ -295,7 +295,7 @@ public class DiagnosticController {
 	 *
 	 * Example: /tasks/lookupEntities?ids=12345,67890,11111
 	 */
-	@GetMapping("/tasks/lookupEntities")
+	@GetMapping("/tasks/debug/lookupEntities")
 	public Map<String, Object> lookupEntities(@RequestParam String ids) {
 		String[] idParts = ids.split(",");
 		List<Long> idList = new ArrayList<>();
@@ -350,7 +350,7 @@ public class DiagnosticController {
 	 * Example: /tasks/countAllEntities
 	 * With surveyId filter: /tasks/countAllEntities?surveyId=demographics
 	 */
-	@GetMapping("/tasks/countAllEntities")
+	@GetMapping("/tasks/debug/countAllEntities")
 	public Map<String, Object> countAllEntities(
 			@RequestParam(required = false) String surveyId) {
 		Query<UserAnswer> q = ofy().load().type(UserAnswer.class);
@@ -380,7 +380,7 @@ public class DiagnosticController {
 	 * Example: /tasks/reindexUserAnswers?from=10/01/2020&to=12/31/2022
 	 * With cursor: /tasks/reindexUserAnswers?from=10/01/2020&to=12/31/2022&cursor=...
 	 */
-	@GetMapping("/tasks/reindexUserAnswers")
+	@GetMapping("/tasks/debug/reindexUserAnswers")
 	public Map<String, Object> reindexUserAnswers(
 			@RequestParam String from, @RequestParam String to,
 			@RequestParam(required = false) String cursor) throws ParseException {
@@ -452,7 +452,7 @@ public class DiagnosticController {
 			params.put("from", from);
 			params.put("to", to);
 			params.put("cursor", nextCursor);
-			TaskUtils.queueTask("/tasks/reindexUserAnswers", params);
+			TaskUtils.queueTask("/tasks/debug/reindexUserAnswers", params);
 		}
 
 		logger.info("Re-index batch: scanned=" + scanned + " resaved=" + resaved
@@ -476,7 +476,7 @@ public class DiagnosticController {
 	 *
 	 * Example: /tasks/previewRestore?dataset=test&table=UserAnswer_2025MAR20&date=2021-01-15
 	 */
-	@GetMapping("/tasks/previewRestore")
+	@GetMapping("/tasks/debug/previewRestore")
 	public Map<String, Object> previewRestore(
 			@RequestParam String dataset,
 			@RequestParam String table,
@@ -585,7 +585,7 @@ public class DiagnosticController {
 	 *
 	 * Example: /tasks/restoreFromBigQuery?dataset=test&table=UserAnswer_2025MAR20&date=2021-01-15&dryRun=false
 	 */
-	@GetMapping("/tasks/restoreFromBigQuery")
+	@GetMapping("/tasks/debug/restoreFromBigQuery")
 	public Map<String, Object> restoreFromBigQuery(
 			@RequestParam String dataset,
 			@RequestParam String table,
@@ -708,7 +708,7 @@ public class DiagnosticController {
 	 * Example: /tasks/restoreRange?dataset=test&table=UserAnswer_2025MAR20&from=2021-01-01&to=2021-01-31&dryRun=false
 	 * Force-overwrite existing entities: /tasks/restoreRange?...&force=true
 	 */
-	@GetMapping("/tasks/restoreRange")
+	@GetMapping("/tasks/debug/restoreRange")
 	public Map<String, Object> restoreRange(
 			@RequestParam String dataset,
 			@RequestParam String table,
@@ -916,7 +916,7 @@ public class DiagnosticController {
 	 * Example: /tasks/reindexEntities?dataset=test&table=UserAnswer_2025MAR20&from=2021-01-01&to=2021-01-31
 	 * Add dryRun=true (default) to preview without saving.
 	 */
-	@GetMapping("/tasks/reindexEntities")
+	@GetMapping("/tasks/debug/reindexEntities")
 	public Map<String, Object> reindexEntities(
 			@RequestParam String dataset,
 			@RequestParam String table,
@@ -1019,7 +1019,7 @@ public class DiagnosticController {
 	 *
 	 * Example: /tasks/reindexRange?dataset=test&table=UserAnswer_2025MAR20&from=2020-11-01&to=2022-12-31
 	 */
-	@GetMapping("/tasks/reindexRange")
+	@GetMapping("/tasks/debug/reindexRange")
 	public Map<String, Object> reindexRange(
 			@RequestParam String dataset,
 			@RequestParam String table,
@@ -1051,7 +1051,7 @@ public class DiagnosticController {
 				params.put("from", chunkStart.toString());
 				params.put("to", chunkEnd.toString());
 				params.put("dryRun", "false");
-				TaskUtils.queueTask("/tasks/reindexEntities", params);
+				TaskUtils.queueTask("/tasks/debug/reindexEntities", params);
 				tasksEnqueued++;
 
 				chunkStart = chunkEnd.plusDays(1);
@@ -1076,7 +1076,7 @@ public class DiagnosticController {
 	 * Example: /tasks/backfillRestore?dataset=test&table=UserAnswer_2025MAR20&from=2015-03-26&to=2025-03-20
 	 * Add dryRun=true to preview without restoring.
 	 */
-	@GetMapping("/tasks/backfillRestore")
+	@GetMapping("/tasks/debug/backfillRestore")
 	public Map<String, Object> backfillRestore(
 			@RequestParam String dataset,
 			@RequestParam String table,
@@ -1110,7 +1110,7 @@ public class DiagnosticController {
 				params.put("to", chunkEnd.toString());
 				params.put("dryRun", String.valueOf(dryRun));
 				params.put("force", "true");
-				TaskUtils.queueTask("/tasks/restoreRange", params);
+				TaskUtils.queueTask("/tasks/debug/restoreRange", params);
 				tasksEnqueued++;
 
 				chunkStart = chunkEnd.plusDays(1);
@@ -1180,7 +1180,7 @@ public class DiagnosticController {
 	 *
 	 * Example: /tasks/compareBigQueryDatastore?dataset=test&table=UserAnswer_2025MAR20&from=2020-10-01&to=2023-02-01
 	 */
-	@GetMapping("/tasks/compareBigQueryDatastore")
+	@GetMapping("/tasks/debug/compareBigQueryDatastore")
 	public Map<String, Object> compareBigQueryDatastore(
 			@RequestParam String dataset,
 			@RequestParam String table,
