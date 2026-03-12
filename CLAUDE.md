@@ -12,8 +12,8 @@ Deployed on **Google App Engine** (Java 21 runtime, GCP project `mturk-demograph
 - **ORM:** Objectify 6.1.3 (Google Cloud Datastore)
 - **Cloud:** Google App Engine, Google Cloud Tasks, Google Secret Manager
 - **AWS:** MTurk SDK 2.35.6
-- **Frontend:** AngularJS 1.2.15, Bootstrap 3.1.1, Google Charts
-- **Build:** Maven, YUI Compressor (JS/CSS minification)
+- **Frontend:** Vue 3 (CDN, no build step), Vue Router 4, Bootstrap 5.3.3, Chart.js 4.4.7, D3.js v7
+- **Build:** Maven
 - **Templating:** FreeMarker 2.3.33
 
 ## Build & Run Commands
@@ -84,11 +84,12 @@ src/main/java/com/ipeirotis/
 src/main/resources/
 ├── application.properties           # Server port 8080, logging config
 ├── static/                          # Frontend SPA
-│   ├── index.html                   # Main page (AngularJS app)
+│   ├── index.html                   # Main page (Vue 3 app)
 │   ├── css/style.css
-│   ├── js/                          # AngularJS modules, controllers, services, directives
-│   ├── views/                       # Partial templates (chart.html)
-│   └── lib/                         # Vendored JS (ui-bootstrap)
+│   └── vue/                         # Vue 3 components and composables
+│       ├── app.js                   # Vue app creation + Vue Router
+│       ├── composables/             # useLoading, useDateFilter, useChartData
+│       └── components/              # ChartView, ChartjsChart, ChoroplethMap
 └── templates/                       # FreeMarker templates for MTurk HIT HTML
 
 src/main/appengine/
@@ -273,13 +274,12 @@ These gaps are legitimate (no survey activity) and appear as zero-response entri
 
 ## Important Notes
 
-- The frontend JS files are **minified and concatenated** during build via YUI Compressor into `target/classes/static/js/script.js`
+- The frontend uses **Vue 3 via CDN** (no build step, no npm/node required). JS files are loaded individually from `static/vue/`.
 - The app uses **Jetty** (Tomcat is explicitly excluded in pom.xml)
 - MTurk sandbox vs production is toggled in `MturkService`
 - Datastore queries require composite indexes defined in `index.yaml`
 - **CI/CD pipeline** configured via GitHub Actions (`.github/workflows/ci.yml` and `deploy.yml`)
 - No test framework is present — be careful when modifying business logic
-- **YUI Compressor plugin** was upgraded from 1.3.2 to 1.5.1 to fix Maven 3.9+ compatibility (see TASKS.md T0.1)
 - **Spring Boot 3.4.1 / Jakarta namespace:** The project uses `jakarta.*` imports (not `javax.*`). Objectify 6.1.3 ships with both — use `ObjectifyService.Filter` (jakarta) not the deprecated `ObjectifyFilter` (javax)
 
 ## Task Progress
@@ -294,5 +294,5 @@ See [TASKS.md](TASKS.md) for the full task list. Summary:
 - [x] **Track 4** — Java 21 + Spring Boot 3.x Migration (T4.1–T4.7 completed)
 - [x] **Track 5** — AWS SDK Update (T5.1–T5.3 completed)
 - [x] **Track 6** — Google Cloud Libraries Update (T6.1–T6.3 completed)
-- [ ] **Track 7** — Frontend Modernization (T7.1–T7.3, T7.4–T7.8 done, T7.11 done, T7.16–T7.18 done, T7.20–T7.22 done)
+- [ ] **Track 7** — Frontend Modernization (T7.1 done: Vue 3 migration, T7.2–T7.3 done, T7.4–T7.8 done, T7.11 done, T7.16–T7.18 done, T7.20–T7.22 done)
 - [x] **Track 8** — Data Access & API Quality (T8.1–T8.6: CORS, OpenAPI, counts endpoint, CSV export, enhanced filtering, BigQuery export)
