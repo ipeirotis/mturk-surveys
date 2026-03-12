@@ -74,22 +74,21 @@ const ChartView = {
         </div>
     </div>
 </div>
-<!-- Date Range Pickers -->
-<div class="row">
-    <div class="col-6 col-sm-3">
-        <div class="input-group input-group-sm">
-            <input type="date" class="form-control" v-model="fromStr" :min="minDateStr" :max="toStr" />
-        </div>
+<!-- Date Range Controls -->
+<div class="date-controls-row">
+    <div class="input-group input-group-sm" style="width:auto;flex:0 0 auto;">
+        <input type="date" class="form-control" v-model="fromStr" :min="minDateStr" :max="toStr" style="max-width:150px;" />
     </div>
-    <div class="col-6 col-sm-3">
-        <div class="input-group input-group-sm">
-            <input type="date" class="form-control" v-model="toStr" :min="fromStr" :max="maxDateStr" />
-        </div>
+    <div class="input-group input-group-sm" style="width:auto;flex:0 0 auto;">
+        <input type="date" class="form-control" v-model="toStr" :min="fromStr" :max="maxDateStr" style="max-width:150px;" />
     </div>
-    <div class="col-6 col-sm-3">
-        <button type="button" class="btn btn-primary btn-sm" @click="applyDateRange()">
-            <i class="bi bi-arrow-clockwise"></i> Update
-        </button>
+    <button type="button" class="btn btn-primary btn-sm" @click="applyDateRange()">
+        <i class="bi bi-arrow-clockwise"></i> Update
+    </button>
+    <div class="date-presets">
+        <button v-for="p in datePresets" :key="p.label" type="button" class="btn btn-sm"
+            :class="activePreset === p.label ? 'btn-primary' : 'btn-outline-secondary'"
+            @click="applyPreset(p)">{{p.label}}</button>
     </div>
 </div>
 <!-- Display Mode (hidden for map views) -->
@@ -224,6 +223,33 @@ const ChartView = {
             { value: 10, label: 'Top 10' },
             { value: 15, label: 'Top 15' }
         ];
+
+        // Date range presets
+        var datePresets = [
+            { label: '1Y', years: 1 },
+            { label: '2Y', years: 2 },
+            { label: '5Y', years: 5 },
+            { label: 'All', years: null }
+        ];
+        var activePreset = ref(null);
+
+        function applyPreset(preset) {
+            var to = new Date();
+            var from;
+            if (preset.years === null) {
+                from = new Date(minDate.getTime());
+            } else {
+                from = new Date();
+                from.setFullYear(from.getFullYear() - preset.years);
+                if (from < minDate) from = new Date(minDate.getTime());
+            }
+            fromStr.value = toDateStr(from);
+            toStr.value = toDateStr(to);
+            dateFilterState.from.value = from;
+            dateFilterState.to.value = to;
+            activePreset.value = preset.label;
+            load();
+        }
 
         var isMapView = ref(!!MAP_VIEWS[props.viewId]);
         var mapType = ref(MAP_VIEWS[props.viewId] || null);
@@ -553,6 +579,7 @@ const ChartView = {
         }
 
         function applyDateRange() {
+            activePreset.value = null; // clear preset highlight when manually updating
             dateFilterState.from.value = fromDateStr(fromStr.value);
             dateFilterState.to.value = fromDateStr(toStr.value);
             load();
@@ -618,6 +645,7 @@ const ChartView = {
             dailyChart, volumeChart, donutChart,
             displayMode, summaryStats, dailyGranularity, volumeGranularity,
             topN, topNOptions,
+            datePresets, activePreset, applyPreset,
             isMapView, mapType, mapData, mapNormalized,
             loading, loadError,
             setDisplayMode, setTopN, applyDateRange

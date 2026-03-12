@@ -4,11 +4,11 @@
   <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Mechanical Turk Surveys</title>
+    <title>MTurk Demographics Tracker</title>
 
     <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="/css/style.css?v=20260312" />
+    <link rel="stylesheet" href="/css/style.css?v=20260312b" />
 
     <script src="//cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" type="text/javascript"></script>
     <script src="//cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" type="text/javascript"></script>
@@ -24,41 +24,48 @@
   <body>
     <div class="container content" id="app">
         <div class="row">
-            <a href="https://demographics.mturk-tracker.com/">
-                <img src="/img/mturktracker_logo.png" alt="">
-            </a>
+            <div class="page-header">
+                <a href="https://demographics.mturk-tracker.com/">
+                    <img src="/img/mturktracker_logo.png" alt="MTurk Tracker">
+                </a>
+                <div class="header-text">
+                    <span class="header-subtitle">Continuous demographics survey of Amazon Mechanical Turk workers since 2015</span>
+                </div>
+            </div>
         </div>
 		<div class="row">
 			<div class="col-md-2">
-				<button class="btn btn-outline-secondary btn-sm sidebar-toggle" type="button" onclick="var el=document.getElementById('sidebarNav');el.className=el.className.indexOf('show')>=0?'sidebar-collapse':'sidebar-collapse show';">
+				<button class="btn btn-outline-secondary btn-sm sidebar-toggle" type="button" @click="toggleSidebar">
 					<i class="bi bi-list"></i> Menu
 				</button>
-				<div id="sidebarNav" class="sidebar-collapse show">
-					<ul class="nav nav-pills flex-column">
-                        <li class="nav-item"><router-link class="nav-link" to="/countries" :class="{ active: $route.params.id === 'countries' }">Countries</router-link></li>
-						<li class="nav-item"><router-link class="nav-link" to="/gender" :class="{ active: $route.params.id === 'gender' }">Gender</router-link></li>
-                        <li class="nav-item"><router-link class="nav-link" to="/yearOfBirth" :class="{ active: $route.params.id === 'yearOfBirth' }">Year of Birth</router-link></li>
-                        <li class="nav-item"><router-link class="nav-link" to="/maritalStatus" :class="{ active: $route.params.id === 'maritalStatus' }">Marital Status</router-link></li>
-                        <li class="nav-item"><router-link class="nav-link" to="/householdSize" :class="{ active: $route.params.id === 'householdSize' }">Household Size</router-link></li>
-                        <li class="nav-item"><router-link class="nav-link" to="/householdIncome" :class="{ active: $route.params.id === 'householdIncome' }">Household Income</router-link></li>
-                        <li class="nav-item"><router-link class="nav-link" to="/educationalLevel" :class="{ active: $route.params.id === 'educationalLevel' }">Education Level</router-link></li>
-                        <li class="nav-item"><router-link class="nav-link" to="/timeSpentOnMturk" :class="{ active: $route.params.id === 'timeSpentOnMturk' }">Time on MTurk</router-link></li>
-                        <li class="nav-item"><router-link class="nav-link" to="/weeklyIncomeFromMturk" :class="{ active: $route.params.id === 'weeklyIncomeFromMturk' }">MTurk Income</router-link></li>
-                        <li class="nav-item"><router-link class="nav-link" to="/languagesSpoken" :class="{ active: $route.params.id === 'languagesSpoken' }">Languages</router-link></li>
-                    </ul>
-                    <hr style="margin:10px 0;">
-                    <p class="sidebar-heading">Maps</p>
-                    <ul class="nav nav-pills flex-column">
-                        <li class="nav-item"><router-link class="nav-link" to="/worldMap" :class="{ active: $route.params.id === 'worldMap' }"><i class="bi bi-globe-americas"></i> World Map</router-link></li>
-                        <li class="nav-item"><router-link class="nav-link" to="/usStates" :class="{ active: $route.params.id === 'usStates' }"><i class="bi bi-geo-alt"></i> US States</router-link></li>
-                    </ul>
-                    <hr style="margin:10px 0;">
-                    <p class="sidebar-heading">Data Access</p>
-                    <ul class="nav nav-pills flex-column sidebar-links">
-                        <li class="nav-item"><a class="nav-link" href="/api-docs" target="_blank"><i class="bi bi-cloud"></i> REST API Docs</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/api-docs#/survey-controller/getDemographicsSurveyAnswersCsv" target="_blank"><i class="bi bi-download"></i> CSV Export (API)</a></li>
-                        <li class="nav-item"><a class="nav-link" href="https://console.cloud.google.com/bigquery?project=mturk-demographics&d=demographics&t=responses&page=table" target="_blank"><i class="bi bi-database"></i> BigQuery Dataset</a></li>
-                    </ul>
+				<div id="sidebarNav" class="sidebar-collapse show" ref="sidebarNav">
+					<div class="sidebar-wrapper">
+						<ul class="nav nav-pills flex-column">
+                            <li class="nav-item"><router-link class="nav-link" to="/countries" :class="{ active: $route.params.id === 'countries' }" @click="closeSidebarOnMobile">Countries</router-link></li>
+							<li class="nav-item"><router-link class="nav-link" to="/gender" :class="{ active: $route.params.id === 'gender' }" @click="closeSidebarOnMobile">Gender</router-link></li>
+                            <li class="nav-item"><router-link class="nav-link" to="/yearOfBirth" :class="{ active: $route.params.id === 'yearOfBirth' }" @click="closeSidebarOnMobile">Year of Birth</router-link></li>
+                            <li class="nav-item"><router-link class="nav-link" to="/maritalStatus" :class="{ active: $route.params.id === 'maritalStatus' }" @click="closeSidebarOnMobile">Marital Status</router-link></li>
+                            <li class="nav-item"><router-link class="nav-link" to="/householdSize" :class="{ active: $route.params.id === 'householdSize' }" @click="closeSidebarOnMobile">Household Size</router-link></li>
+                            <li class="nav-item"><router-link class="nav-link" to="/householdIncome" :class="{ active: $route.params.id === 'householdIncome' }" @click="closeSidebarOnMobile">Household Income</router-link></li>
+                            <li class="nav-item"><router-link class="nav-link" to="/educationalLevel" :class="{ active: $route.params.id === 'educationalLevel' }" @click="closeSidebarOnMobile">Education Level</router-link></li>
+                            <li class="nav-item"><router-link class="nav-link" to="/timeSpentOnMturk" :class="{ active: $route.params.id === 'timeSpentOnMturk' }" @click="closeSidebarOnMobile">Time on MTurk</router-link></li>
+                            <li class="nav-item"><router-link class="nav-link" to="/weeklyIncomeFromMturk" :class="{ active: $route.params.id === 'weeklyIncomeFromMturk' }" @click="closeSidebarOnMobile">MTurk Income</router-link></li>
+                            <li class="nav-item"><router-link class="nav-link" to="/languagesSpoken" :class="{ active: $route.params.id === 'languagesSpoken' }" @click="closeSidebarOnMobile">Languages</router-link></li>
+                        </ul>
+                        <hr style="margin:10px 0;">
+                        <p class="sidebar-heading">Maps</p>
+                        <ul class="nav nav-pills flex-column">
+                            <li class="nav-item"><router-link class="nav-link" to="/worldMap" :class="{ active: $route.params.id === 'worldMap' }" @click="closeSidebarOnMobile"><i class="bi bi-globe-americas"></i> World Map</router-link></li>
+                            <li class="nav-item"><router-link class="nav-link" to="/usStates" :class="{ active: $route.params.id === 'usStates' }" @click="closeSidebarOnMobile"><i class="bi bi-geo-alt"></i> US States</router-link></li>
+                        </ul>
+                        <hr style="margin:10px 0;">
+                        <p class="sidebar-heading">Data Access</p>
+                        <ul class="nav nav-pills flex-column sidebar-links">
+                            <li class="nav-item"><a class="nav-link" href="/api-docs" target="_blank"><i class="bi bi-cloud"></i> REST API Docs</a></li>
+                            <li class="nav-item"><a class="nav-link" href="/api-docs#/survey-controller/getDemographicsSurveyAnswersCsv" target="_blank"><i class="bi bi-download"></i> CSV Export (API)</a></li>
+                            <li class="nav-item"><a class="nav-link" href="https://console.cloud.google.com/bigquery?project=mturk-demographics&d=demographics&t=responses&page=table" target="_blank"><i class="bi bi-database"></i> BigQuery Dataset</a></li>
+                        </ul>
+					</div>
 				</div>
 			</div>
 			<div class="col-md-10">
@@ -67,11 +74,13 @@
 		</div>
 	</div>
     <footer id="footer">
-        <p>For bugs reports or feature requests, please contact
-        <a href="http://www.stern.nyu.edu/~panos">Panos Ipeirotis</a>
-        <br> If you want to cite this website, please cite the paper
-        <a href="https://dl.acm.org/doi/10.1145/3159652.3159661">Demographics and Dynamics of Mechanical Turk Workers
-		; Djellel Difallah, Elena  Filatova, and Panos Ipeirotis; WSDM '18: Proceedings of the Eleventh ACM International Conference on Web Search and Data Mining; February 2018; Pages 135–143.</a></p>
+        <div class="container">
+            <p style="margin-bottom: 0;">For bug reports or feature requests, please contact
+            <a href="http://www.stern.nyu.edu/~panos">Panos Ipeirotis</a>.
+            If you want to cite this website, please cite:
+            <a href="https://dl.acm.org/doi/10.1145/3159652.3159661"><em>Demographics and Dynamics of Mechanical Turk Workers</em>;
+            Djellel Difallah, Elena Filatova, and Panos Ipeirotis; WSDM '18; February 2018; Pages 135&ndash;143.</a></p>
+        </div>
     </footer>
 
     <!-- App JS (Vue 3 components, loaded after DOM) -->

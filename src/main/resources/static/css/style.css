@@ -2,15 +2,16 @@
   cursor: pointer;
 }
 
+/* ── Sidebar Navigation ── */
 .nav-pills .nav-link {
-	padding: 5px 12px;
+	padding: 6px 12px;
 	margin-top: 1px;
 	margin-bottom: 1px;
 	border-radius: 6px;
 	font-size: 13px;
 	color: #4a5568;
 	font-weight: 500;
-	transition: background-color 0.15s ease, color 0.15s ease;
+	transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
 
 .nav-pills .nav-link:hover:not(.active) {
@@ -23,10 +24,44 @@
 	box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
 }
 
+/* Sticky sidebar on desktop */
+@media (min-width: 992px) {
+    .sidebar-wrapper {
+        position: sticky;
+        top: 12px;
+        max-height: calc(100vh - 24px);
+        overflow-y: auto;
+    }
+}
+
 .content {
 	padding-top: 10px;
 }
 
+/* ── Page Header ── */
+.page-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 6px;
+    padding-bottom: 2px;
+}
+
+.page-header img {
+    height: 52px;
+}
+
+.page-header .header-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.page-header .header-subtitle {
+    font-size: 12px;
+    color: #94a3b8;
+    letter-spacing: 0.2px;
+    margin-top: 2px;
+}
 
 .search-bar {
 	margin-bottom: 20px;
@@ -42,21 +77,31 @@ html {
 }
 
 body {
-	margin-bottom: 60px;
+	margin-bottom: 0;
+	background: #f8fafc;
 }
 
+/* ── Footer ── */
 #footer {
 	font-size: 12px;
-	position: absolute;
-	bottom: 0;
 	width: 100%;
-	height: 60px;
 	background-color: #f0f5fa;
 	border-top: 1px solid #e2e8f0;
 	display: block;
-	margin: 20px 0 0 0;
+	margin: 40px 0 0 0;
 	color: #4a6fa5;
-	padding: 10px 10px 0 70px;
+	padding: 14px 20px;
+	line-height: 1.6;
+}
+
+#footer a {
+    color: #3b6fa5;
+    text-decoration: underline;
+    text-decoration-color: rgba(59, 111, 165, 0.3);
+}
+
+#footer a:hover {
+    text-decoration-color: rgba(59, 111, 165, 0.8);
 }
 
 .nav .nav-with-country {
@@ -82,16 +127,16 @@ body {
     margin-right: 4px;
 }
 
-/* Summary Statistics Cards */
+/* ── Summary Statistics Cards ── */
 .stats-cards {
     margin-bottom: 12px;
 }
 
 .stat-card {
-    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 12px 14px;
+    border-radius: 10px;
+    padding: 14px 16px;
     text-align: center;
     margin-bottom: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
@@ -99,8 +144,8 @@ body {
 }
 
 .stat-card:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
 }
 
 .stat-value {
@@ -146,20 +191,59 @@ body {
     color: #a0aec0;
 }
 
-/* Chart containers */
+/* ── Date Range Controls ── */
+.date-controls-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.date-presets {
+    display: flex;
+    gap: 4px;
+}
+
+.date-presets .btn {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.date-presets .btn-outline-secondary {
+    border-color: #cbd5e1;
+    color: #64748b;
+}
+
+.date-presets .btn-outline-secondary:hover {
+    background-color: #f1f5f9;
+    border-color: #94a3b8;
+    color: #334155;
+}
+
+.date-presets .btn-primary {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+/* ── Chart Containers ── */
 .chart-container {
     width: 100%;
     height: 500px;
     background: #fff;
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 8px 4px;
+    border: 1px solid #f0f4f8;
 }
 
 .volume-chart-container {
     width: 100%;
     height: 130px;
     background: #fafbfc;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 4px 4px 0 4px;
     border: 1px solid #f0f0f0;
 }
@@ -190,7 +274,7 @@ body {
     margin: 8px 0 2px 0;
 }
 
-/* Choropleth map */
+/* ── Choropleth Map ── */
 .choropleth-container {
     width: 100%;
     min-height: 500px;
@@ -229,7 +313,24 @@ body {
     border-radius: 2px;
 }
 
-/* Mobile sidebar toggle */
+/* ── Btn-group improvements ── */
+.btn-group .btn {
+    transition: all 0.15s ease;
+}
+
+/* ── View transition ── */
+.chart-view-enter {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
+.chart-view-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* ── Mobile sidebar toggle ── */
 .sidebar-toggle {
     display: none;
     width: 100%;
@@ -269,6 +370,11 @@ body {
     .choropleth-container {
         min-height: 300px;
     }
+
+    .date-presets .btn {
+        font-size: 11px;
+        padding: 2px 8px;
+    }
 }
 
 @media (max-width: 767px) {
@@ -286,13 +392,7 @@ body {
     }
 
     #footer {
-        position: relative;
-        height: auto;
         padding: 10px 15px;
-    }
-
-    body {
-        margin-bottom: 0;
     }
 
     .stat-card {
@@ -305,5 +405,18 @@ body {
 
     .choropleth-container {
         min-height: 220px;
+    }
+
+    .page-header img {
+        height: 40px;
+    }
+
+    .date-controls-row {
+        gap: 6px;
+    }
+
+    .date-presets {
+        width: 100%;
+        justify-content: flex-start;
     }
 }
