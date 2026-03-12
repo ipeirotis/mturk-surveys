@@ -35,20 +35,27 @@ const ChartjsChart = {
                         data: data.datasets[0].data,
                         backgroundColor: colors,
                         borderWidth: 2,
-                        borderColor: '#fff'
+                        borderColor: '#fff',
+                        hoverBorderWidth: 3,
+                        hoverOffset: 6
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '45%',
-                    animation: { duration: 400, easing: 'easeOutQuad' },
+                    cutout: '50%',
+                    animation: { duration: 500, easing: 'easeOutQuart' },
                     plugins: {
                         legend: {
                             position: 'right',
-                            labels: { font: { size: 12 }, boxWidth: 14, padding: 10 }
+                            labels: { font: { size: 12, weight: '500' }, boxWidth: 14, padding: 12, usePointStyle: true, pointStyle: 'rectRounded' }
                         },
                         tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.92)',
+                            titleFont: { size: 13, weight: '600' },
+                            bodyFont: { size: 12 },
+                            padding: 10,
+                            cornerRadius: 6,
                             callbacks: {
                                 label: function(context) {
                                     return (context.label || '') + ': ' + context.parsed.toFixed(1) + '%';
@@ -69,9 +76,19 @@ const ChartjsChart = {
                     datasets: [{
                         label: ds.label,
                         data: ds.data,
-                        backgroundColor: '#4285F499',
+                        backgroundColor: function(context) {
+                            var chart = context.chart;
+                            var ctx = chart.ctx;
+                            var area = chart.chartArea;
+                            if (!area) return '#4285F466';
+                            var gradient = ctx.createLinearGradient(0, area.top, 0, area.bottom);
+                            gradient.addColorStop(0, '#4285F4AA');
+                            gradient.addColorStop(1, '#4285F430');
+                            return gradient;
+                        },
                         borderColor: '#4285F4',
                         borderWidth: 0,
+                        borderRadius: 1,
                         barPercentage: 1.0,
                         categoryPercentage: 1.0
                     }]
@@ -83,6 +100,11 @@ const ChartjsChart = {
                     plugins: {
                         legend: { display: false },
                         tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.92)',
+                            titleFont: { size: 12, weight: '600' },
+                            bodyFont: { size: 11 },
+                            padding: 8,
+                            cornerRadius: 6,
                             callbacks: {
                                 label: function(context) {
                                     return context.parsed.y.toLocaleString() + ' responses';
@@ -94,8 +116,9 @@ const ChartjsChart = {
                         x: { display: false },
                         y: {
                             min: 0,
-                            ticks: { font: { size: 10 }, color: '#999', maxTicksLimit: 3 },
-                            grid: { color: '#e8e8e8' }
+                            ticks: { font: { size: 10 }, color: '#a0aec0', maxTicksLimit: 3 },
+                            grid: { color: '#f0f0f0', drawBorder: false },
+                            border: { display: false }
                         }
                     }
                 }
@@ -109,6 +132,7 @@ const ChartjsChart = {
             var isArea = data.displayMode === 'area';
             var isLine = data.displayMode === 'line';
             var datasets = [];
+            var numLabels = data.labels ? data.labels.length : 0;
 
             for (var i = 0; i < data.datasets.length; i++) {
                 var ds = data.datasets[i];
@@ -117,20 +141,26 @@ const ChartjsChart = {
                     datasets.push({
                         label: ds.label, data: ds.data,
                         borderColor: color, backgroundColor: color,
-                        borderWidth: 2, fill: false, tension: 0.3,
-                        pointRadius: 2, pointHitRadius: 8, pointBackgroundColor: color
+                        borderWidth: 2.5, fill: false, tension: 0.35,
+                        pointRadius: numLabels > 60 ? 0 : 2,
+                        pointHoverRadius: 5,
+                        pointHitRadius: 10,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: color,
+                        pointBorderWidth: 2
                     });
                 } else if (isArea) {
                     datasets.push({
                         label: ds.label, data: ds.data,
                         backgroundColor: color + 'B3', borderColor: color,
-                        borderWidth: 1.5, fill: true, tension: 0.3,
+                        borderWidth: 1.5, fill: true, tension: 0.35,
                         pointRadius: 0, pointHitRadius: 6
                     });
                 } else {
                     datasets.push({
                         label: ds.label, data: ds.data,
-                        backgroundColor: color, borderWidth: 0
+                        backgroundColor: color, borderWidth: 0,
+                        borderRadius: numLabels <= 30 ? 2 : 0
                     });
                 }
             }
@@ -141,6 +171,9 @@ const ChartjsChart = {
             var chartType = (isArea || isLine) ? 'line' : 'bar';
             var interactionMode = isLine ? 'nearest' : 'index';
 
+            // Smart tick skipping for x-axis
+            var maxTicks = Math.min(numLabels, 20);
+
             return {
                 type: chartType,
                 data: { labels: data.labels, datasets: datasets },
@@ -148,11 +181,17 @@ const ChartjsChart = {
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: interactionMode, intersect: isLine },
-                    animation: { duration: 300, easing: 'easeOutQuad' },
+                    animation: { duration: 400, easing: 'easeOutQuart' },
+                    hover: { mode: interactionMode, intersect: isLine },
                     plugins: {
                         legend: {
                             position: 'top',
-                            labels: { font: { size: 12 }, boxWidth: 12, padding: 8 },
+                            labels: {
+                                font: { size: 12, weight: '500' },
+                                boxWidth: 12, padding: 12,
+                                usePointStyle: true,
+                                pointStyle: isLine ? 'line' : 'rectRounded'
+                            },
                             onClick: function(e, legendItem, legend) {
                                 var ci = legend.chart;
                                 var clickedIdx = legendItem.datasetIndex;
@@ -163,7 +202,8 @@ const ChartjsChart = {
                                         if (isLine) {
                                             ds.borderColor = palette[i % palette.length];
                                             ds.backgroundColor = palette[i % palette.length];
-                                            ds.borderWidth = 2;
+                                            ds.pointBorderColor = palette[i % palette.length];
+                                            ds.borderWidth = 2.5;
                                         } else if (isArea) {
                                             ds.backgroundColor = palette[i % palette.length] + 'B3';
                                             ds.borderColor = palette[i % palette.length];
@@ -180,7 +220,8 @@ const ChartjsChart = {
                                             if (isLine) {
                                                 ds.borderColor = palette[i % palette.length];
                                                 ds.backgroundColor = palette[i % palette.length];
-                                                ds.borderWidth = 3;
+                                                ds.pointBorderColor = palette[i % palette.length];
+                                                ds.borderWidth = 3.5;
                                             } else if (isArea) {
                                                 ds.backgroundColor = palette[i % palette.length] + 'B3';
                                                 ds.borderColor = palette[i % palette.length];
@@ -189,14 +230,15 @@ const ChartjsChart = {
                                             }
                                         } else {
                                             if (isLine) {
-                                                ds.borderColor = palette[i % palette.length] + '30';
-                                                ds.backgroundColor = palette[i % palette.length] + '30';
+                                                ds.borderColor = palette[i % palette.length] + '25';
+                                                ds.backgroundColor = palette[i % palette.length] + '25';
+                                                ds.pointBorderColor = palette[i % palette.length] + '25';
                                                 ds.borderWidth = 1;
                                             } else if (isArea) {
-                                                ds.backgroundColor = palette[i % palette.length] + '20';
-                                                ds.borderColor = palette[i % palette.length] + '40';
+                                                ds.backgroundColor = palette[i % palette.length] + '18';
+                                                ds.borderColor = palette[i % palette.length] + '30';
                                             } else {
-                                                ds.backgroundColor = palette[i % palette.length] + '30';
+                                                ds.backgroundColor = palette[i % palette.length] + '25';
                                             }
                                         }
                                     });
@@ -205,9 +247,16 @@ const ChartjsChart = {
                             }
                         },
                         tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.92)',
+                            titleFont: { size: 13, weight: '600' },
+                            bodyFont: { size: 12 },
+                            footerFont: { size: 11, weight: '400', style: 'italic' },
+                            padding: 10,
+                            cornerRadius: 6,
+                            boxPadding: 4,
                             callbacks: {
                                 label: function(context) {
-                                    var pct = context.parsed.y.toFixed(2) + '%';
+                                    var pct = context.parsed.y.toFixed(1) + '%';
                                     var label = context.dataset.label;
                                     if (countsPerPeriod && demographicField) {
                                         var periodLabel = data.labels[context.dataIndex];
@@ -239,18 +288,28 @@ const ChartjsChart = {
                     scales: {
                         x: {
                             stacked: stacked,
-                            ticks: { font: { size: 11 }, color: '#666', maxRotation: 45, minRotation: 45 }
+                            ticks: {
+                                font: { size: 11 },
+                                color: '#718096',
+                                maxRotation: 45,
+                                minRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: maxTicks
+                            },
+                            grid: { display: false },
+                            border: { color: '#e2e8f0' }
                         },
                         y: {
                             stacked: stacked,
                             min: 0,
                             max: data.autoScaleY ? undefined : 100,
                             ticks: {
-                                font: { size: 11 }, color: '#666',
+                                font: { size: 11 }, color: '#718096',
                                 callback: function(value) { return value + '%'; },
                                 stepSize: data.autoScaleY ? undefined : 20
                             },
-                            grid: { color: '#e0e0e0' }
+                            grid: { color: '#f0f4f8', drawBorder: false },
+                            border: { display: false }
                         }
                     }
                 }
