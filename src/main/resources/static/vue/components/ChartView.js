@@ -11,9 +11,18 @@ const ChartView = {
         viewId: { type: String, required: true }
     },
     template: `
+<!-- Skeleton stat cards while loading -->
+<div class="row stats-cards" v-if="!summaryStats">
+    <div class="col-6" v-for="n in 2" :key="n">
+        <div class="stat-card stat-card-skeleton">
+            <div class="stat-value">&nbsp;</div>
+            <div class="stat-label">&nbsp;</div>
+        </div>
+    </div>
+</div>
 <!-- Summary Statistics Cards -->
 <div class="row stats-cards" v-if="summaryStats">
-    <div class="col-6 col-sm-3">
+    <div class="col-6">
         <div class="stat-card">
             <div class="stat-value">
                 {{summaryStats.totalResponses.toLocaleString()}}
@@ -28,7 +37,7 @@ const ChartView = {
             <div class="stat-label">Total Responses</div>
         </div>
     </div>
-    <div class="col-6 col-sm-3">
+    <div class="col-6">
         <div class="stat-card">
             <div class="stat-value">
                 {{summaryStats.avgPerPeriod.toLocaleString()}}
@@ -43,78 +52,50 @@ const ChartView = {
             <div class="stat-label">{{summaryStats.avgLabel}}</div>
         </div>
     </div>
-    <div class="col-6 col-sm-3">
-        <div class="stat-card">
-            <div class="stat-value">
-                {{summaryStats.topCountry.label}}
-                <span class="trend-arrow" v-if="summaryStats.countryTrend"
-                    :class="{'trend-up': summaryStats.countryTrend.direction === 'up', 'trend-down': summaryStats.countryTrend.direction === 'down', 'trend-flat': summaryStats.countryTrend.direction === 'flat'}">
-                    <i v-if="summaryStats.countryTrend.direction === 'up'" class="bi bi-arrow-up-short"></i>
-                    <i v-if="summaryStats.countryTrend.direction === 'down'" class="bi bi-arrow-down-short"></i>
-                    <i v-if="summaryStats.countryTrend.direction === 'flat'" class="bi bi-dash"></i>
-                    <small v-if="summaryStats.countryTrend.pct > 0">{{summaryStats.countryTrend.pct}}%</small>
-                </span>
-            </div>
-            <div class="stat-label">Top Country ({{summaryStats.topCountry.pct}}%)</div>
-        </div>
-    </div>
-    <div class="col-6 col-sm-3">
-        <div class="stat-card">
-            <div class="stat-value">
-                {{summaryStats.topGender.label}}
-                <span class="trend-arrow" v-if="summaryStats.genderTrend"
-                    :class="{'trend-up': summaryStats.genderTrend.direction === 'up', 'trend-down': summaryStats.genderTrend.direction === 'down', 'trend-flat': summaryStats.genderTrend.direction === 'flat'}">
-                    <i v-if="summaryStats.genderTrend.direction === 'up'" class="bi bi-arrow-up-short"></i>
-                    <i v-if="summaryStats.genderTrend.direction === 'down'" class="bi bi-arrow-down-short"></i>
-                    <i v-if="summaryStats.genderTrend.direction === 'flat'" class="bi bi-dash"></i>
-                    <small v-if="summaryStats.genderTrend.pct > 0">{{summaryStats.genderTrend.pct}}%</small>
-                </span>
-            </div>
-            <div class="stat-label">Top Gender ({{summaryStats.topGender.pct}}%)</div>
-        </div>
-    </div>
 </div>
-<!-- Date Range Controls -->
-<div class="date-controls-row">
-    <div class="input-group input-group-sm" style="width:auto;flex:0 0 auto;">
-        <input type="date" class="form-control" v-model="fromStr" :min="minDateStr" :max="toStr" style="max-width:150px;" />
-    </div>
-    <div class="input-group input-group-sm" style="width:auto;flex:0 0 auto;">
-        <input type="date" class="form-control" v-model="toStr" :min="fromStr" :max="maxDateStr" style="max-width:150px;" />
-    </div>
-    <button type="button" class="btn btn-primary btn-sm" @click="applyDateRange()">
-        <i class="bi bi-arrow-clockwise"></i> Update
-    </button>
-    <div class="date-presets">
-        <button v-for="p in datePresets" :key="p.label" type="button" class="btn btn-sm"
-            :class="activePreset === p.label ? 'btn-primary' : 'btn-outline-secondary'"
-            @click="applyPreset(p)">{{p.label}}</button>
-    </div>
-</div>
-<!-- Display Mode (hidden for map views) -->
-<div class="row" v-if="!isMapView">
-    <div class="col-12 col-sm-8">
-        <div class="btn-group btn-group-sm top-n-filter">
-            <button type="button" class="btn" v-for="opt in topNOptions" :key="opt.value"
-                :class="topN === opt.value ? 'btn-primary' : 'btn-outline-secondary'"
-                @click="setTopN(opt.value)">{{opt.label}}</button>
-        </div>
-    </div>
-    <div class="col-12 col-sm-4 text-end display-mode-btns">
-        <div class="btn-group">
-            <button type="button" class="btn btn-sm" :class="displayMode === 'bar' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('bar')">
-                <i class="bi bi-bar-chart-fill"></i> Bars
-            </button>
-            <button type="button" class="btn btn-sm" :class="displayMode === 'area' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('area')">
-                <i class="bi bi-graph-up"></i> Area
-            </button>
-            <button type="button" class="btn btn-sm" :class="displayMode === 'line' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('line')">
-                <i class="bi bi-graph-down"></i> Line
-            </button>
-            <button type="button" class="btn btn-sm" :class="displayMode === 'donut' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('donut')">
-                <i class="bi bi-pie-chart"></i> Donut
+<!-- Toolbar: date range, presets, chart controls -->
+<div class="chart-toolbar">
+    <div class="toolbar-row">
+        <div class="toolbar-group">
+            <input type="date" class="form-control form-control-sm" v-model="fromStr" :min="minDateStr" :max="toStr" style="max-width:140px;" />
+            <input type="date" class="form-control form-control-sm" v-model="toStr" :min="fromStr" :max="maxDateStr" style="max-width:140px;" />
+            <button type="button" class="btn btn-primary btn-sm" @click="applyDateRange()">
+                <i class="bi bi-arrow-clockwise"></i> Update
             </button>
         </div>
+        <div class="toolbar-separator"></div>
+        <div class="toolbar-group date-presets">
+            <button v-for="p in datePresets" :key="p.label" type="button" class="btn btn-sm"
+                :class="activePreset === p.label ? 'btn-primary' : 'btn-outline-secondary'"
+                @click="applyPreset(p)">{{p.label}}</button>
+        </div>
+        <template v-if="!isMapView">
+            <div class="toolbar-separator"></div>
+            <div class="toolbar-group">
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn" v-for="opt in topNOptions" :key="opt.value"
+                        :class="topN === opt.value ? 'btn-primary' : 'btn-outline-secondary'"
+                        @click="setTopN(opt.value)">{{opt.label}}</button>
+                </div>
+            </div>
+            <div class="toolbar-spacer"></div>
+            <div class="toolbar-group">
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn" :class="displayMode === 'bar' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('bar')">
+                        <i class="bi bi-bar-chart-fill"></i> Bars
+                    </button>
+                    <button type="button" class="btn" :class="displayMode === 'area' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('area')">
+                        <i class="bi bi-graph-up"></i> Area
+                    </button>
+                    <button type="button" class="btn" :class="displayMode === 'line' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('line')">
+                        <i class="bi bi-activity"></i> Line
+                    </button>
+                    <button type="button" class="btn" :class="displayMode === 'donut' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('donut')">
+                        <i class="bi bi-pie-chart"></i> Donut
+                    </button>
+                </div>
+            </div>
+        </template>
     </div>
 </div>
 <!-- Loading / Error -->
@@ -231,7 +212,7 @@ const ChartView = {
             { label: '5Y', years: 5 },
             { label: 'All', years: null }
         ];
-        var activePreset = ref(null);
+        var activePreset = ref('2Y');
 
         function applyPreset(preset) {
             var to = new Date();
@@ -248,7 +229,64 @@ const ChartView = {
             dateFilterState.from.value = from;
             dateFilterState.to.value = to;
             activePreset.value = preset.label;
+            setHashParams({ from: fromStr.value, to: toStr.value, preset: preset.label });
             load();
+        }
+
+        // --- URL state persistence ---
+        function getHashParams() {
+            var hash = window.location.hash || '';
+            var qIdx = hash.indexOf('?');
+            if (qIdx === -1) return {};
+            var qs = hash.substring(qIdx + 1);
+            var params = {};
+            qs.split('&').forEach(function(pair) {
+                var parts = pair.split('=');
+                if (parts.length === 2) params[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1]);
+            });
+            return params;
+        }
+
+        function setHashParams(updates) {
+            var hash = window.location.hash || '';
+            var baseHash = hash.split('?')[0];
+            var params = getHashParams();
+            for (var k in updates) {
+                if (updates[k] === null || updates[k] === undefined) {
+                    delete params[k];
+                } else {
+                    params[k] = updates[k];
+                }
+            }
+            var pairs = [];
+            for (var key in params) {
+                pairs.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
+            }
+            var newHash = baseHash + (pairs.length > 0 ? '?' + pairs.join('&') : '');
+            if (newHash !== window.location.hash) {
+                history.replaceState(null, '', newHash);
+            }
+        }
+
+        // Restore state from URL on init
+        var hashParams = getHashParams();
+        if (hashParams.from) {
+            fromStr.value = hashParams.from;
+            dateFilterState.from.value = fromDateStr(hashParams.from);
+        }
+        if (hashParams.to) {
+            toStr.value = hashParams.to;
+            dateFilterState.to.value = fromDateStr(hashParams.to);
+        }
+        if (hashParams.mode && ['bar', 'area', 'line', 'donut'].indexOf(hashParams.mode) >= 0) {
+            displayMode.value = hashParams.mode;
+        }
+        if (hashParams.topN) {
+            var parsedN = parseInt(hashParams.topN);
+            if ([0, 5, 10, 15].indexOf(parsedN) >= 0) topN.value = parsedN;
+        }
+        if (hashParams.preset) {
+            activePreset.value = hashParams.preset;
         }
 
         var isMapView = ref(!!MAP_VIEWS[props.viewId]);
@@ -290,23 +328,6 @@ const ChartView = {
             };
         }
 
-        function findTop(map) {
-            if (!map) return { label: 'N/A', count: 0, pct: 0 };
-            var best = null, total = 0;
-            for (var k in map) {
-                total += map[k];
-                if (!best || map[k] > best.count) {
-                    best = { label: k, count: map[k] };
-                }
-            }
-            if (best && total > 0) {
-                best.pct = Math.round(best.count / total * 1000) / 10;
-            } else {
-                return { label: 'N/A', count: 0, pct: 0 };
-            }
-            return best;
-        }
-
         function buildSummaryStats(counts, priorCounts) {
             if (!counts) return;
             var stats = {};
@@ -323,9 +344,6 @@ const ChartView = {
                 stats.avgLabel = 'Avg / Day';
             }
 
-            stats.topCountry = findTop(counts.totalCountries);
-            stats.topGender = findTop(counts.totalGender);
-
             if (priorCounts) {
                 var priorTotal = priorCounts.totalResponses || 0;
                 var priorNumPeriods = priorCounts.days ? priorCounts.days.length : 0;
@@ -333,15 +351,6 @@ const ChartView = {
 
                 stats.totalTrend = computeTrend(stats.totalResponses, priorTotal);
                 stats.avgTrend = computeTrend(stats.avgPerPeriod, priorAvg);
-
-                var priorTopCountry = findTop(priorCounts.totalCountries);
-                if (stats.topCountry.label !== 'N/A' && priorTopCountry.label !== 'N/A') {
-                    stats.countryTrend = computeTrend(stats.topCountry.pct, priorTopCountry.pct);
-                }
-                var priorTopGender = findTop(priorCounts.totalGender);
-                if (stats.topGender.label !== 'N/A' && priorTopGender.label !== 'N/A') {
-                    stats.genderTrend = computeTrend(stats.topGender.pct, priorTopGender.pct);
-                }
             }
 
             summaryStats.value = stats;
@@ -383,7 +392,7 @@ const ChartView = {
             volumeChart.value = {
                 labels: labels,
                 datasets: [{ label: 'Responses', data: data }],
-                displayMode: 'volume'
+                displayMode: 'volumeLine'
             };
         }
 
@@ -559,6 +568,7 @@ const ChartView = {
 
         function setDisplayMode(mode) {
             displayMode.value = mode;
+            setHashParams({ mode: mode });
             if (mode === 'donut' && response.value) {
                 populateDonutChart(props.viewId);
             } else if (dailyChart.value && dailyChart.value.labels) {
@@ -568,6 +578,7 @@ const ChartView = {
 
         function setTopN(n) {
             topN.value = n;
+            setHashParams({ topN: n > 0 ? String(n) : null });
             if (response.value && props.viewId) {
                 if (displayMode.value === 'donut') {
                     populateDonutChart(props.viewId);
@@ -579,9 +590,10 @@ const ChartView = {
         }
 
         function applyDateRange() {
-            activePreset.value = null; // clear preset highlight when manually updating
+            activePreset.value = null;
             dateFilterState.from.value = fromDateStr(fromStr.value);
             dateFilterState.to.value = fromDateStr(toStr.value);
+            setHashParams({ from: fromStr.value, to: toStr.value, preset: null });
             load();
         }
 
