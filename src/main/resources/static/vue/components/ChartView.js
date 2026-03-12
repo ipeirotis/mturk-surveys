@@ -210,7 +210,7 @@ const ChartView = {
         var dailyChart = ref({});
         var volumeChart = ref({});
         var donutChart = ref({});
-        var displayMode = ref('bar');
+        var displayMode = ref('line');
         var countsData = ref(null);
         var summaryStats = ref(null);
         var dailyGranularity = ref(null);
@@ -601,7 +601,7 @@ const ChartView = {
             mapType.value = MAP_VIEWS[newId] || null;
             mapData.value = null;
             mapNormalized.value = (newId === 'usStates') ? true : null;
-            displayMode.value = 'bar';
+            displayMode.value = 'line';
             dailyChart.value = {};
             volumeChart.value = {};
             donutChart.value = {};

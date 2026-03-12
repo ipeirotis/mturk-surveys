@@ -5,7 +5,7 @@
 const useDateFilter = () => {
     const { ref } = Vue;
     const defaultFrom = new Date();
-    defaultFrom.setMonth(defaultFrom.getMonth() - 3);
+    defaultFrom.setFullYear(defaultFrom.getFullYear() - 2);
 
     const from = ref(defaultFrom);
     const to = ref(new Date());
