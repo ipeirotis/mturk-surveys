@@ -19,14 +19,6 @@
     <script src="//cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js" type="text/javascript"></script>
     <script src="//cdn.jsdelivr.net/npm/vue-router@4/dist/vue-router.global.prod.js" type="text/javascript"></script>
 
-    <!-- App JS (Vue 3 components, loaded individually) -->
-    <script src="/vue/composables/useLoading.js" type="text/javascript"></script>
-    <script src="/vue/composables/useDateFilter.js" type="text/javascript"></script>
-    <script src="/vue/composables/useChartData.js" type="text/javascript"></script>
-    <script src="/vue/components/ChartjsChart.js" type="text/javascript"></script>
-    <script src="/vue/components/ChoroplethMap.js" type="text/javascript"></script>
-    <script src="/vue/components/ChartView.js" type="text/javascript"></script>
-    <script src="/vue/app.js" type="text/javascript"></script>
   </head>
 
   <body>
@@ -81,5 +73,14 @@
         <a href="https://dl.acm.org/doi/10.1145/3159652.3159661">Demographics and Dynamics of Mechanical Turk Workers
 		; Djellel Difallah, Elena  Filatova, and Panos Ipeirotis; WSDM '18: Proceedings of the Eleventh ACM International Conference on Web Search and Data Mining; February 2018; Pages 135–143.</a></p>
     </footer>
+
+    <!-- App JS (Vue 3 components, loaded after DOM) -->
+    <script src="/vue/composables/useLoading.js"></script>
+    <script src="/vue/composables/useDateFilter.js"></script>
+    <script src="/vue/composables/useChartData.js"></script>
+    <script src="/vue/components/ChartjsChart.js"></script>
+    <script src="/vue/components/ChoroplethMap.js"></script>
+    <script src="/vue/components/ChartView.js"></script>
+    <script src="/vue/app.js"></script>
 </body>
 </html>
