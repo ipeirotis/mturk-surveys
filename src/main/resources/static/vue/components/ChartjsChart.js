@@ -280,6 +280,12 @@ const ChartjsChart = {
             chart = new Chart(ctx, buildConfig(data));
         }
 
+        onMounted(() => {
+            if (props.chartData && props.chartData.labels && props.chartData.labels.length > 0) {
+                renderChart();
+            }
+        });
+
         watch(() => props.chartData, (newVal) => {
             if (newVal && newVal.labels && newVal.labels.length > 0) {
                 nextTick(renderChart);
