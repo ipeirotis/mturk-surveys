@@ -120,9 +120,11 @@ const ChartView = {
 </div>
 <!-- Loading / Error -->
 <div class="row" v-if="loading">
-    <div class="col-12 text-center" style="padding: 40px 0;">
-        <i class="bi bi-arrow-clockwise" style="font-size: 24px; color: #999;"></i>
-        <p class="text-muted" style="margin-top: 8px;">Loading chart data...</p>
+    <div class="col-12 text-center" style="padding: 60px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 2rem; height: 2rem;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="text-muted" style="margin-top: 12px; font-size: 13px;">Loading chart data...</p>
     </div>
 </div>
 <div class="row" v-if="loadError">
@@ -157,11 +159,11 @@ const ChartView = {
     <div v-if="displayMode !== 'donut'">
         <chartjs-chart :chart-data="dailyChart" class="chart-container" style="display:block;"></chartjs-chart>
         <!-- Volume Chart -->
-        <div class="row" style="margin-top: 4px;">
+        <div class="row" style="margin-top: 8px;">
             <div class="col-12">
-                <p class="text-muted small" style="margin: 0 0 2px 0;">
+                <p class="volume-label">
                     Response Volume
-                    <span v-if="volumeGranularity" class="granularity-note" style="margin-left: 6px;">
+                    <span v-if="volumeGranularity" style="font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 6px; font-size: 10px;">
                         <i class="bi bi-info-circle"></i> {{volumeGranularity}}
                     </span>
                 </p>
