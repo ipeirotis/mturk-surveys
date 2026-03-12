@@ -219,13 +219,37 @@ body {
     100% { background-position: -200% 0; }
 }
 
-/* ── Date Range Controls ── */
-.date-controls-row {
+/* ── Chart Toolbar ── */
+.chart-toolbar {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+}
+
+.toolbar-row {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 10px;
+}
+
+.toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 24px;
+    background: #e2e8f0;
+    flex-shrink: 0;
+}
+
+.toolbar-spacer {
+    flex: 1;
 }
 
 .date-presets {
@@ -269,7 +293,7 @@ body {
 
 .volume-chart-container {
     width: 100%;
-    height: 130px;
+    height: 80px;
     background: #fafbfc;
     border-radius: 8px;
     padding: 4px 4px 0 4px;
@@ -277,14 +301,6 @@ body {
 }
 
 .chart-pills {
-    margin-bottom: 10px;
-}
-
-.display-mode-btns {
-    margin-bottom: 10px;
-}
-
-.top-n-filter {
     margin-bottom: 10px;
 }
 
@@ -384,7 +400,7 @@ body {
     }
 
     .volume-chart-container {
-        height: 120px;
+        height: 70px;
     }
 
     .stat-value {
@@ -403,6 +419,14 @@ body {
         font-size: 11px;
         padding: 2px 8px;
     }
+
+    .toolbar-separator {
+        display: none;
+    }
+
+    .toolbar-spacer {
+        display: none;
+    }
 }
 
 @media (max-width: 767px) {
@@ -411,12 +435,7 @@ body {
     }
 
     .volume-chart-container {
-        height: 100px;
-    }
-
-    .display-mode-btns {
-        text-align: left;
-        margin-top: 0;
+        height: 60px;
     }
 
     #footer {
@@ -439,7 +458,7 @@ body {
         height: 40px;
     }
 
-    .date-controls-row {
+    .toolbar-row {
         gap: 6px;
     }
 

@@ -125,9 +125,69 @@ const ChartjsChart = {
             };
         }
 
+        function buildVolumeLineConfig(data) {
+            var ds = data.datasets[0];
+            return {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: ds.label,
+                        data: ds.data,
+                        borderColor: '#4285F4',
+                        backgroundColor: function(context) {
+                            var chart = context.chart;
+                            var ctx = chart.ctx;
+                            var area = chart.chartArea;
+                            if (!area) return '#4285F420';
+                            var gradient = ctx.createLinearGradient(0, area.top, 0, area.bottom);
+                            gradient.addColorStop(0, '#4285F430');
+                            gradient.addColorStop(1, '#4285F405');
+                            return gradient;
+                        },
+                        borderWidth: 1.5,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        pointHitRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 300, easing: 'easeOutQuad' },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.92)',
+                            titleFont: { size: 12, weight: '600' },
+                            bodyFont: { size: 11 },
+                            padding: 8,
+                            cornerRadius: 6,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y.toLocaleString() + ' responses';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            min: 0,
+                            ticks: { font: { size: 10 }, color: '#a0aec0', maxTicksLimit: 3 },
+                            grid: { color: '#f0f0f0', drawBorder: false },
+                            border: { display: false }
+                        }
+                    }
+                }
+            };
+        }
+
         function buildConfig(data) {
             if (data.displayMode === 'donut') return buildDonutConfig(data);
             if (data.displayMode === 'volume') return buildVolumeConfig(data);
+            if (data.displayMode === 'volumeLine') return buildVolumeLineConfig(data);
 
             var isArea = data.displayMode === 'area';
             var isLine = data.displayMode === 'line';

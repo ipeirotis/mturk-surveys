@@ -13,7 +13,7 @@ const ChartView = {
     template: `
 <!-- Skeleton stat cards while loading -->
 <div class="row stats-cards" v-if="!summaryStats">
-    <div class="col-6 col-sm-3" v-for="n in 4" :key="n">
+    <div class="col-6" v-for="n in 2" :key="n">
         <div class="stat-card stat-card-skeleton">
             <div class="stat-value">&nbsp;</div>
             <div class="stat-label">&nbsp;</div>
@@ -22,7 +22,7 @@ const ChartView = {
 </div>
 <!-- Summary Statistics Cards -->
 <div class="row stats-cards" v-if="summaryStats">
-    <div class="col-6 col-sm-3">
+    <div class="col-6">
         <div class="stat-card">
             <div class="stat-value">
                 {{summaryStats.totalResponses.toLocaleString()}}
@@ -37,7 +37,7 @@ const ChartView = {
             <div class="stat-label">Total Responses</div>
         </div>
     </div>
-    <div class="col-6 col-sm-3">
+    <div class="col-6">
         <div class="stat-card">
             <div class="stat-value">
                 {{summaryStats.avgPerPeriod.toLocaleString()}}
@@ -52,78 +52,50 @@ const ChartView = {
             <div class="stat-label">{{summaryStats.avgLabel}}</div>
         </div>
     </div>
-    <div class="col-6 col-sm-3">
-        <div class="stat-card">
-            <div class="stat-value">
-                {{summaryStats.topCountry.label}}
-                <span class="trend-arrow" v-if="summaryStats.countryTrend"
-                    :class="{'trend-up': summaryStats.countryTrend.direction === 'up', 'trend-down': summaryStats.countryTrend.direction === 'down', 'trend-flat': summaryStats.countryTrend.direction === 'flat'}">
-                    <i v-if="summaryStats.countryTrend.direction === 'up'" class="bi bi-arrow-up-short"></i>
-                    <i v-if="summaryStats.countryTrend.direction === 'down'" class="bi bi-arrow-down-short"></i>
-                    <i v-if="summaryStats.countryTrend.direction === 'flat'" class="bi bi-dash"></i>
-                    <small v-if="summaryStats.countryTrend.pct > 0">{{summaryStats.countryTrend.pct}}%</small>
-                </span>
-            </div>
-            <div class="stat-label">Top Country ({{summaryStats.topCountry.pct}}%)</div>
-        </div>
-    </div>
-    <div class="col-6 col-sm-3">
-        <div class="stat-card">
-            <div class="stat-value">
-                {{summaryStats.contextual.label}}
-                <span class="trend-arrow" v-if="summaryStats.contextual.trend"
-                    :class="{'trend-up': summaryStats.contextual.trend.direction === 'up', 'trend-down': summaryStats.contextual.trend.direction === 'down', 'trend-flat': summaryStats.contextual.trend.direction === 'flat'}">
-                    <i v-if="summaryStats.contextual.trend.direction === 'up'" class="bi bi-arrow-up-short"></i>
-                    <i v-if="summaryStats.contextual.trend.direction === 'down'" class="bi bi-arrow-down-short"></i>
-                    <i v-if="summaryStats.contextual.trend.direction === 'flat'" class="bi bi-dash"></i>
-                    <small v-if="summaryStats.contextual.trend.pct > 0">{{summaryStats.contextual.trend.pct}}%</small>
-                </span>
-            </div>
-            <div class="stat-label">{{summaryStats.contextual.statLabel}}</div>
-        </div>
-    </div>
 </div>
-<!-- Date Range Controls -->
-<div class="date-controls-row">
-    <div class="input-group input-group-sm" style="width:auto;flex:0 0 auto;">
-        <input type="date" class="form-control" v-model="fromStr" :min="minDateStr" :max="toStr" style="max-width:150px;" />
-    </div>
-    <div class="input-group input-group-sm" style="width:auto;flex:0 0 auto;">
-        <input type="date" class="form-control" v-model="toStr" :min="fromStr" :max="maxDateStr" style="max-width:150px;" />
-    </div>
-    <button type="button" class="btn btn-primary btn-sm" @click="applyDateRange()">
-        <i class="bi bi-arrow-clockwise"></i> Update
-    </button>
-    <div class="date-presets">
-        <button v-for="p in datePresets" :key="p.label" type="button" class="btn btn-sm"
-            :class="activePreset === p.label ? 'btn-primary' : 'btn-outline-secondary'"
-            @click="applyPreset(p)">{{p.label}}</button>
-    </div>
-</div>
-<!-- Display Mode (hidden for map views) -->
-<div class="row" v-if="!isMapView">
-    <div class="col-12 col-sm-8">
-        <div class="btn-group btn-group-sm top-n-filter">
-            <button type="button" class="btn" v-for="opt in topNOptions" :key="opt.value"
-                :class="topN === opt.value ? 'btn-primary' : 'btn-outline-secondary'"
-                @click="setTopN(opt.value)">{{opt.label}}</button>
-        </div>
-    </div>
-    <div class="col-12 col-sm-4 text-end display-mode-btns">
-        <div class="btn-group">
-            <button type="button" class="btn btn-sm" :class="displayMode === 'bar' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('bar')">
-                <i class="bi bi-bar-chart-fill"></i> Bars
-            </button>
-            <button type="button" class="btn btn-sm" :class="displayMode === 'area' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('area')">
-                <i class="bi bi-graph-up"></i> Area
-            </button>
-            <button type="button" class="btn btn-sm" :class="displayMode === 'line' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('line')">
-                <i class="bi bi-graph-up"></i> Line
-            </button>
-            <button type="button" class="btn btn-sm" :class="displayMode === 'donut' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('donut')">
-                <i class="bi bi-pie-chart"></i> Donut
+<!-- Toolbar: date range, presets, chart controls -->
+<div class="chart-toolbar">
+    <div class="toolbar-row">
+        <div class="toolbar-group">
+            <input type="date" class="form-control form-control-sm" v-model="fromStr" :min="minDateStr" :max="toStr" style="max-width:140px;" />
+            <input type="date" class="form-control form-control-sm" v-model="toStr" :min="fromStr" :max="maxDateStr" style="max-width:140px;" />
+            <button type="button" class="btn btn-primary btn-sm" @click="applyDateRange()">
+                <i class="bi bi-arrow-clockwise"></i> Update
             </button>
         </div>
+        <div class="toolbar-separator"></div>
+        <div class="toolbar-group date-presets">
+            <button v-for="p in datePresets" :key="p.label" type="button" class="btn btn-sm"
+                :class="activePreset === p.label ? 'btn-primary' : 'btn-outline-secondary'"
+                @click="applyPreset(p)">{{p.label}}</button>
+        </div>
+        <template v-if="!isMapView">
+            <div class="toolbar-separator"></div>
+            <div class="toolbar-group">
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn" v-for="opt in topNOptions" :key="opt.value"
+                        :class="topN === opt.value ? 'btn-primary' : 'btn-outline-secondary'"
+                        @click="setTopN(opt.value)">{{opt.label}}</button>
+                </div>
+            </div>
+            <div class="toolbar-spacer"></div>
+            <div class="toolbar-group">
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn" :class="displayMode === 'bar' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('bar')">
+                        <i class="bi bi-bar-chart-fill"></i> Bars
+                    </button>
+                    <button type="button" class="btn" :class="displayMode === 'area' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('area')">
+                        <i class="bi bi-graph-up"></i> Area
+                    </button>
+                    <button type="button" class="btn" :class="displayMode === 'line' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('line')">
+                        <i class="bi bi-activity"></i> Line
+                    </button>
+                    <button type="button" class="btn" :class="displayMode === 'donut' ? 'btn-primary' : 'btn-outline-secondary'" @click="setDisplayMode('donut')">
+                        <i class="bi bi-pie-chart"></i> Donut
+                    </button>
+                </div>
+            </div>
+        </template>
     </div>
 </div>
 <!-- Loading / Error -->
@@ -356,50 +328,6 @@ const ChartView = {
             };
         }
 
-        function findTop(map) {
-            if (!map) return { label: 'N/A', count: 0, pct: 0 };
-            var best = null, total = 0;
-            for (var k in map) {
-                total += map[k];
-                if (!best || map[k] > best.count) {
-                    best = { label: k, count: map[k] };
-                }
-            }
-            if (best && total > 0) {
-                best.pct = Math.round(best.count / total * 1000) / 10;
-            } else {
-                return { label: 'N/A', count: 0, pct: 0 };
-            }
-            return best;
-        }
-
-        // Maps viewId to the counts field name for contextual stat
-        var VIEW_TO_COUNTS_FIELD = {
-            'gender': 'totalGender',
-            'yearOfBirth': 'totalYearOfBirth',
-            'maritalStatus': 'totalMaritalStatus',
-            'householdSize': 'totalHouseholdSize',
-            'householdIncome': 'totalHouseholdIncome',
-            'educationalLevel': 'totalEducationalLevel',
-            'timeSpentOnMturk': 'totalTimeSpentOnMturk',
-            'weeklyIncomeFromMturk': 'totalWeeklyIncomeFromMturk',
-            'languagesSpoken': 'totalLanguagesSpoken',
-            'countries': 'totalCountries'
-        };
-
-        var VIEW_LABELS = {
-            'gender': 'Top Gender',
-            'yearOfBirth': 'Top Birth Year',
-            'maritalStatus': 'Top Marital Status',
-            'householdSize': 'Top Household Size',
-            'householdIncome': 'Top Income',
-            'educationalLevel': 'Top Education',
-            'timeSpentOnMturk': 'Top Time on MTurk',
-            'weeklyIncomeFromMturk': 'Top MTurk Income',
-            'languagesSpoken': 'Top Language',
-            'countries': 'Top Country'
-        };
-
         function buildSummaryStats(counts, priorCounts) {
             if (!counts) return;
             var stats = {};
@@ -416,20 +344,6 @@ const ChartView = {
                 stats.avgLabel = 'Avg / Day';
             }
 
-            stats.topCountry = findTop(counts.totalCountries);
-
-            // Build contextual 4th stat based on current view
-            var contextField = VIEW_TO_COUNTS_FIELD[props.viewId] || 'totalGender';
-            var contextLabel = VIEW_LABELS[props.viewId] || 'Top Gender';
-            var contextData = counts[contextField];
-            var topContextual = findTop(contextData);
-            stats.contextual = {
-                label: topContextual.label,
-                pct: topContextual.pct,
-                statLabel: contextLabel + ' (' + topContextual.pct + '%)',
-                trend: null
-            };
-
             if (priorCounts) {
                 var priorTotal = priorCounts.totalResponses || 0;
                 var priorNumPeriods = priorCounts.days ? priorCounts.days.length : 0;
@@ -437,17 +351,6 @@ const ChartView = {
 
                 stats.totalTrend = computeTrend(stats.totalResponses, priorTotal);
                 stats.avgTrend = computeTrend(stats.avgPerPeriod, priorAvg);
-
-                var priorTopCountry = findTop(priorCounts.totalCountries);
-                if (stats.topCountry.label !== 'N/A' && priorTopCountry.label !== 'N/A') {
-                    stats.countryTrend = computeTrend(stats.topCountry.pct, priorTopCountry.pct);
-                }
-
-                var priorContextData = priorCounts[contextField];
-                var priorTopContextual = findTop(priorContextData);
-                if (topContextual.label !== 'N/A' && priorTopContextual.label !== 'N/A') {
-                    stats.contextual.trend = computeTrend(topContextual.pct, priorTopContextual.pct);
-                }
             }
 
             summaryStats.value = stats;
@@ -489,7 +392,7 @@ const ChartView = {
             volumeChart.value = {
                 labels: labels,
                 datasets: [{ label: 'Responses', data: data }],
-                displayMode: 'volume'
+                displayMode: 'volumeLine'
             };
         }
 
