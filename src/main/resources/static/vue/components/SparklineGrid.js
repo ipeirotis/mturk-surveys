@@ -15,7 +15,7 @@ const SparklineGrid = {
             <span class="sparkline-label">{{item.label}}</span>
             <span class="sparkline-value">{{item.latestValue}}</span>
         </div>
-        <canvas :ref="el => { if (el) canvasRefs[item.label] = el; }" height="40"></canvas>
+        <div style="position: relative; height: 40px;"><canvas :ref="el => { if (el) canvasRefs[item.label] = el; }"></canvas></div>
     </div>
 </div>
 <div v-else class="text-muted small" style="padding: 20px 0;">No data available for sparklines.</div>
