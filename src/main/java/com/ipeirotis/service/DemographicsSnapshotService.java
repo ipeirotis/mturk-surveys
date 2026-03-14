@@ -1417,7 +1417,7 @@ public class DemographicsSnapshotService {
             String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
             String sql = String.format(
-                    "SELECT date, locationCountry, locationRegion, answers "
+                    "SELECT date, locationCountry, locationRegion, hitCreationDate, answers "
                     + "FROM `%s.%s.%s` WHERE DATE(date) >= '%s' AND DATE(date) < '%s'",
                     projectId, BQ_BACKUP_DATASET, BQ_BACKUP_TABLE, fromDate, toDate);
 
@@ -1430,6 +1430,7 @@ public class DemographicsSnapshotService {
                 ua.setDate(parseTimestamp(row, "date"));
                 ua.setLocationCountry(getStringOrNull(row, "locationCountry"));
                 ua.setLocationRegion(getStringOrNull(row, "locationRegion"));
+                ua.setHitCreationDate(parseTimestampOrNull(row, "hitCreationDate"));
 
                 Map<String, String> answers = parseAnswersRecord(row, tableSchema);
                 if (!answers.isEmpty()) {
@@ -1457,7 +1458,8 @@ public class DemographicsSnapshotService {
             String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
             String sql = String.format(
-                    "SELECT date, country, region, year_of_birth, gender, marital_status, "
+                    "SELECT DISTINCT date, country, region, hit_creation_date, "
+                    + "year_of_birth, gender, marital_status, "
                     + "household_size, household_income, educational_level, "
                     + "time_spent_on_mturk, weekly_income_from_mturk, languages_spoken "
                     + "FROM `%s.%s.%s` WHERE DATE(date) >= '%s' AND DATE(date) < '%s'",
@@ -1471,6 +1473,7 @@ public class DemographicsSnapshotService {
                 ua.setDate(parseTimestamp(row, "date"));
                 ua.setLocationCountry(getStringOrNull(row, "country"));
                 ua.setLocationRegion(getStringOrNull(row, "region"));
+                ua.setHitCreationDate(parseTimestampOrNull(row, "hit_creation_date"));
 
                 Map<String, String> answers = new LinkedHashMap<>();
                 putIfNotNull(answers, "yearOfBirth", getStringOrNull(row, "year_of_birth"));
@@ -1528,7 +1531,8 @@ public class DemographicsSnapshotService {
             String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
             String sql = String.format(
-                    "SELECT date, country, region, year_of_birth, gender, marital_status, "
+                    "SELECT DISTINCT date, country, region, hit_creation_date, "
+                    + "year_of_birth, gender, marital_status, "
                     + "household_size, household_income, educational_level, "
                     + "time_spent_on_mturk, weekly_income_from_mturk, languages_spoken "
                     + "FROM `%s.%s.%s` WHERE DATE(date) = '%s'",
@@ -1542,6 +1546,7 @@ public class DemographicsSnapshotService {
                 ua.setDate(parseTimestamp(row, "date"));
                 ua.setLocationCountry(getStringOrNull(row, "country"));
                 ua.setLocationRegion(getStringOrNull(row, "region"));
+                ua.setHitCreationDate(parseTimestampOrNull(row, "hit_creation_date"));
 
                 Map<String, String> answers = new LinkedHashMap<>();
                 putIfNotNull(answers, "yearOfBirth", getStringOrNull(row, "year_of_birth"));
@@ -1581,7 +1586,7 @@ public class DemographicsSnapshotService {
             String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
             String sql = String.format(
-                    "SELECT date, locationCountry, locationRegion, answers "
+                    "SELECT date, locationCountry, locationRegion, hitCreationDate, answers "
                     + "FROM `%s.%s.%s` WHERE DATE(date) = '%s'",
                     projectId, BQ_BACKUP_DATASET, BQ_BACKUP_TABLE, sortableDate);
 
@@ -1594,6 +1599,7 @@ public class DemographicsSnapshotService {
                 ua.setDate(parseTimestamp(row, "date"));
                 ua.setLocationCountry(getStringOrNull(row, "locationCountry"));
                 ua.setLocationRegion(getStringOrNull(row, "locationRegion"));
+                ua.setHitCreationDate(parseTimestampOrNull(row, "hitCreationDate"));
 
                 Map<String, String> answers = parseAnswersRecord(row, tableSchema);
                 if (!answers.isEmpty()) {
@@ -1650,9 +1656,14 @@ public class DemographicsSnapshotService {
     }
 
     private Date parseTimestamp(FieldValueList row, String fieldName) {
+        Date result = parseTimestampOrNull(row, fieldName);
+        return result != null ? result : new Date();
+    }
+
+    private Date parseTimestampOrNull(FieldValueList row, String fieldName) {
         try {
             FieldValue val = row.get(fieldName);
-            if (val.isNull()) return new Date();
+            if (val.isNull()) return null;
             String dateVal = val.getStringValue();
 
             // Try epoch micros first (Datastore export format)
@@ -1683,7 +1694,7 @@ public class DemographicsSnapshotService {
         } catch (Exception e) {
             // Field might not exist
         }
-        return new Date();
+        return null;
     }
 
     private String getStringOrNull(FieldValueList row, String fieldName) {

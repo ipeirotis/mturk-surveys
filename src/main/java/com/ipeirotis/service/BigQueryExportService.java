@@ -43,25 +43,10 @@ public class BigQueryExportService {
 		dateTo.setTime(dateFrom.getTime());
 		dateTo.add(Calendar.DAY_OF_MONTH, 1);
 
-		List<UserAnswer> answers = surveyService.listAnswersByDateRange(dateFrom.getTime(), dateTo.getTime());
+		// Filter by surveyId to only export demographics entries
+		List<UserAnswer> answers = surveyService.listAnswers("demographics", dateFrom.getTime(), dateTo.getTime());
 
-		// Diagnostic logging: count by surveyId to detect null/mismatched surveyId
-		int nullSurveyIdCount = 0;
-		int demographicsCount = 0;
-		int otherSurveyIdCount = 0;
-		for (UserAnswer ua : answers) {
-			if (ua.getSurveyId() == null) {
-				nullSurveyIdCount++;
-			} else if ("demographics".equals(ua.getSurveyId())) {
-				demographicsCount++;
-			} else {
-				otherSurveyIdCount++;
-			}
-		}
-		logger.info("BigQuery export for " + dateStr + ": total=" + answers.size()
-				+ " demographics=" + demographicsCount
-				+ " nullSurveyId=" + nullSurveyIdCount
-				+ " otherSurveyId=" + otherSurveyIdCount);
+		logger.info("BigQuery export for " + dateStr + ": " + answers.size() + " demographics entries");
 
 		if (answers.isEmpty()) {
 			logger.info("No responses found for " + dateStr + ", skipping BigQuery export");
@@ -92,65 +77,89 @@ public class BigQueryExportService {
 		DateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 		isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
 
-		TableId tableId = TableId.of(DATASET_ID, TABLE_ID);
-
-		// Batch inserts in groups of 500 (BigQuery streaming insert limit is 10,000 per request)
-		int batchSize = 500;
+		// Use DML INSERT instead of streaming inserts to avoid streaming buffer
+		// conflicts with the DELETE above (streaming buffer is not affected by DML)
+		int batchSize = 200;
 		int totalExported = 0;
 
 		for (int i = 0; i < answers.size(); i += batchSize) {
 			int end = Math.min(i + batchSize, answers.size());
 			List<UserAnswer> batch = answers.subList(i, end);
 
-			InsertAllRequest.Builder requestBuilder = InsertAllRequest.newBuilder(tableId);
+			StringBuilder sql = new StringBuilder();
+			sql.append(String.format("INSERT INTO `%s.%s.%s` "
+					+ "(date, worker_id, survey_id, country, region, city, hit_id, "
+					+ "hit_creation_date, ip_address, year_of_birth, gender, marital_status, "
+					+ "household_size, household_income, educational_level, "
+					+ "time_spent_on_mturk, weekly_income_from_mturk, languages_spoken) VALUES ",
+					projectId, DATASET_ID, TABLE_ID));
 
-			for (UserAnswer ua : batch) {
-				Map<String, Object> row = new HashMap<>();
+			for (int j = 0; j < batch.size(); j++) {
+				UserAnswer ua = batch.get(j);
+				if (j > 0) sql.append(", ");
+				sql.append("(");
 
-				if (ua.getDate() != null) {
-					row.put("date", isoFormat.format(ua.getDate()));
-				}
+				// date
+				sql.append(ua.getDate() != null
+						? "TIMESTAMP('" + isoFormat.format(ua.getDate()) + "')" : "NULL");
+				sql.append(", ");
 
+				// worker_id (SHA256-hashed)
 				String workerId = ua.getWorkerId();
-				row.put("worker_id", workerId != null ? sha256Hex(workerId) : null);
-				row.put("survey_id", ua.getSurveyId());
-				row.put("country", ua.getLocationCountry());
-				row.put("region", ua.getLocationRegion());
-				row.put("city", ua.getLocationCity());
-				row.put("hit_id", ua.getHitId());
-				if (ua.getHitCreationDate() != null) {
-					row.put("hit_creation_date", isoFormat.format(ua.getHitCreationDate()));
-				}
+				sql.append(workerId != null ? sqlString(sha256Hex(workerId)) : "NULL");
+				sql.append(", ");
+
+				// survey_id
+				sql.append(sqlString(ua.getSurveyId()));
+				sql.append(", ");
+
+				// country, region, city
+				sql.append(sqlString(ua.getLocationCountry())).append(", ");
+				sql.append(sqlString(ua.getLocationRegion())).append(", ");
+				sql.append(sqlString(ua.getLocationCity())).append(", ");
+
+				// hit_id
+				sql.append(sqlString(ua.getHitId())).append(", ");
+
+				// hit_creation_date
+				sql.append(ua.getHitCreationDate() != null
+						? "TIMESTAMP('" + isoFormat.format(ua.getHitCreationDate()) + "')" : "NULL");
+				sql.append(", ");
+
+				// ip_address (SHA256-hashed)
 				String ip = ua.getIp();
-				row.put("ip_address", ip != null ? sha256Hex(ip) : null);
+				sql.append(ip != null ? sqlString(sha256Hex(ip)) : "NULL");
 
+				// answer fields
 				Map<String, String> a = ua.getAnswers();
-				if (a != null) {
-					row.put("year_of_birth", a.get("yearOfBirth"));
-					row.put("gender", a.get("gender"));
-					row.put("marital_status", a.get("maritalStatus"));
-					row.put("household_size", a.get("householdSize"));
-					row.put("household_income", a.get("householdIncome"));
-					row.put("educational_level", a.get("educationalLevel"));
-					row.put("time_spent_on_mturk", a.get("timeSpentOnMturk"));
-					row.put("weekly_income_from_mturk", a.get("weeklyIncomeFromMturk"));
-					row.put("languages_spoken", a.get("languagesSpoken"));
+				String[] keys = {"yearOfBirth", "gender", "maritalStatus", "householdSize",
+						"householdIncome", "educationalLevel", "timeSpentOnMturk",
+						"weeklyIncomeFromMturk", "languagesSpoken"};
+				for (String key : keys) {
+					sql.append(", ");
+					sql.append(a != null ? sqlString(a.get(key)) : "NULL");
 				}
 
-				requestBuilder.addRow(row);
+				sql.append(")");
 			}
 
-			InsertAllResponse response = bigQuery.insertAll(requestBuilder.build());
-			if (response.hasErrors()) {
-				for (Map.Entry<Long, List<BigQueryError>> entry : response.getInsertErrors().entrySet()) {
-					logger.log(Level.WARNING, "Row " + entry.getKey() + " errors: " + entry.getValue());
-				}
+			try {
+				QueryJobConfiguration insertConfig = QueryJobConfiguration.newBuilder(sql.toString()).build();
+				bigQuery.query(insertConfig);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				throw new RuntimeException("Interrupted during BigQuery INSERT", e);
 			}
 			totalExported += batch.size();
 		}
 
 		logger.info("Exported " + totalExported + " rows to BigQuery for " + dateStr);
 		return totalExported;
+	}
+
+	private static String sqlString(String value) {
+		if (value == null) return "NULL";
+		return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'";
 	}
 
 	private static String sha256Hex(String input) {
