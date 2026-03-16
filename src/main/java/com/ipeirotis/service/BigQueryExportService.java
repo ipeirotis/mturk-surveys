@@ -46,6 +46,20 @@ public class BigQueryExportService {
 		// Filter by surveyId to only export demographics entries
 		List<UserAnswer> answers = surveyService.listAnswers("demographics", dateFrom.getTime(), dateTo.getTime());
 
+		// Deduplicate: keep earliest response per (workerId, hitId)
+		int originalCount = answers.size();
+		Map<String, UserAnswer> seen = new LinkedHashMap<>();
+		for (UserAnswer ua : answers) {
+			String key = (ua.getWorkerId() != null ? ua.getWorkerId() : "")
+					+ "|" + (ua.getHitId() != null ? ua.getHitId() : "");
+			seen.putIfAbsent(key, ua);
+		}
+		answers = new ArrayList<>(seen.values());
+		if (answers.size() < originalCount) {
+			logger.info("Deduplicated " + (originalCount - answers.size())
+					+ " duplicate entries for " + dateStr);
+		}
+
 		logger.info("BigQuery export for " + dateStr + ": " + answers.size() + " demographics entries");
 
 		if (answers.isEmpty()) {
@@ -155,6 +169,57 @@ public class BigQueryExportService {
 
 		logger.info("Exported " + totalExported + " rows to BigQuery for " + dateStr);
 		return totalExported;
+	}
+
+	/**
+	 * Remove duplicate rows from the BigQuery demographics.responses table.
+	 * Keeps the earliest response per (worker_id, hit_id) pair.
+	 * @return map with beforeCount, afterCount, duplicatesRemoved
+	 */
+	public Map<String, Object> deduplicateTable() {
+		BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
+		String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
+		String fullTable = String.format("`%s.%s.%s`", projectId, DATASET_ID, TABLE_ID);
+
+		Map<String, Object> result = new LinkedHashMap<>();
+
+		try {
+			// Count rows before dedup
+			String countSql = "SELECT COUNT(*) AS cnt FROM " + fullTable;
+			QueryJobConfiguration countConfig = QueryJobConfiguration.newBuilder(countSql).build();
+			TableResult countResult = bigQuery.query(countConfig);
+			long beforeCount = countResult.iterateAll().iterator().next().get("cnt").getLongValue();
+			result.put("beforeCount", beforeCount);
+
+			// Deduplicate: keep earliest response per (worker_id, hit_id)
+			String dedupSql = String.format(
+					"CREATE OR REPLACE TABLE %s AS "
+					+ "SELECT * EXCEPT(row_num) FROM ("
+					+ "  SELECT *, ROW_NUMBER() OVER ("
+					+ "    PARTITION BY worker_id, hit_id"
+					+ "    ORDER BY date ASC"
+					+ "  ) AS row_num"
+					+ "  FROM %s"
+					+ ") WHERE row_num = 1",
+					fullTable, fullTable);
+
+			QueryJobConfiguration dedupConfig = QueryJobConfiguration.newBuilder(dedupSql).build();
+			bigQuery.query(dedupConfig);
+
+			// Count rows after dedup
+			countResult = bigQuery.query(countConfig);
+			long afterCount = countResult.iterateAll().iterator().next().get("cnt").getLongValue();
+			result.put("afterCount", afterCount);
+			result.put("duplicatesRemoved", beforeCount - afterCount);
+
+			logger.info("BigQuery dedup complete: " + beforeCount + " -> " + afterCount
+					+ " (" + (beforeCount - afterCount) + " duplicates removed)");
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new RuntimeException("Interrupted during BigQuery dedup", e);
+		}
+
+		return result;
 	}
 
 	private static String sqlString(String value) {

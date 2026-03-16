@@ -14,10 +14,13 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Date;
+import java.util.logging.Logger;
 
 @RestController
 @RequestMapping("/")
 public class SaveUserAnswerController {
+
+	private static final Logger logger = Logger.getLogger(SaveUserAnswerController.class.getName());
 
 	@Autowired
 	private UserAnswerService userAnswerService;
@@ -41,6 +44,20 @@ public class SaveUserAnswerController {
 		userAnswer.setLocationCity(city);
 		userAnswer.setLocationCountry(country);
 		userAnswer.setLocationRegion(region);
+
+		// Server-side dedup: reject if this worker already answered this HIT
+		if (userAnswer.getWorkerId() != null && userAnswer.getHitId() != null) {
+			UserAnswer existing = userAnswerService.get(userAnswer.getHitId());
+			if (existing != null && userAnswer.getWorkerId().equals(existing.getWorkerId())) {
+				logger.info("Duplicate answer rejected: workerId=" + userAnswer.getWorkerId()
+						+ " hitId=" + userAnswer.getHitId());
+				if (callback != null) {
+					return new ResponseEntity<>(callback + "(" + gson.toJson(existing) + ");", HttpStatus.OK);
+				}
+				return new ResponseEntity<>(HttpStatus.OK);
+			}
+		}
+
 		userAnswerService.save(userAnswer);
 
 		AddHitCreationTimeToUserAnswerController.queueTask("/tasks/addHitCreationTime", userAnswer.getHitId());
