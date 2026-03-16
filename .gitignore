@@ -21,6 +21,8 @@ dist/
 
 # Secrets
 client-secret.json
+sa-key.json
+*-sa-key.json
 
 # Local databases
 local_db.bin

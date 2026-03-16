@@ -282,6 +282,54 @@ These gaps are legitimate (no survey activity) and appear as zero-response entri
 - No test framework is present — be careful when modifying business logic
 - **Spring Boot 3.4.1 / Jakarta namespace:** The project uses `jakarta.*` imports (not `javax.*`). Objectify 6.1.3 ships with both — use `ObjectifyService.Filter` (jakarta) not the deprecated `ObjectifyFilter` (javax)
 
+## GCP
+
+- **Project ID:** `mturk-demographics`
+- **Service account:** `claude-agent@mturk-demographics.iam.gserviceaccount.com`
+- **Encrypted key:** `.gcp-sa-key.enc` (AES-256-CBC, passphrase in `GCP_CREDENTIALS_KEY` env var)
+- **Config:** `.gcp-config.json` (project ID and service account email)
+
+### Roles Granted
+
+| Role | Why |
+|---|---|
+| `roles/datastore.user` | Read/write Datastore entities (Survey, Question, UserAnswer, etc.) |
+| `roles/cloudtasks.enqueuer` | Enqueue Cloud Tasks for background jobs |
+| `roles/secretmanager.admin` | Read, create, and update secrets (AWS creds, future secrets) |
+| `roles/appengine.deployer` | Deploy the app to App Engine |
+| `roles/appengine.serviceAdmin` | Manage App Engine service versions |
+| `roles/cloudbuild.builds.builder` | App Engine deployments use Cloud Build |
+| `roles/storage.objectViewer` | Read Datastore export backups from GCS |
+| `roles/bigquery.dataEditor` | Write to BigQuery tables for daily export |
+| `roles/bigquery.jobUser` | Run BigQuery queries |
+
+### How to Authenticate
+
+```bash
+# 1. Decrypt the key
+openssl enc -d -aes-256-cbc -pbkdf2 \
+  -pass env:GCP_CREDENTIALS_KEY \
+  -in .gcp-sa-key.enc -out /tmp/sa-key.json
+
+# 2. Activate the service account
+gcloud auth activate-service-account --key-file=/tmp/sa-key.json
+
+# 3. Set the project
+gcloud config set project $(jq -r .project_id .gcp-config.json)
+
+# 4. Delete the plaintext key immediately
+rm /tmp/sa-key.json
+```
+
+### Permission Escalation
+
+If you hit a 403, stop and report:
+1. The exact error
+2. The role needed and why
+3. Ask the user for a new bootstrap token (`gcloud auth print-access-token`)
+
+Never modify IAM policies directly. Prefer granular roles over basic roles.
+
 ## Task Progress
 
 See [TASKS.md](TASKS.md) for the full task list. Summary:
