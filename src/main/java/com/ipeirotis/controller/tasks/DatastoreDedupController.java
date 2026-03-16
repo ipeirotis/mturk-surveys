@@ -1,6 +1,7 @@
 package com.ipeirotis.controller.tasks;
 
 import com.ipeirotis.service.DatastoreDedupService;
+import com.ipeirotis.service.DatastoreDedupService.DedupResult;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
 import com.ipeirotis.util.TaskUtils;
@@ -11,9 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.util.Calendar;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 public class DatastoreDedupController {
@@ -22,11 +21,80 @@ public class DatastoreDedupController {
 	private DatastoreDedupService datastoreDedupService;
 
 	/**
+	 * Count duplicates for a single date (read-only, no deletions).
+	 * Example: /tasks/countDuplicatesDate?date=2024-01-15
+	 */
+	@GetMapping("/tasks/countDuplicatesDate")
+	public Map<String, Object> countDuplicatesDate(@RequestParam String date) throws ParseException {
+		DedupResult result = datastoreDedupService.countDuplicates(date);
+		return result.toMap();
+	}
+
+	/**
+	 * Audit duplicates across a date range. Returns per-day counts for days
+	 * that have duplicates, plus totals. Read-only, no deletions.
+	 * For large ranges, processes directly (no Cloud Tasks) since it's read-only.
+	 * Example: /tasks/countDuplicates?from=2024-01-01&to=2024-12-31
+	 */
+	@GetMapping("/tasks/countDuplicates")
+	public Map<String, Object> countDuplicatesRange(@RequestParam String from,
+													@RequestParam String to) throws ParseException {
+		DateFormat df = SafeDateFormat.forPattern("yyyy-MM-dd");
+		Calendar start = Calendar.getInstance();
+		start.setTime(df.parse(from));
+		CalendarUtils.truncateToDay(start);
+
+		Calendar end = Calendar.getInstance();
+		end.setTime(df.parse(to));
+		CalendarUtils.truncateToDay(end);
+
+		List<Map<String, Object>> daysWithDuplicates = new ArrayList<>();
+		int totalEntries = 0;
+		int totalDuplicates = 0;
+		int daysScanned = 0;
+
+		Calendar current = (Calendar) start.clone();
+		while (!current.after(end)) {
+			String dateStr = df.format(current.getTime());
+			DedupResult result = datastoreDedupService.countDuplicates(dateStr);
+			daysScanned++;
+			totalEntries += result.totalEntries;
+			totalDuplicates += result.duplicateEntries;
+
+			if (result.duplicateEntries > 0) {
+				daysWithDuplicates.add(result.toMap());
+			}
+
+			current.add(Calendar.DAY_OF_MONTH, 1);
+		}
+
+		Map<String, Object> response = new LinkedHashMap<>();
+		response.put("status", "ok");
+		response.put("from", from);
+		response.put("to", to);
+		response.put("daysScanned", daysScanned);
+		response.put("totalEntries", totalEntries);
+		response.put("totalDuplicates", totalDuplicates);
+		response.put("daysWithDuplicates", daysWithDuplicates.size());
+		response.put("details", daysWithDuplicates);
+		return response;
+	}
+
+	/**
 	 * Deduplicate Datastore UserAnswer entries for a single date.
+	 * Use dryRun=true to preview without deleting.
 	 * Example: /tasks/dedupDatastoreDate?date=2024-01-15
+	 * Example: /tasks/dedupDatastoreDate?date=2024-01-15&dryRun=true
 	 */
 	@GetMapping("/tasks/dedupDatastoreDate")
-	public Map<String, Object> deduplicateDate(@RequestParam String date) throws ParseException {
+	public Map<String, Object> deduplicateDate(@RequestParam String date,
+											   @RequestParam(defaultValue = "false") boolean dryRun) throws ParseException {
+		if (dryRun) {
+			DedupResult result = datastoreDedupService.countDuplicates(date);
+			Map<String, Object> response = result.toMap();
+			response.put("status", "dry_run");
+			return response;
+		}
 		int deleted = datastoreDedupService.deduplicateDate(date);
 		return Map.of("status", "ok", "date", date, "duplicatesDeleted", deleted);
 	}
@@ -40,15 +108,14 @@ public class DatastoreDedupController {
 	 */
 	@GetMapping("/tasks/dedupDatastore")
 	public Map<String, Object> deduplicateRange(@RequestParam String from, @RequestParam String to) throws ParseException {
-		DateFormat sortableDf = SafeDateFormat.forPattern("yyyy-MM-dd");
-		DateFormat taskDf = SafeDateFormat.forPattern("yyyy-MM-dd");
+		DateFormat df = SafeDateFormat.forPattern("yyyy-MM-dd");
 
 		Calendar start = Calendar.getInstance();
-		start.setTime(sortableDf.parse(from));
+		start.setTime(df.parse(from));
 		CalendarUtils.truncateToDay(start);
 
 		Calendar end = Calendar.getInstance();
-		end.setTime(sortableDf.parse(to));
+		end.setTime(df.parse(to));
 		CalendarUtils.truncateToDay(end);
 
 		long totalDays = java.util.concurrent.TimeUnit.MILLISECONDS.toDays(
@@ -66,8 +133,8 @@ public class DatastoreDedupController {
 				}
 
 				Map<String, String> params = new LinkedHashMap<>();
-				params.put("from", taskDf.format(chunkStart.getTime()));
-				params.put("to", taskDf.format(chunkEnd.getTime()));
+				params.put("from", df.format(chunkStart.getTime()));
+				params.put("to", df.format(chunkEnd.getTime()));
 				TaskUtils.queueTask("/tasks/dedupDatastore", params);
 				chunksEnqueued++;
 
@@ -84,7 +151,7 @@ public class DatastoreDedupController {
 		int tasksEnqueued = 0;
 		Calendar current = (Calendar) start.clone();
 		while (!current.after(end)) {
-			String dateStr = taskDf.format(current.getTime());
+			String dateStr = df.format(current.getTime());
 			Map<String, String> params = new LinkedHashMap<>();
 			params.put("date", dateStr);
 			TaskUtils.queueTask("/tasks/dedupDatastoreDate", params);

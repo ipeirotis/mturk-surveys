@@ -22,6 +22,63 @@ public class DatastoreDedupService {
 	private SurveyService surveyService;
 
 	/**
+	 * Result of analyzing duplicates for a single day.
+	 */
+	public static class DedupResult {
+		public final String date;
+		public final int totalEntries;
+		public final int uniqueGroups;
+		public final int duplicateEntries;
+		public final int groupsWithDuplicates;
+
+		public DedupResult(String date, int totalEntries, int uniqueGroups,
+						   int duplicateEntries, int groupsWithDuplicates) {
+			this.date = date;
+			this.totalEntries = totalEntries;
+			this.uniqueGroups = uniqueGroups;
+			this.duplicateEntries = duplicateEntries;
+			this.groupsWithDuplicates = groupsWithDuplicates;
+		}
+
+		public Map<String, Object> toMap() {
+			Map<String, Object> map = new LinkedHashMap<>();
+			map.put("date", date);
+			map.put("totalEntries", totalEntries);
+			map.put("uniqueGroups", uniqueGroups);
+			map.put("duplicateEntries", duplicateEntries);
+			map.put("groupsWithDuplicates", groupsWithDuplicates);
+			return map;
+		}
+	}
+
+	/**
+	 * Count duplicates for a single day without deleting anything.
+	 *
+	 * @param dateStr date in yyyy-MM-dd format
+	 * @return dedup analysis result
+	 */
+	public DedupResult countDuplicates(String dateStr) throws ParseException {
+		List<UserAnswer> answers = loadAnswersForDate(dateStr);
+		if (answers.isEmpty()) {
+			return new DedupResult(dateStr, 0, 0, 0, 0);
+		}
+
+		Map<String, List<UserAnswer>> groups = groupByWorkerAndHit(answers);
+
+		int groupsWithDups = 0;
+		int duplicateEntries = 0;
+		for (List<UserAnswer> group : groups.values()) {
+			if (group.size() > 1) {
+				groupsWithDups++;
+				duplicateEntries += group.size() - 1;
+			}
+		}
+
+		return new DedupResult(dateStr, answers.size(), groups.size(),
+				duplicateEntries, groupsWithDups);
+	}
+
+	/**
 	 * Deduplicate UserAnswer entities in Datastore for a single day.
 	 * Groups by (workerId, hitId) and deletes all but the earliest entry per group.
 	 *
@@ -29,26 +86,12 @@ public class DatastoreDedupService {
 	 * @return number of duplicate entities deleted
 	 */
 	public int deduplicateDate(String dateStr) throws ParseException {
-		DateFormat df = SafeDateFormat.forPattern("yyyy-MM-dd");
-		Calendar dateFrom = Calendar.getInstance();
-		dateFrom.setTime(df.parse(dateStr));
-		CalendarUtils.truncateToDay(dateFrom);
-
-		Calendar dateTo = (Calendar) dateFrom.clone();
-		dateTo.add(Calendar.DAY_OF_MONTH, 1);
-
-		List<UserAnswer> answers = surveyService.listAnswers("demographics", dateFrom.getTime(), dateTo.getTime());
+		List<UserAnswer> answers = loadAnswersForDate(dateStr);
 		if (answers.isEmpty()) {
 			return 0;
 		}
 
-		// Group by (workerId, hitId), keeping all entries per group
-		Map<String, List<UserAnswer>> groups = new LinkedHashMap<>();
-		for (UserAnswer ua : answers) {
-			String key = (ua.getWorkerId() != null ? ua.getWorkerId() : "")
-					+ "|" + (ua.getHitId() != null ? ua.getHitId() : "");
-			groups.computeIfAbsent(key, k -> new ArrayList<>()).add(ua);
-		}
+		Map<String, List<UserAnswer>> groups = groupByWorkerAndHit(answers);
 
 		// Collect duplicates to delete (keep earliest by date, then by ID as tiebreaker)
 		List<UserAnswer> toDelete = new ArrayList<>();
@@ -82,6 +125,28 @@ public class DatastoreDedupService {
 		logger.info("Datastore dedup for " + dateStr + ": deleted " + toDelete.size()
 				+ " duplicates out of " + answers.size() + " total entries");
 		return toDelete.size();
+	}
+
+	private List<UserAnswer> loadAnswersForDate(String dateStr) throws ParseException {
+		DateFormat df = SafeDateFormat.forPattern("yyyy-MM-dd");
+		Calendar dateFrom = Calendar.getInstance();
+		dateFrom.setTime(df.parse(dateStr));
+		CalendarUtils.truncateToDay(dateFrom);
+
+		Calendar dateTo = (Calendar) dateFrom.clone();
+		dateTo.add(Calendar.DAY_OF_MONTH, 1);
+
+		return surveyService.listAnswers("demographics", dateFrom.getTime(), dateTo.getTime());
+	}
+
+	private Map<String, List<UserAnswer>> groupByWorkerAndHit(List<UserAnswer> answers) {
+		Map<String, List<UserAnswer>> groups = new LinkedHashMap<>();
+		for (UserAnswer ua : answers) {
+			String key = (ua.getWorkerId() != null ? ua.getWorkerId() : "")
+					+ "|" + (ua.getHitId() != null ? ua.getHitId() : "");
+			groups.computeIfAbsent(key, k -> new ArrayList<>()).add(ua);
+		}
+		return groups;
 	}
 
 	private int compareDates(Date a, Date b) {
