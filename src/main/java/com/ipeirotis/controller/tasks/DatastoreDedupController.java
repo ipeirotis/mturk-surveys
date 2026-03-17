@@ -31,6 +31,17 @@ public class DatastoreDedupController {
 		return Map.of("status", "ok", "date", date, "duplicatesDeleted", deleted);
 	}
 
+	/**
+	 * Global deduplication across all UserAnswer entities (not limited to a single day).
+	 * Catches cross-midnight duplicates that per-day dedup misses.
+	 * Example: /tasks/dedupDatastoreGlobal
+	 */
+	@GetMapping("/tasks/dedupDatastoreGlobal")
+	public Map<String, Object> deduplicateGlobal() {
+		int deleted = datastoreDedupService.deduplicateGlobal();
+		return Map.of("status", "ok", "duplicatesDeleted", deleted);
+	}
+
 	private static final int MAX_CHUNKS = 30;
 
 	/**
