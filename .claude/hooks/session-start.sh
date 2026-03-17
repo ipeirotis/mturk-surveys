@@ -27,57 +27,37 @@ echo "export PATH=\"${GCLOUD_DIR}/bin:\$PATH\"" >> "$ENV_FILE"
 export PATH="${GCLOUD_DIR}/bin:${PATH}"
 
 ###############################################################################
-# 2. Set GCP project from .gcp-project file
+# 2. Authenticate using cloud-bootstrap credentials
 ###############################################################################
-GCP_PROJECT=""
-if [ -f "${PROJECT_DIR}/.gcp-project" ]; then
-  GCP_PROJECT=$(tr -d '[:space:]' < "${PROJECT_DIR}/.gcp-project")
-fi
+cd "$PROJECT_DIR"
+CONFIG=".cloud-config.json"
+if [ -f "$CONFIG" ]; then
+  PROVIDER=$(jq -r .provider "$CONFIG" 2>/dev/null || echo "")
+  GCP_PROJECT=$(jq -r .project_id "$CONFIG" 2>/dev/null || echo "")
 
-if [ -n "$GCP_PROJECT" ]; then
-  gcloud config set project "$GCP_PROJECT" --quiet 2>/dev/null || true
-  echo "export GOOGLE_CLOUD_PROJECT=\"${GCP_PROJECT}\"" >> "$ENV_FILE"
-  echo "export GCLOUD_PROJECT=\"${GCP_PROJECT}\"" >> "$ENV_FILE"
-fi
+  if [ "$PROVIDER" = "gcp" ] && [ -n "$GCP_PROJECT" ]; then
+    USER_EMAIL=$(git config user.email 2>/dev/null || true)
+    ENC_FILE=".cloud-credentials.${USER_EMAIL}.enc"
+    KEY="${GCP_CREDENTIALS_KEY:-${CLOUD_CREDENTIALS_KEY:-}}"
 
-###############################################################################
-# 3. Authenticate with GCP using bootstrap SA or access token
-###############################################################################
-PYTHON="${GCLOUD_DIR}/platform/bundledpythonunix/bin/python3"
-
-# Option A: Service account key via GOOGLE_APPLICATION_CREDENTIALS_BOOTSTRAP (base64-encoded)
-if [ -n "${GOOGLE_APPLICATION_CREDENTIALS_BOOTSTRAP:-}" ]; then
-  echo "Decoding bootstrap service account credentials..."
-  SA_KEY_FILE="/tmp/gcp-sa-key.json"
-  echo "$GOOGLE_APPLICATION_CREDENTIALS_BOOTSTRAP" | "$PYTHON" -c "
-import sys, base64
-sys.stdout.buffer.write(base64.b64decode(sys.stdin.read().strip()))
-" > "$SA_KEY_FILE"
-
-  gcloud auth activate-service-account --key-file="$SA_KEY_FILE" --quiet 2>/dev/null || true
-  echo "export GOOGLE_APPLICATION_CREDENTIALS=\"${SA_KEY_FILE}\"" >> "$ENV_FILE"
-
-  # If we have a central Secret Manager project, fetch the project-specific SA key
-  if [ -n "$GCP_PROJECT" ]; then
-    PROJECT_SA_KEY=$(gcloud secrets versions access latest \
-      --secret="${GCP_PROJECT}-sa-key" \
-      --project="$GCP_PROJECT" 2>/dev/null || echo "")
-    if [ -n "$PROJECT_SA_KEY" ]; then
-      PROJECT_SA_FILE="/tmp/project-sa-key.json"
-      echo "$PROJECT_SA_KEY" > "$PROJECT_SA_FILE"
-      gcloud auth activate-service-account --key-file="$PROJECT_SA_FILE" --quiet 2>/dev/null || true
-      echo "export GOOGLE_APPLICATION_CREDENTIALS=\"${PROJECT_SA_FILE}\"" >> "$ENV_FILE"
+    if [ -n "$USER_EMAIL" ] && [ -f "$ENC_FILE" ] && [ -n "$KEY" ]; then
+      if echo "$KEY" | openssl enc -d -aes-256-cbc -pbkdf2 \
+           -pass stdin -in "$ENC_FILE" -out /tmp/credentials.json 2>/dev/null; then
+        gcloud auth activate-service-account --key-file=/tmp/credentials.json --quiet 2>/dev/null || true
+        echo "export GOOGLE_APPLICATION_CREDENTIALS=\"/tmp/credentials.json\"" >> "$ENV_FILE"
+        echo "GCP credentials activated for $USER_EMAIL"
+      fi
+      # Note: credentials.json kept for GOOGLE_APPLICATION_CREDENTIALS; cleaned up on session end
     fi
-  fi
 
-# Option B: Pre-generated access token via CLOUDSDK_AUTH_ACCESS_TOKEN
-elif [ -n "${CLOUDSDK_AUTH_ACCESS_TOKEN:-}" ]; then
-  echo "Using provided access token for GCP authentication..."
-  echo "export CLOUDSDK_AUTH_ACCESS_TOKEN=\"${CLOUDSDK_AUTH_ACCESS_TOKEN}\"" >> "$ENV_FILE"
+    gcloud config set project "$GCP_PROJECT" --quiet 2>/dev/null || true
+    echo "export GOOGLE_CLOUD_PROJECT=\"${GCP_PROJECT}\"" >> "$ENV_FILE"
+    echo "export GCLOUD_PROJECT=\"${GCP_PROJECT}\"" >> "$ENV_FILE"
+  fi
 fi
 
 ###############################################################################
-# 4. Build Maven project (download dependencies)
+# 3. Build Maven project (download dependencies)
 ###############################################################################
 if [ -f "${PROJECT_DIR}/pom.xml" ]; then
   echo "Installing Maven dependencies..."

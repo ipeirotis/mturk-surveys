@@ -282,12 +282,17 @@ These gaps are legitimate (no survey activity) and appear as zero-response entri
 - No test framework is present — be careful when modifying business logic
 - **Spring Boot 3.4.1 / Jakarta namespace:** The project uses `jakarta.*` imports (not `javax.*`). Objectify 6.1.3 ships with both — use `ObjectifyService.Filter` (jakarta) not the deprecated `ObjectifyFilter` (javax)
 
-## GCP
+## Cloud Credentials
 
+Managed by **[cloud-bootstrap](https://github.com/ipeirotis/cloud-bootstrap)** (v1.2.2). The skill is installed in `.claude/skills/cloud-bootstrap/`.
+
+- **Provider:** GCP
 - **Project ID:** `mturk-demographics`
 - **Service account:** `claude-agent@mturk-demographics.iam.gserviceaccount.com`
-- **Encrypted key:** `.gcp-sa-key.enc` (AES-256-CBC, passphrase in `GCP_CREDENTIALS_KEY` env var)
-- **Config:** `.gcp-config.json` (project ID and service account email)
+- **Config:** `.cloud-config.json`
+- **Encrypted credentials:** `.cloud-credentials.<email>.enc` (per-user, AES-256-CBC, passphrase in `GCP_CREDENTIALS_KEY` or `CLOUD_CREDENTIALS_KEY` env var)
+
+This is a multi-user setup: each team member has their own `.cloud-credentials.<email>.enc` file with their own passphrase.
 
 ### Roles Granted
 
@@ -305,21 +310,20 @@ These gaps are legitimate (no survey activity) and appear as zero-response entri
 
 ### How to Authenticate
 
+Authentication is handled automatically by the cloud-bootstrap skill via the SessionStart hook. To authenticate manually:
+
 ```bash
-# 1. Decrypt the key
-openssl enc -d -aes-256-cbc -pbkdf2 \
-  -pass env:GCP_CREDENTIALS_KEY \
-  -in .gcp-sa-key.enc -out /tmp/sa-key.json
-
-# 2. Activate the service account
-gcloud auth activate-service-account --key-file=/tmp/sa-key.json
-
-# 3. Set the project
-gcloud config set project $(jq -r .project_id .gcp-config.json)
-
-# 4. Delete the plaintext key immediately
-rm /tmp/sa-key.json
+USER_EMAIL=$(git config user.email)
+echo "$GCP_CREDENTIALS_KEY" | openssl enc -d -aes-256-cbc -pbkdf2 \
+  -pass stdin -in ".cloud-credentials.${USER_EMAIL}.enc" -out /tmp/credentials.json
+gcloud auth activate-service-account --key-file=/tmp/credentials.json
+gcloud config set project "$(jq -r .project_id .cloud-config.json)"
+rm -f /tmp/credentials.json
 ```
+
+### Adding New Team Members
+
+The cloud-bootstrap skill handles this automatically via the **Add Team Member** workflow.
 
 ### Permission Escalation
 

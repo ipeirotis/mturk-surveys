@@ -1,0 +1,17 @@
+{
+  "provider": "gcp",
+  "project_id": "mturk-demographics",
+  "service_account": "claude-agent@mturk-demographics.iam.gserviceaccount.com",
+  "roles": [
+    "roles/datastore.user",
+    "roles/cloudtasks.enqueuer",
+    "roles/secretmanager.admin",
+    "roles/appengine.deployer",
+    "roles/appengine.serviceAdmin",
+    "roles/cloudbuild.builds.builder",
+    "roles/storage.objectViewer",
+    "roles/bigquery.dataEditor",
+    "roles/bigquery.jobUser"
+  ],
+  "created_at": "2025-03-17T00:00:00Z"
+}
