@@ -106,17 +106,62 @@ public class DatastoreRestoreService {
 			return 0;
 		}
 
+		// Build set of existing (workerId|hitId) keys in Datastore for this day
+		// to avoid creating duplicates when restoring with auto-generated IDs
+		DateFormat df = SafeDateFormat.forPattern("yyyy-MM-dd");
+		Set<String> existingKeys = new HashSet<>();
+		try {
+			Calendar dayStart = Calendar.getInstance();
+			dayStart.setTime(df.parse(dateStr));
+			CalendarUtils.truncateToDay(dayStart);
+			Calendar dayEnd = (Calendar) dayStart.clone();
+			dayEnd.add(Calendar.DAY_OF_MONTH, 1);
+
+			List<UserAnswer> existing = ofy().load().type(UserAnswer.class)
+					.filter("surveyId", "demographics")
+					.filter("date >=", dayStart.getTime())
+					.filter("date <", dayEnd.getTime())
+					.list();
+			for (UserAnswer ua : existing) {
+				String key = (ua.getWorkerId() != null ? ua.getWorkerId() : "")
+						+ "|" + (ua.getHitId() != null ? ua.getHitId() : "");
+				existingKeys.add(key);
+			}
+			logger.info("Found " + existingKeys.size() + " existing entries in Datastore for " + dateStr);
+		} catch (ParseException e) {
+			logger.log(Level.WARNING, "Failed to parse date for existing-check: " + dateStr, e);
+		}
+
+		// Filter out entries that already exist in Datastore
+		List<UserAnswer> toRestore = new ArrayList<>();
+		for (UserAnswer ua : entities) {
+			String key = (ua.getWorkerId() != null ? ua.getWorkerId() : "")
+					+ "|" + (ua.getHitId() != null ? ua.getHitId() : "");
+			if (!existingKeys.contains(key)) {
+				toRestore.add(ua);
+			}
+		}
+		int skipped = entities.size() - toRestore.size();
+		if (skipped > 0) {
+			logger.info("Skipped " + skipped + " entries already in Datastore for " + dateStr);
+		}
+		if (toRestore.isEmpty()) {
+			logger.info("All " + entities.size() + " entries already exist in Datastore for " + dateStr);
+			return 0;
+		}
+
 		// Save in batches of 250 (Datastore limit is 500 per batch, but use smaller batches for safety)
 		int batchSize = 250;
 		int totalSaved = 0;
-		for (int i = 0; i < entities.size(); i += batchSize) {
-			int end = Math.min(i + batchSize, entities.size());
-			List<UserAnswer> batch = entities.subList(i, end);
+		for (int i = 0; i < toRestore.size(); i += batchSize) {
+			int end = Math.min(i + batchSize, toRestore.size());
+			List<UserAnswer> batch = toRestore.subList(i, end);
 			ofy().save().entities(batch).now();
 			totalSaved += batch.size();
 		}
 
-		logger.info("Restored " + totalSaved + " entries from BigQuery backup for " + dateStr);
+		logger.info("Restored " + totalSaved + " entries from BigQuery backup for " + dateStr
+				+ " (skipped " + skipped + " existing)");
 		return totalSaved;
 	}
 
@@ -260,8 +305,16 @@ public class DatastoreRestoreService {
 			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
 			String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
+			// Deduplicate by (workerId, hitId), keeping the earliest entry per pair.
+			// Filter to demographics surveyId only.
 			String sql = String.format(
-					"SELECT * FROM `%s.%s` WHERE DATE(date) = '%s'",
+					"SELECT * EXCEPT(row_num) FROM ("
+					+ "  SELECT *, ROW_NUMBER() OVER ("
+					+ "    PARTITION BY workerId, hitId ORDER BY date ASC"
+					+ "  ) AS row_num"
+					+ "  FROM `%s.%s`"
+					+ "  WHERE DATE(date) = '%s' AND surveyId = 'demographics'"
+					+ ") WHERE row_num = 1",
 					projectId, qualifiedTable, sortableDate);
 
 			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
@@ -278,21 +331,9 @@ public class DatastoreRestoreService {
 			for (FieldValueList row : tableResult.iterateAll()) {
 				UserAnswer ua = new UserAnswer();
 
-				// Try to restore original Datastore entity ID from __key__ struct
-				if (columns.contains("__key__")) {
-					try {
-						FieldValue keyField = row.get("__key__");
-						if (!keyField.isNull() && keyField.getAttribute() == FieldValue.Attribute.RECORD) {
-							FieldValueList keyRecord = keyField.getRecordValue();
-							FieldValue idField = keyRecord.get("id");
-							if (!idField.isNull()) {
-								ua.setId(idField.getLongValue());
-							}
-						}
-					} catch (Exception e) {
-						// Auto-generate ID
-					}
-				}
+				// Do NOT restore original Datastore entity IDs — auto-generated IDs get
+				// reused over time, so restoring old IDs would overwrite newer entries.
+				// Let Objectify auto-allocate fresh IDs instead.
 
 				ua.setDate(parseTimestamp(row, "date"));
 				ua.setHitId(getStringOrNull(row, "hitId"));
