@@ -24,6 +24,11 @@ client-secret.json
 sa-key.json
 *-sa-key.json
 
+# Cloud -- never commit plaintext credentials
+credentials.json
+credentials_clean.json
+/tmp/
+
 # Local databases
 local_db.bin
 
