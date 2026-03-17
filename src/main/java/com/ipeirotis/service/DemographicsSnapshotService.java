@@ -110,6 +110,25 @@ public class DemographicsSnapshotService {
             }
         }
 
+        // Deduplicate by (workerId, hitId), keeping the earliest entry per group.
+        // This prevents inflated counts when duplicates exist in Datastore or BigQuery.
+        Map<String, UserAnswer> dedupMap = new LinkedHashMap<>();
+        for (UserAnswer ua : answers) {
+            String key = (ua.getWorkerId() != null ? ua.getWorkerId() : "")
+                    + "|" + (ua.getHitId() != null ? ua.getHitId() : "");
+            UserAnswer existing = dedupMap.get(key);
+            if (existing == null || (ua.getDate() != null && existing.getDate() != null
+                    && ua.getDate().before(existing.getDate()))) {
+                dedupMap.put(key, ua);
+            }
+        }
+        int originalSize = answers.size();
+        answers = new ArrayList<>(dedupMap.values());
+        if (answers.size() < originalSize) {
+            logger.info("Snapshot dedup for " + dateStr + ": " + originalSize + " -> " + answers.size()
+                    + " (" + (originalSize - answers.size()) + " duplicates removed)");
+        }
+
         DemographicsSnapshot snapshot = new DemographicsSnapshot();
         snapshot.setId(dateStr);
         snapshot.setDate(sortableDate);
