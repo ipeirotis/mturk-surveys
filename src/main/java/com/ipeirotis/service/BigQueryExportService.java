@@ -72,77 +72,69 @@ public class BigQueryExportService {
 
 		ensureTableExists(bigQuery, projectId);
 
-		// Delete existing rows for this date to make export idempotent
 		String sortableDate = SafeDateFormat.forPattern("yyyy-MM-dd").format(dateFrom.getTime());
-		String deleteSql = String.format(
-				"DELETE FROM `%s.%s.%s` WHERE DATE(date) = '%s'",
-				projectId, DATASET_ID, TABLE_ID, sortableDate);
-		try {
-			QueryJobConfiguration deleteConfig = QueryJobConfiguration.newBuilder(deleteSql).build();
-			bigQuery.query(deleteConfig);
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw new RuntimeException("Interrupted while deleting existing rows", e);
-		} catch (BigQueryException e) {
-			// Table may not have data for this date yet, that's fine
-			logger.info("Delete for date " + sortableDate + " returned: " + e.getMessage());
-		}
+		String fullTable = String.format("`%s.%s.%s`", projectId, DATASET_ID, TABLE_ID);
 
 		DateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 		isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
 
-		// Use DML INSERT instead of streaming inserts to avoid streaming buffer
-		// conflicts with the DELETE above (streaming buffer is not affected by DML)
-		int batchSize = 200;
-		int totalExported = 0;
+		// Build a single transactional script: DELETE + INSERT(s)
+		// This prevents duplicates from concurrent exports for the same date
+		StringBuilder script = new StringBuilder();
+		script.append("BEGIN TRANSACTION;\n");
 
+		// Delete existing rows for this date
+		script.append(String.format("DELETE FROM %s WHERE DATE(date) = '%s';\n",
+				fullTable, sortableDate));
+
+		// Build INSERT statements in batches
+		int batchSize = 200;
 		for (int i = 0; i < answers.size(); i += batchSize) {
 			int end = Math.min(i + batchSize, answers.size());
 			List<UserAnswer> batch = answers.subList(i, end);
 
-			StringBuilder sql = new StringBuilder();
-			sql.append(String.format("INSERT INTO `%s.%s.%s` "
+			script.append(String.format("INSERT INTO %s "
 					+ "(date, worker_id, survey_id, country, region, city, hit_id, "
 					+ "hit_creation_date, ip_address, year_of_birth, gender, marital_status, "
 					+ "household_size, household_income, educational_level, "
 					+ "time_spent_on_mturk, weekly_income_from_mturk, languages_spoken) VALUES ",
-					projectId, DATASET_ID, TABLE_ID));
+					fullTable));
 
 			for (int j = 0; j < batch.size(); j++) {
 				UserAnswer ua = batch.get(j);
-				if (j > 0) sql.append(", ");
-				sql.append("(");
+				if (j > 0) script.append(", ");
+				script.append("(");
 
 				// date
-				sql.append(ua.getDate() != null
+				script.append(ua.getDate() != null
 						? "TIMESTAMP('" + isoFormat.format(ua.getDate()) + "')" : "NULL");
-				sql.append(", ");
+				script.append(", ");
 
 				// worker_id (SHA256-hashed)
 				String workerId = ua.getWorkerId();
-				sql.append(workerId != null ? sqlString(sha256Hex(workerId)) : "NULL");
-				sql.append(", ");
+				script.append(workerId != null ? sqlString(sha256Hex(workerId)) : "NULL");
+				script.append(", ");
 
 				// survey_id
-				sql.append(sqlString(ua.getSurveyId()));
-				sql.append(", ");
+				script.append(sqlString(ua.getSurveyId()));
+				script.append(", ");
 
 				// country, region, city
-				sql.append(sqlString(ua.getLocationCountry())).append(", ");
-				sql.append(sqlString(ua.getLocationRegion())).append(", ");
-				sql.append(sqlString(ua.getLocationCity())).append(", ");
+				script.append(sqlString(ua.getLocationCountry())).append(", ");
+				script.append(sqlString(ua.getLocationRegion())).append(", ");
+				script.append(sqlString(ua.getLocationCity())).append(", ");
 
 				// hit_id
-				sql.append(sqlString(ua.getHitId())).append(", ");
+				script.append(sqlString(ua.getHitId())).append(", ");
 
 				// hit_creation_date
-				sql.append(ua.getHitCreationDate() != null
+				script.append(ua.getHitCreationDate() != null
 						? "TIMESTAMP('" + isoFormat.format(ua.getHitCreationDate()) + "')" : "NULL");
-				sql.append(", ");
+				script.append(", ");
 
 				// ip_address (SHA256-hashed)
 				String ip = ua.getIp();
-				sql.append(ip != null ? sqlString(sha256Hex(ip)) : "NULL");
+				script.append(ip != null ? sqlString(sha256Hex(ip)) : "NULL");
 
 				// answer fields
 				Map<String, String> a = ua.getAnswers();
@@ -150,23 +142,27 @@ public class BigQueryExportService {
 						"householdIncome", "educationalLevel", "timeSpentOnMturk",
 						"weeklyIncomeFromMturk", "languagesSpoken"};
 				for (String key : keys) {
-					sql.append(", ");
-					sql.append(a != null ? sqlString(a.get(key)) : "NULL");
+					script.append(", ");
+					script.append(a != null ? sqlString(a.get(key)) : "NULL");
 				}
 
-				sql.append(")");
+				script.append(")");
 			}
-
-			try {
-				QueryJobConfiguration insertConfig = QueryJobConfiguration.newBuilder(sql.toString()).build();
-				bigQuery.query(insertConfig);
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				throw new RuntimeException("Interrupted during BigQuery INSERT", e);
-			}
-			totalExported += batch.size();
+			script.append(";\n");
 		}
 
+		script.append("COMMIT TRANSACTION;\n");
+
+		try {
+			QueryJobConfiguration scriptConfig = QueryJobConfiguration.newBuilder(script.toString())
+					.build();
+			bigQuery.query(scriptConfig);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new RuntimeException("Interrupted during BigQuery export transaction", e);
+		}
+
+		int totalExported = answers.size();
 		logger.info("Exported " + totalExported + " rows to BigQuery for " + dateStr);
 		return totalExported;
 	}
