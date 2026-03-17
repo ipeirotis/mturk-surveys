@@ -69,6 +69,94 @@ public class DemographicsSnapshotService {
     private SurveyService surveyService;
 
     /**
+     * Compare daily counts between BigQuery demographics.responses and
+     * DemographicsSnapshot totalResponses in Datastore for a date range.
+     * Returns all days (including matches) with their counts and delta.
+     *
+     * @param fromDate start date in yyyy-MM-dd format
+     * @param toDate   end date in yyyy-MM-dd format
+     * @return list of maps with {date, snapshotCount, bigqueryCount, delta}
+     */
+    public List<Map<String, Object>> compareDailyCounts(String fromDate, String toDate) {
+        // 1. Get BigQuery daily counts from demographics.responses
+        Map<String, Long> bqCounts = getBigQueryResponseCounts(fromDate, toDate);
+
+        // 2. Get Datastore snapshot counts
+        java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy");
+        LocalDate start = LocalDate.parse(fromDate);
+        LocalDate end = LocalDate.parse(toDate);
+        String displayFrom = start.format(dtf);
+        String displayTo = end.format(dtf);
+
+        List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(displayFrom, displayTo);
+        Map<String, Integer> snapshotCounts = new LinkedHashMap<>();
+        for (DemographicsSnapshot s : snapshots) {
+            snapshotCounts.put(s.getDate(), s.getTotalResponses());
+        }
+
+        // 3. Merge all dates from both sources
+        Set<String> allDates = new TreeSet<>();
+        allDates.addAll(bqCounts.keySet());
+        allDates.addAll(snapshotCounts.keySet());
+        // Also fill in any dates in the range that have neither
+        LocalDate current = start;
+        while (!current.isAfter(end)) {
+            allDates.add(current.toString());
+            current = current.plusDays(1);
+        }
+
+        // 4. Compare
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (String dateKey : allDates) {
+            long bqCount = bqCounts.getOrDefault(dateKey, 0L);
+            int snapCount = snapshotCounts.getOrDefault(dateKey, 0);
+            long delta = bqCount - snapCount;
+
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("date", dateKey);
+            row.put("snapshotCount", snapCount);
+            row.put("bigqueryCount", bqCount);
+            row.put("delta", delta);
+            results.add(row);
+        }
+
+        return results;
+    }
+
+    /**
+     * Query BigQuery demographics.responses for daily counts.
+     */
+    private Map<String, Long> getBigQueryResponseCounts(String fromDate, String toDate) {
+        Map<String, Long> counts = new LinkedHashMap<>();
+        try {
+            BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
+            String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
+
+            String sql = String.format(
+                    "SELECT FORMAT_DATE('%%Y-%%m-%%d', DATE(date)) AS day, COUNT(*) AS cnt "
+                    + "FROM `%s.%s.%s` "
+                    + "WHERE DATE(date) >= '%s' AND DATE(date) <= '%s' "
+                    + "GROUP BY day ORDER BY day",
+                    projectId, BQ_DATASET, BQ_TABLE, fromDate, toDate);
+
+            QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
+            TableResult result = bigQuery.query(queryConfig);
+
+            for (FieldValueList row : result.iterateAll()) {
+                String day = row.get("day").getStringValue();
+                long cnt = row.get("cnt").getLongValue();
+                counts.put(day, cnt);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.log(Level.WARNING, "Interrupted querying BigQuery response counts", e);
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Failed to query BigQuery response counts: " + e.getMessage(), e);
+        }
+        return counts;
+    }
+
+    /**
      * Build and save a snapshot for the given date from raw UserAnswer data.
      * Evicts all cached chart/aggregated/counts data since the underlying data has changed.
      */
