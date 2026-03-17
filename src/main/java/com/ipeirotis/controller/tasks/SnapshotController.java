@@ -262,45 +262,6 @@ public class SnapshotController {
     }
 
     /**
-     * Compare daily counts between BigQuery demographics.responses and
-     * DemographicsSnapshot totalResponses in Datastore.
-     * Returns all days with their counts, highlighting mismatches.
-     *
-     * Example: /tasks/compareDailyCounts?from=2024-01-01&to=2024-12-31
-     *
-     * @param from start date in yyyy-MM-dd format
-     * @param to   end date in yyyy-MM-dd format
-     */
-    @GetMapping("/tasks/compareDailyCounts")
-    public Map<String, Object> compareDailyCounts(
-            @RequestParam String from, @RequestParam String to) {
-        List<Map<String, Object>> allDays = snapshotService.compareDailyCounts(from, to);
-
-        long daysWithDifferences = 0;
-        long totalBigQueryDelta = 0;
-        List<Map<String, Object>> mismatches = new ArrayList<>();
-        for (Map<String, Object> row : allDays) {
-            long delta = ((Number) row.get("delta")).longValue();
-            if (delta != 0) {
-                daysWithDifferences++;
-                totalBigQueryDelta += delta;
-                mismatches.add(row);
-            }
-        }
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("status", "ok");
-        result.put("from", from);
-        result.put("to", to);
-        result.put("totalDays", allDays.size());
-        result.put("daysMatching", allDays.size() - daysWithDifferences);
-        result.put("daysWithDifferences", daysWithDifferences);
-        result.put("totalBigQueryDelta", totalBigQueryDelta);
-        result.put("mismatches", mismatches);
-        return result;
-    }
-
-    /**
      * Coverage report: checks which dates have DemographicsSnapshot entities
      * and which are missing. Returns summary stats and lists of missing dates,
      * grouped by year-month for readability.
