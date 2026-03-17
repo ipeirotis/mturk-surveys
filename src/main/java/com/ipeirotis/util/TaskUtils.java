@@ -5,10 +5,12 @@ import com.google.cloud.tasks.v2.CloudTasksClient;
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.cloud.tasks.v2.QueueName;
 import com.google.cloud.tasks.v2.Task;
+import com.google.protobuf.Timestamp;
 import com.ipeirotis.exception.TaskEnqueueException;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +22,17 @@ public class TaskUtils {
 	private static final Logger logger = Logger.getLogger(TaskUtils.class.getName());
 
 	public static String queueTask(String url, Map<String, String> params) {
+		return queueTask(url, params, 0);
+	}
+
+	/**
+	 * Enqueue a Cloud Task with an optional delay.
+	 *
+	 * @param url        relative URI for the App Engine request
+	 * @param params     query parameters (may be null)
+	 * @param delaySeconds seconds to wait before the task executes (0 = immediate)
+	 */
+	public static String queueTask(String url, Map<String, String> params, long delaySeconds) {
 		String fullUrl = url;
 		try (CloudTasksClient client = CloudTasksClient.create()) {
 			// Variables provided by system variables.
@@ -47,6 +60,14 @@ public class TaskUtils {
 							.setRelativeUri(fullUrl)
 							.setHttpMethod(HttpMethod.GET)
 							.build());
+
+			if (delaySeconds > 0) {
+				Instant executeTime = Instant.now().plusSeconds(delaySeconds);
+				taskBuilder.setScheduleTime(Timestamp.newBuilder()
+						.setSeconds(executeTime.getEpochSecond())
+						.setNanos(executeTime.getNano())
+						.build());
+			}
 
 			// Send create task request.
 			Task task = client.createTask(queuePath, taskBuilder.build());

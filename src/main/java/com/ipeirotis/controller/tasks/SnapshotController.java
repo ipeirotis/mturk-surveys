@@ -81,9 +81,13 @@ public class SnapshotController {
     /**
      * Backfill all weekly and monthly rollups from the start of data (2015-03-23)
      * to now. Enqueues individual rollup tasks via Cloud Tasks.
+     *
+     * Optional delaySeconds parameter schedules tasks to run after a delay,
+     * useful when daily snapshots are still being rebuilt.
      */
     @GetMapping("/tasks/backfillRollups")
-    public Map<String, Object> backfillRollups() {
+    public Map<String, Object> backfillRollups(
+            @RequestParam(required = false, defaultValue = "0") long delaySeconds) {
         LocalDate dataStart = LocalDate.of(2015, 3, 23); // Monday before first data
         LocalDate today = LocalDate.now();
 
@@ -96,24 +100,32 @@ public class SnapshotController {
             Map<String, String> params = new LinkedHashMap<>();
             params.put("date", monday.toString());
             params.put("granularity", "weekly");
-            TaskUtils.queueTask("/tasks/buildRollup", params);
+            TaskUtils.queueTask("/tasks/buildRollup", params, delaySeconds);
             weeklyCount++;
             monday = monday.plusWeeks(1);
         }
 
-        // Enqueue monthly rollups
+        // Enqueue monthly rollups — schedule after weekly so dailies are more likely done
+        long monthlyDelay = delaySeconds > 0 ? delaySeconds + 600 : 0; // +10 min after weekly
         LocalDate month = dataStart.withDayOfMonth(1);
         while (month.isBefore(today)) {
             Map<String, String> params = new LinkedHashMap<>();
             params.put("date", month.toString());
             params.put("granularity", "monthly");
-            TaskUtils.queueTask("/tasks/buildRollup", params);
+            TaskUtils.queueTask("/tasks/buildRollup", params, monthlyDelay);
             monthlyCount++;
             month = month.plusMonths(1);
         }
 
-        return Map.of("status", "ok", "weeklyTasksEnqueued", weeklyCount,
-                "monthlyTasksEnqueued", monthlyCount);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", "ok");
+        result.put("weeklyTasksEnqueued", weeklyCount);
+        result.put("monthlyTasksEnqueued", monthlyCount);
+        if (delaySeconds > 0) {
+            result.put("weeklyDelaySeconds", delaySeconds);
+            result.put("monthlyDelaySeconds", monthlyDelay);
+        }
+        return result;
     }
 
     /**
@@ -220,6 +232,43 @@ public class SnapshotController {
 
         return Map.of("status", "ok", "mode", "daily",
                 "tasksEnqueued", tasksEnqueued, "from", from, "to", to);
+    }
+
+    /**
+     * Full pipeline rebuild: snapshots → weekly rollups → monthly rollups → cache warm.
+     * Enqueues daily snapshot tasks immediately, then schedules rollup tasks with a delay
+     * so they execute after all snapshots have completed.
+     *
+     * Default delay is 2 hours for weekly rollups and 2h10m for monthly rollups.
+     * Override with snapshotDelayMinutes parameter (rollups are scheduled after that).
+     *
+     * Example: /tasks/rebuildAll?from=03/26/2015&to=03/17/2026
+     * Example: /tasks/rebuildAll?from=03/26/2015&to=03/17/2026&snapshotDelayMinutes=180
+     */
+    @GetMapping("/tasks/rebuildAll")
+    public Map<String, Object> rebuildAll(
+            @RequestParam String from,
+            @RequestParam String to,
+            @RequestParam(required = false, defaultValue = "120") int snapshotDelayMinutes) throws ParseException {
+
+        // Phase 1: Enqueue daily snapshot tasks (immediate)
+        Map<String, Object> snapshotResult = backfill(from, to);
+
+        // Phase 2: Schedule rollup tasks after snapshots should be done
+        long rollupDelaySeconds = snapshotDelayMinutes * 60L;
+        Map<String, Object> rollupResult = backfillRollups(rollupDelaySeconds);
+
+        // Phase 3: Schedule cache warm after rollups
+        long cacheWarmDelay = rollupDelaySeconds + 1200; // +20 min after weekly rollups start
+        TaskUtils.queueTask("/tasks/warmChartCache", null, cacheWarmDelay);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", "ok");
+        result.put("phase1_snapshots", snapshotResult);
+        result.put("phase2_rollups", rollupResult);
+        result.put("phase3_cacheWarm_delaySeconds", cacheWarmDelay);
+        result.put("estimatedCompletionMinutes", (cacheWarmDelay + 300) / 60);
+        return result;
     }
 
     /**
