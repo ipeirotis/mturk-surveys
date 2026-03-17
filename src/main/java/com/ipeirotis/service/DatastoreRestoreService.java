@@ -260,8 +260,16 @@ public class DatastoreRestoreService {
 			BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
 			String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
+			// Deduplicate by (workerId, hitId), keeping the earliest entry per pair.
+			// Filter to demographics surveyId only.
 			String sql = String.format(
-					"SELECT * FROM `%s.%s` WHERE DATE(date) = '%s'",
+					"SELECT * EXCEPT(row_num) FROM ("
+					+ "  SELECT *, ROW_NUMBER() OVER ("
+					+ "    PARTITION BY workerId, hitId ORDER BY date ASC"
+					+ "  ) AS row_num"
+					+ "  FROM `%s.%s`"
+					+ "  WHERE DATE(date) = '%s' AND surveyId = 'demographics'"
+					+ ") WHERE row_num = 1",
 					projectId, qualifiedTable, sortableDate);
 
 			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
