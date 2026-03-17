@@ -112,10 +112,17 @@ public class DemographicsSnapshotService {
 
         // Deduplicate by (workerId, hitId), keeping the earliest entry per group.
         // This prevents inflated counts when duplicates exist in Datastore or BigQuery.
+        // Only dedup entries that have both workerId and hitId populated — BigQuery-sourced
+        // entries may not have these fields, so we must not collapse them.
         Map<String, UserAnswer> dedupMap = new LinkedHashMap<>();
+        List<UserAnswer> noKeyEntries = new ArrayList<>();
         for (UserAnswer ua : answers) {
-            String key = (ua.getWorkerId() != null ? ua.getWorkerId() : "")
-                    + "|" + (ua.getHitId() != null ? ua.getHitId() : "");
+            if (ua.getWorkerId() == null || ua.getWorkerId().isEmpty()
+                    || ua.getHitId() == null || ua.getHitId().isEmpty()) {
+                noKeyEntries.add(ua);
+                continue;
+            }
+            String key = ua.getWorkerId() + "|" + ua.getHitId();
             UserAnswer existing = dedupMap.get(key);
             if (existing == null || (ua.getDate() != null && existing.getDate() != null
                     && ua.getDate().before(existing.getDate()))) {
@@ -124,6 +131,7 @@ public class DemographicsSnapshotService {
         }
         int originalSize = answers.size();
         answers = new ArrayList<>(dedupMap.values());
+        answers.addAll(noKeyEntries);
         if (answers.size() < originalSize) {
             logger.info("Snapshot dedup for " + dateStr + ": " + originalSize + " -> " + answers.size()
                     + " (" + (originalSize - answers.size()) + " duplicates removed)");
@@ -1436,7 +1444,7 @@ public class DemographicsSnapshotService {
             String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
             String sql = String.format(
-                    "SELECT date, locationCountry, locationRegion, hitCreationDate, answers "
+                    "SELECT date, workerId, hitId, locationCountry, locationRegion, hitCreationDate, answers "
                     + "FROM `%s.%s.%s` WHERE DATE(date) >= '%s' AND DATE(date) < '%s'",
                     projectId, BQ_BACKUP_DATASET, BQ_BACKUP_TABLE, fromDate, toDate);
 
@@ -1447,6 +1455,8 @@ public class DemographicsSnapshotService {
             for (FieldValueList row : tableResult.iterateAll()) {
                 UserAnswer ua = new UserAnswer();
                 ua.setDate(parseTimestamp(row, "date"));
+                ua.setWorkerId(getStringOrNull(row, "workerId"));
+                ua.setHitId(getStringOrNull(row, "hitId"));
                 ua.setLocationCountry(getStringOrNull(row, "locationCountry"));
                 ua.setLocationRegion(getStringOrNull(row, "locationRegion"));
                 ua.setHitCreationDate(parseTimestampOrNull(row, "hitCreationDate"));
@@ -1477,7 +1487,7 @@ public class DemographicsSnapshotService {
             String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
             String sql = String.format(
-                    "SELECT DISTINCT date, country, region, hit_creation_date, "
+                    "SELECT DISTINCT date, worker_id, hit_id, country, region, hit_creation_date, "
                     + "year_of_birth, gender, marital_status, "
                     + "household_size, household_income, educational_level, "
                     + "time_spent_on_mturk, weekly_income_from_mturk, languages_spoken "
@@ -1490,6 +1500,8 @@ public class DemographicsSnapshotService {
             for (FieldValueList row : tableResult.iterateAll()) {
                 UserAnswer ua = new UserAnswer();
                 ua.setDate(parseTimestamp(row, "date"));
+                ua.setWorkerId(getStringOrNull(row, "worker_id"));
+                ua.setHitId(getStringOrNull(row, "hit_id"));
                 ua.setLocationCountry(getStringOrNull(row, "country"));
                 ua.setLocationRegion(getStringOrNull(row, "region"));
                 ua.setHitCreationDate(parseTimestampOrNull(row, "hit_creation_date"));
@@ -1550,7 +1562,7 @@ public class DemographicsSnapshotService {
             String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
             String sql = String.format(
-                    "SELECT DISTINCT date, country, region, hit_creation_date, "
+                    "SELECT DISTINCT date, worker_id, hit_id, country, region, hit_creation_date, "
                     + "year_of_birth, gender, marital_status, "
                     + "household_size, household_income, educational_level, "
                     + "time_spent_on_mturk, weekly_income_from_mturk, languages_spoken "
@@ -1563,6 +1575,8 @@ public class DemographicsSnapshotService {
             for (FieldValueList row : tableResult.iterateAll()) {
                 UserAnswer ua = new UserAnswer();
                 ua.setDate(parseTimestamp(row, "date"));
+                ua.setWorkerId(getStringOrNull(row, "worker_id"));
+                ua.setHitId(getStringOrNull(row, "hit_id"));
                 ua.setLocationCountry(getStringOrNull(row, "country"));
                 ua.setLocationRegion(getStringOrNull(row, "region"));
                 ua.setHitCreationDate(parseTimestampOrNull(row, "hit_creation_date"));
@@ -1605,7 +1619,7 @@ public class DemographicsSnapshotService {
             String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
 
             String sql = String.format(
-                    "SELECT date, locationCountry, locationRegion, hitCreationDate, answers "
+                    "SELECT date, workerId, hitId, locationCountry, locationRegion, hitCreationDate, answers "
                     + "FROM `%s.%s.%s` WHERE DATE(date) = '%s'",
                     projectId, BQ_BACKUP_DATASET, BQ_BACKUP_TABLE, sortableDate);
 
@@ -1616,6 +1630,8 @@ public class DemographicsSnapshotService {
             for (FieldValueList row : tableResult.iterateAll()) {
                 UserAnswer ua = new UserAnswer();
                 ua.setDate(parseTimestamp(row, "date"));
+                ua.setWorkerId(getStringOrNull(row, "workerId"));
+                ua.setHitId(getStringOrNull(row, "hitId"));
                 ua.setLocationCountry(getStringOrNull(row, "locationCountry"));
                 ua.setLocationRegion(getStringOrNull(row, "locationRegion"));
                 ua.setHitCreationDate(parseTimestampOrNull(row, "hitCreationDate"));
