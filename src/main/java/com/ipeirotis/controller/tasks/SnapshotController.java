@@ -81,6 +81,10 @@ public class SnapshotController {
     /**
      * Backfill all weekly and monthly rollups from the start of data (2015-03-23)
      * to now. Enqueues individual rollup tasks via Cloud Tasks.
+     *
+     * Note: during normal backfill via /tasks/backfillSnapshots, rollups are
+     * automatically rebuilt after each snapshot completes (event-driven), so
+     * calling this endpoint separately is only needed for standalone rollup repairs.
      */
     @GetMapping("/tasks/backfillRollups")
     public Map<String, Object> backfillRollups() {
@@ -133,7 +137,8 @@ public class SnapshotController {
     }
 
     /**
-     * Cron-triggered: snapshot yesterday's demographics data.
+     * Cron-triggered: snapshot yesterday's demographics data, then rebuild
+     * the affected weekly and monthly rollups.
      */
     @GetMapping("/tasks/snapshotDemographics")
     public Map<String, Object> snapshotYesterday() throws ParseException {
@@ -142,17 +147,51 @@ public class SnapshotController {
         DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
         String dateStr = df.format(yesterday.getTime());
         snapshotService.buildSnapshot(dateStr);
+        rebuildRollupsForDate(dateStr);
         return Map.of("status", "ok", "date", dateStr);
     }
 
     /**
-     * Snapshot a single date. Called by Cloud Tasks during backfill.
+     * Snapshot a single date, then rebuild the affected weekly and monthly rollups.
+     * Called by Cloud Tasks during backfill.
+     * Because rollups are idempotent, rebuilding them after each snapshot is safe:
+     * intermediate rebuilds are partial, and the last snapshot to complete produces
+     * the correct final result.
      * Example: /tasks/snapshotDate?date=01/15/2024
      */
     @GetMapping("/tasks/snapshotDate")
     public Map<String, Object> snapshotDate(@RequestParam String date) throws ParseException {
         snapshotService.buildSnapshot(date);
+        rebuildRollupsForDate(date);
         return Map.of("status", "ok", "date", date);
+    }
+
+    /**
+     * After a daily snapshot is saved, rebuild the weekly and monthly rollups
+     * that contain that date. Since rollups are a deterministic sum of daily
+     * snapshots, rebuilding them multiple times is harmless — the last snapshot
+     * task to complete for a given week/month produces the correct final rollup.
+     */
+    private void rebuildRollupsForDate(String mmddyyyy) throws ParseException {
+        DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
+        DateFormat sortable = SafeDateFormat.forPattern("yyyy-MM-dd");
+        LocalDate date = LocalDate.parse(sortable.format(df.parse(mmddyyyy)));
+
+        // Rebuild weekly rollup (week containing this date)
+        LocalDate monday = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        try {
+            snapshotService.buildWeeklyRollup(monday.toString());
+        } catch (Exception e) {
+            logger.warning("Weekly rollup rebuild failed for " + monday + ": " + e.getMessage());
+        }
+
+        // Rebuild monthly rollup (month containing this date)
+        LocalDate monthStart = date.withDayOfMonth(1);
+        try {
+            snapshotService.buildMonthlyRollup(monthStart.toString());
+        } catch (Exception e) {
+            logger.warning("Monthly rollup rebuild failed for " + monthStart + ": " + e.getMessage());
+        }
     }
 
     private static final int MAX_CHUNKS = 30;
