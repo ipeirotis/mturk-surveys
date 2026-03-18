@@ -260,6 +260,42 @@ Monitoring, logging, and operational tooling for production visibility.
 
 - [ ] **T11.6** — **Add task failure monitoring endpoint** — Create a `/tasks/status` diagnostic endpoint (authenticated) that reports: number of pending tasks in queue, last successful snapshot date, last successful BigQuery export date, and last successful HIT creation time. Useful for operational dashboards and alerting.
 
+## Track 12: API Security & Documentation Alignment
+
+Focused hardening and cleanup tasks to reduce operational risk and improve contributor onboarding.
+
+### Endpoint Security
+
+- [ ] **T12.1** — **Restrict `/tasks/**` and `/tasks/debug/**` endpoints** — Add server-side auth checks so task/debug routes only allow App Engine Cron, Cloud Tasks, or authenticated admin users. Return `403` for all other callers.
+
+- [ ] **T12.2** — **Move dangerous debug controllers behind feature flag** — Gate controllers under `controller/tasks/debug` behind an environment toggle (e.g., `DEBUG_TASKS_ENABLED=false` by default), and disable in production.
+
+- [ ] **T12.3** — **Require non-GET methods for mutating task endpoints** — Convert state-changing task operations from `GET` to `POST` and validate required headers/body to prevent accidental invocation via crawlers, prefetchers, or cached links.
+
+### API Modernization
+
+- [ ] **T12.4** — **Migrate JSONP answer endpoints to JSON APIs** — Replace `/saveAnswer` and `/getAnswer` callback-based responses with `application/json` contracts, using standard request/response DTOs.
+
+- [ ] **T12.5** — **Add deprecation window for legacy JSONP clients** — Keep compatibility wrappers for a defined period (e.g., 60-90 days), emit deprecation headers/log warnings, and remove JSONP after migration.
+
+### CORS & Transport Controls
+
+- [ ] **T12.6** — **Tighten CORS allowlist** — Replace wildcard origins in `CorsConfig` with an explicit list of trusted frontend domains (prod + optional staging), configurable via env var.
+
+- [ ] **T12.7** — **Add rate limiting for public API endpoints** — Add per-IP limits on `/api/**` read endpoints and stricter limits on write/submit endpoints to mitigate abuse and traffic spikes.
+
+### Data & Performance Hygiene
+
+- [ ] **T12.8** — **Stream CSV export with cursor pagination** — Refactor `SurveyController.exportAnswersCsv()` to iterate through UserAnswer records in chunks and stream rows without loading full date ranges into memory.
+
+- [ ] **T12.9** — **Replace unbounded cache with Caffeine** — Swap `ConcurrentMapCacheManager` for Caffeine with explicit max size, TTL, and optional metrics hooks.
+
+### Documentation Quality
+
+- [ ] **T12.10** — **Expand README for onboarding** — Add setup prerequisites, local run instructions, environment variable requirements, test commands, and high-level architecture.
+
+- [ ] **T12.11** — **Fix documentation drift in `CLAUDE.md`** — Update inaccurate notes (e.g., test availability) and align operational docs with current code behavior/endpoints.
+
 ## Recommended Execution Order
 
 1. **Track 1** (CI/CD) — no code risk, immediate value
@@ -272,3 +308,4 @@ Monitoring, logging, and operational tooling for production visibility.
 8. **Track 9** (Robustness) — highest priority for production stability; T9.1 is critical security fix
 9. **Track 10** (Scalability) — pursue when data volume growth demands it
 10. **Track 11** (Observability) — high value for ongoing operations
+11. **Track 12** (API Security & Docs) — immediate hardening + developer-experience improvements
