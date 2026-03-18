@@ -11,3 +11,9 @@ indexes:
     name: surveyId
   - direction: desc
     name: date
+- kind: UserAnswer
+  properties:
+  - direction: asc
+    name: workerId
+  - direction: asc
+    name: hitId
