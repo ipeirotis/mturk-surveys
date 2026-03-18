@@ -1,6 +1,5 @@
 package com.ipeirotis.service;
 
-import com.google.cloud.bigquery.*;
 import com.ipeirotis.dao.DemographicsRollupDao;
 import com.ipeirotis.dao.DemographicsSnapshotDao;
 import com.ipeirotis.dto.DemographicsChartData;
@@ -19,7 +18,6 @@ import org.springframework.stereotype.Service;
 
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -38,15 +36,6 @@ public class DemographicsSnapshotService {
 
     private static final int WEEKLY_THRESHOLD = 365;   // >365 days → weekly
     private static final int MONTHLY_THRESHOLD = 730;  // >2 years → monthly
-
-    private static final String BQ_DATASET = "demographics";
-    private static final String BQ_TABLE = "responses";
-
-    // Datastore backup table used as a second fallback when demographics.responses
-    // has no data. This was loaded from the Cloud Storage export at
-    // gs://demographics_data_export/2025-03-20T18:52:11_94601/
-    private static final String BQ_BACKUP_DATASET = "test";
-    private static final String BQ_BACKUP_TABLE = "UserAnswer_2025MAR20";
 
     static {
         INCOME_LABELS.add("Less than $10,000");
@@ -91,23 +80,8 @@ public class DemographicsSnapshotService {
         String sortableDate = sortableDf.format(dateFrom.getTime());
 
         if (answers.isEmpty()) {
-            logger.info("No responses in Datastore for " + dateStr + ", trying BigQuery");
-            answers = loadFromBigQuery(sortableDate);
-            if (answers.isEmpty()) {
-                logger.info("No responses in BigQuery for " + dateStr + " either, skipping snapshot");
-                return null;
-            }
-        } else {
-            // Datastore may have partial data (e.g. after a restore where entity IDs
-            // were reused). Check BigQuery and use whichever source has more valid entries.
-            long dsValid = answers.stream().filter(this::hasDemographicAnswers).count();
-            List<UserAnswer> bqAnswers = loadFromBigQuery(sortableDate);
-            long bqValid = bqAnswers.stream().filter(this::hasDemographicAnswers).count();
-            if (bqValid > dsValid) {
-                logger.info("BigQuery has more valid entries for " + dateStr
-                        + " (BQ=" + bqValid + " vs DS=" + dsValid + "), using BigQuery");
-                answers = bqAnswers;
-            }
+            logger.info("No responses in Datastore for " + dateStr + ", skipping snapshot");
+            return null;
         }
 
         // Deduplicate by (workerId, hitId), keeping the earliest entry per group.
@@ -217,70 +191,8 @@ public class DemographicsSnapshotService {
         }
 
         if (validCount == 0) {
-            logger.info("No valid demographics responses for " + dateStr + " in Datastore (" + answers.size() + " total UAs), falling back to BigQuery");
-
-            List<UserAnswer> bqAnswers = loadFromBigQuery(sortableDate);
-            if (bqAnswers.isEmpty()) {
-                logger.info("No responses in BigQuery for " + dateStr + " either, skipping snapshot");
-                return null;
-            }
-
-            // Re-aggregate from BigQuery data
-            countries.clear(); yearOfBirth.clear(); gender.clear(); maritalStatus.clear();
-            householdSize.clear(); householdIncome.clear(); educationalLevel.clear();
-            timeSpentOnMturk.clear(); weeklyIncomeFromMturk.clear(); languagesSpoken.clear();
-            countriesDetailed.clear(); usStates.clear();
-            hourlyTotals.clear(); hourlyCountries.clear(); hourlyYearOfBirth.clear();
-            hourlyGender.clear(); hourlyMaritalStatus.clear(); hourlyHouseholdSize.clear();
-            hourlyHouseholdIncome.clear(); hourlyEducationalLevel.clear();
-            hourlyTimeSpentOnMturk.clear(); hourlyWeeklyIncomeFromMturk.clear();
-            hourlyLanguagesSpoken.clear();
-            responseTimesMinutes.clear();
-
-            for (UserAnswer ua : bqAnswers) {
-                if (!hasDemographicAnswers(ua)) {
-                    continue;
-                }
-                validCount++;
-
-                Calendar cal = Calendar.getInstance();
-                cal.setTime(ua.getDate());
-                String hour = String.valueOf(cal.get(Calendar.HOUR_OF_DAY));
-
-                incrementCountry(ua.getLocationCountry(), countries);
-                incrementCountryDetailed(ua.getLocationCountry(), countriesDetailed);
-                incrementUsState(ua.getLocationCountry(), ua.getLocationRegion(), usStates);
-                incrementDemographic("yearOfBirth", ua.getAnswers(), yearOfBirth, true);
-                incrementDemographic("gender", ua.getAnswers(), gender, false);
-                incrementDemographic("maritalStatus", ua.getAnswers(), maritalStatus, false);
-                incrementDemographic("householdSize", ua.getAnswers(), householdSize, false);
-                incrementDemographic("householdIncome", ua.getAnswers(), householdIncome, false);
-                incrementDemographic("educationalLevel", ua.getAnswers(), educationalLevel, false);
-                incrementDemographic("timeSpentOnMturk", ua.getAnswers(), timeSpentOnMturk, false);
-                incrementDemographic("weeklyIncomeFromMturk", ua.getAnswers(), weeklyIncomeFromMturk, false);
-                incrementMultiValue("languagesSpoken", ua.getAnswers(), languagesSpoken);
-
-                increment(hourlyTotals, hour);
-                incrementCountry(ua.getLocationCountry(), hourlyCountries, hour);
-                incrementDemographic("yearOfBirth", ua.getAnswers(), hourlyYearOfBirth, hour, true);
-                incrementDemographic("gender", ua.getAnswers(), hourlyGender, hour, false);
-                incrementDemographic("maritalStatus", ua.getAnswers(), hourlyMaritalStatus, hour, false);
-                incrementDemographic("householdSize", ua.getAnswers(), hourlyHouseholdSize, hour, false);
-                incrementDemographic("householdIncome", ua.getAnswers(), hourlyHouseholdIncome, hour, false);
-                incrementDemographic("educationalLevel", ua.getAnswers(), hourlyEducationalLevel, hour, false);
-                incrementDemographic("timeSpentOnMturk", ua.getAnswers(), hourlyTimeSpentOnMturk, hour, false);
-                incrementDemographic("weeklyIncomeFromMturk", ua.getAnswers(), hourlyWeeklyIncomeFromMturk, hour, false);
-                incrementMultiValue("languagesSpoken", ua.getAnswers(), hourlyLanguagesSpoken, hour);
-
-                collectResponseTime(ua, responseTimesMinutes);
-            }
-
-            if (validCount == 0) {
-                logger.info("No valid demographics in BigQuery data for " + dateStr + " (" + bqAnswers.size() + " rows), skipping snapshot");
-                return null;
-            }
-
-            logger.info("Built snapshot for " + dateStr + " from BigQuery: " + validCount + " valid of " + bqAnswers.size() + " rows");
+            logger.info("No valid demographics responses for " + dateStr + " in Datastore (" + answers.size() + " total UAs), skipping snapshot");
+            return null;
         }
 
         snapshot.setTotalResponses(validCount);
@@ -343,11 +255,6 @@ public class DemographicsSnapshotService {
 
         List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(fromDisplay, toDisplay);
         DemographicsRollup rollup = mergeSnapshotsIntoRollup(snapshots, "weekly", mondayDate);
-        if (rollup == null) {
-            // No daily snapshots — try building directly from BigQuery
-            rollup = buildRollupFromBigQuery("weekly", mondayDate,
-                    monday.toString(), sunday.toString());
-        }
         if (rollup != null) {
             rollupDao.save(rollup);
             logger.info("Saved weekly rollup for " + mondayDate + " with " + rollup.getTotalResponses() + " responses");
@@ -358,7 +265,6 @@ public class DemographicsSnapshotService {
     /**
      * Build and save a monthly rollup by merging daily snapshots for the given month.
      * monthStart should be yyyy-MM-dd of the 1st of the month.
-     * Falls back to BigQuery if daily snapshots are missing.
      */
     public DemographicsRollup buildMonthlyRollup(String monthStart) {
         LocalDate start = LocalDate.parse(monthStart);
@@ -376,11 +282,6 @@ public class DemographicsSnapshotService {
 
         List<DemographicsSnapshot> snapshots = snapshotDao.listByDateRange(fromDisplay, toDisplay);
         DemographicsRollup rollup = mergeSnapshotsIntoRollup(snapshots, "monthly", monthStart);
-        if (rollup == null) {
-            // No daily snapshots — try building directly from BigQuery
-            rollup = buildRollupFromBigQuery("monthly", monthStart,
-                    start.toString(), end.toString());
-        }
         if (rollup != null) {
             rollupDao.save(rollup);
             logger.info("Saved monthly rollup for " + monthStart + " with " + rollup.getTotalResponses() + " responses");
@@ -1343,408 +1244,6 @@ public class DemographicsSnapshotService {
 
     private boolean isNonEmpty(Map<String, Integer> map) {
         return map != null && !map.isEmpty();
-    }
-
-    /**
-     * Build a rollup directly from BigQuery data for a date range, bypassing
-     * the daily snapshot layer. Used when daily snapshots are missing.
-     *
-     * @param granularity "weekly" or "monthly"
-     * @param dateKey     the rollup key date (yyyy-MM-dd)
-     * @param fromDate    inclusive start date (yyyy-MM-dd)
-     * @param toDate      exclusive end date (yyyy-MM-dd)
-     */
-    private DemographicsRollup buildRollupFromBigQuery(String granularity, String dateKey,
-                                                        String fromDate, String toDate) {
-        List<UserAnswer> answers = loadFromBigQueryRange(fromDate, toDate);
-        if (answers.isEmpty()) {
-            logger.info("No BigQuery data for " + granularity + " rollup " + dateKey);
-            return null;
-        }
-
-        int totalResponses = 0;
-        Map<String, Integer> countries = new HashMap<>();
-        Map<String, Integer> yearOfBirth = new HashMap<>();
-        Map<String, Integer> gender = new HashMap<>();
-        Map<String, Integer> maritalStatus = new HashMap<>();
-        Map<String, Integer> householdSize = new HashMap<>();
-        Map<String, Integer> householdIncome = new HashMap<>();
-        Map<String, Integer> educationalLevel = new HashMap<>();
-        Map<String, Integer> timeSpentOnMturk = new HashMap<>();
-        Map<String, Integer> weeklyIncomeFromMturk = new HashMap<>();
-        Map<String, Integer> languagesSpoken = new HashMap<>();
-        Map<String, Integer> countriesDetailed = new HashMap<>();
-        Map<String, Integer> usStates = new HashMap<>();
-
-        for (UserAnswer ua : answers) {
-            if (!hasDemographicAnswers(ua)) continue;
-            totalResponses++;
-            incrementCountry(ua.getLocationCountry(), countries);
-            incrementCountryDetailed(ua.getLocationCountry(), countriesDetailed);
-            incrementUsState(ua.getLocationCountry(), ua.getLocationRegion(), usStates);
-            incrementDemographic("yearOfBirth", ua.getAnswers(), yearOfBirth, true);
-            incrementDemographic("gender", ua.getAnswers(), gender, false);
-            incrementDemographic("maritalStatus", ua.getAnswers(), maritalStatus, false);
-            incrementDemographic("householdSize", ua.getAnswers(), householdSize, false);
-            incrementDemographic("householdIncome", ua.getAnswers(), householdIncome, false);
-            incrementDemographic("educationalLevel", ua.getAnswers(), educationalLevel, false);
-            incrementDemographic("timeSpentOnMturk", ua.getAnswers(), timeSpentOnMturk, false);
-            incrementDemographic("weeklyIncomeFromMturk", ua.getAnswers(), weeklyIncomeFromMturk, false);
-            incrementMultiValue("languagesSpoken", ua.getAnswers(), languagesSpoken);
-        }
-
-        if (totalResponses == 0) {
-            logger.info("No valid demographics in BigQuery for " + granularity + " rollup " + dateKey
-                    + " (" + answers.size() + " rows), skipping");
-            return null;
-        }
-
-        DemographicsRollup rollup = new DemographicsRollup();
-        rollup.setId(granularity + ":" + dateKey);
-        rollup.setGranularity(granularity);
-        rollup.setDate(dateKey);
-        rollup.setTotalResponses(totalResponses);
-        rollup.setCountries(countries);
-        rollup.setYearOfBirth(yearOfBirth);
-        rollup.setGender(gender);
-        rollup.setMaritalStatus(maritalStatus);
-        rollup.setHouseholdSize(householdSize);
-        rollup.setHouseholdIncome(householdIncome);
-        rollup.setEducationalLevel(educationalLevel);
-        rollup.setTimeSpentOnMturk(timeSpentOnMturk);
-        rollup.setWeeklyIncomeFromMturk(weeklyIncomeFromMturk);
-        rollup.setLanguagesSpoken(languagesSpoken);
-        rollup.setCountriesDetailed(countriesDetailed);
-        rollup.setUsStates(usStates);
-
-        logger.info("Built " + granularity + " rollup for " + dateKey + " from BigQuery: "
-                + totalResponses + " valid of " + answers.size() + " rows");
-        return rollup;
-    }
-
-    /**
-     * Load UserAnswer-like objects from BigQuery for a date range.
-     * Tries the Datastore backup table first, then falls back to the daily export table.
-     *
-     * @param fromDate inclusive start date (yyyy-MM-dd)
-     * @param toDate   exclusive end date (yyyy-MM-dd)
-     */
-    private List<UserAnswer> loadFromBigQueryRange(String fromDate, String toDate) {
-        List<UserAnswer> results = loadFromBackupTableRange(fromDate, toDate);
-        if (!results.isEmpty()) {
-            return results;
-        }
-        return loadFromResponsesTableRange(fromDate, toDate);
-    }
-
-    private List<UserAnswer> loadFromBackupTableRange(String fromDate, String toDate) {
-        List<UserAnswer> results = new ArrayList<>();
-        try {
-            BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
-            String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
-
-            String sql = String.format(
-                    "SELECT date, workerId, hitId, locationCountry, locationRegion, hitCreationDate, answers "
-                    + "FROM `%s.%s.%s` WHERE DATE(date) >= '%s' AND DATE(date) < '%s'",
-                    projectId, BQ_BACKUP_DATASET, BQ_BACKUP_TABLE, fromDate, toDate);
-
-            QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
-            TableResult tableResult = bigQuery.query(queryConfig);
-            Schema tableSchema = tableResult.getSchema();
-
-            for (FieldValueList row : tableResult.iterateAll()) {
-                UserAnswer ua = new UserAnswer();
-                ua.setDate(parseTimestamp(row, "date"));
-                ua.setWorkerId(getStringOrNull(row, "workerId"));
-                ua.setHitId(getStringOrNull(row, "hitId"));
-                ua.setLocationCountry(getStringOrNull(row, "locationCountry"));
-                ua.setLocationRegion(getStringOrNull(row, "locationRegion"));
-                ua.setHitCreationDate(parseTimestampOrNull(row, "hitCreationDate"));
-
-                Map<String, String> answers = parseAnswersRecord(row, tableSchema);
-                if (!answers.isEmpty()) {
-                    ua.setAnswers(answers);
-                }
-                results.add(ua);
-            }
-
-            logger.info("Loaded " + results.size() + " rows from backup " + BQ_BACKUP_DATASET
-                    + "." + BQ_BACKUP_TABLE + " for range " + fromDate + " to " + toDate);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.log(Level.WARNING, "Interrupted querying BigQuery backup range", e);
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to query BigQuery backup range " + fromDate
-                    + " to " + toDate + ": " + e.getMessage(), e);
-        }
-        return results;
-    }
-
-    private List<UserAnswer> loadFromResponsesTableRange(String fromDate, String toDate) {
-        List<UserAnswer> results = new ArrayList<>();
-        try {
-            BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
-            String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
-
-            String sql = String.format(
-                    "SELECT DISTINCT date, worker_id, hit_id, country, region, hit_creation_date, "
-                    + "year_of_birth, gender, marital_status, "
-                    + "household_size, household_income, educational_level, "
-                    + "time_spent_on_mturk, weekly_income_from_mturk, languages_spoken "
-                    + "FROM `%s.%s.%s` WHERE DATE(date) >= '%s' AND DATE(date) < '%s'",
-                    projectId, BQ_DATASET, BQ_TABLE, fromDate, toDate);
-
-            QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
-            TableResult tableResult = bigQuery.query(queryConfig);
-
-            for (FieldValueList row : tableResult.iterateAll()) {
-                UserAnswer ua = new UserAnswer();
-                ua.setDate(parseTimestamp(row, "date"));
-                ua.setWorkerId(getStringOrNull(row, "worker_id"));
-                ua.setHitId(getStringOrNull(row, "hit_id"));
-                ua.setLocationCountry(getStringOrNull(row, "country"));
-                ua.setLocationRegion(getStringOrNull(row, "region"));
-                ua.setHitCreationDate(parseTimestampOrNull(row, "hit_creation_date"));
-
-                Map<String, String> answers = new LinkedHashMap<>();
-                putIfNotNull(answers, "yearOfBirth", getStringOrNull(row, "year_of_birth"));
-                putIfNotNull(answers, "gender", getStringOrNull(row, "gender"));
-                putIfNotNull(answers, "maritalStatus", getStringOrNull(row, "marital_status"));
-                putIfNotNull(answers, "householdSize", getStringOrNull(row, "household_size"));
-                putIfNotNull(answers, "householdIncome", getStringOrNull(row, "household_income"));
-                putIfNotNull(answers, "educationalLevel", getStringOrNull(row, "educational_level"));
-                putIfNotNull(answers, "timeSpentOnMturk", getStringOrNull(row, "time_spent_on_mturk"));
-                putIfNotNull(answers, "weeklyIncomeFromMturk", getStringOrNull(row, "weekly_income_from_mturk"));
-                putIfNotNull(answers, "languagesSpoken", getStringOrNull(row, "languages_spoken"));
-
-                if (!answers.isEmpty()) {
-                    ua.setAnswers(answers);
-                }
-                results.add(ua);
-            }
-
-            logger.info("Loaded " + results.size() + " rows from " + BQ_DATASET + "." + BQ_TABLE
-                    + " for range " + fromDate + " to " + toDate);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.log(Level.WARNING, "Interrupted querying BigQuery responses range", e);
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to query BigQuery responses range " + fromDate
-                    + " to " + toDate + ": " + e.getMessage(), e);
-        }
-        return results;
-    }
-
-    /**
-     * Load UserAnswer-like objects from BigQuery for a given date.
-     * Tries the Datastore backup table (authoritative source) first, then
-     * falls back to the daily export table (demographics.responses).
-     */
-    private List<UserAnswer> loadFromBigQuery(String sortableDate) {
-        // Try the Datastore backup table first (most complete source)
-        List<UserAnswer> results = loadFromBackupTable(sortableDate);
-        if (!results.isEmpty()) {
-            return results;
-        }
-
-        // Fall back to the daily export table
-        return loadFromResponsesTable(sortableDate);
-    }
-
-    /**
-     * Load from the daily export table (demographics.responses) which has
-     * flattened columns like year_of_birth, gender, etc.
-     */
-    private List<UserAnswer> loadFromResponsesTable(String sortableDate) {
-        List<UserAnswer> results = new ArrayList<>();
-        try {
-            BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
-            String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
-
-            String sql = String.format(
-                    "SELECT DISTINCT date, worker_id, hit_id, country, region, hit_creation_date, "
-                    + "year_of_birth, gender, marital_status, "
-                    + "household_size, household_income, educational_level, "
-                    + "time_spent_on_mturk, weekly_income_from_mturk, languages_spoken "
-                    + "FROM `%s.%s.%s` WHERE DATE(date) = '%s'",
-                    projectId, BQ_DATASET, BQ_TABLE, sortableDate);
-
-            QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
-            TableResult tableResult = bigQuery.query(queryConfig);
-
-            for (FieldValueList row : tableResult.iterateAll()) {
-                UserAnswer ua = new UserAnswer();
-                ua.setDate(parseTimestamp(row, "date"));
-                ua.setWorkerId(getStringOrNull(row, "worker_id"));
-                ua.setHitId(getStringOrNull(row, "hit_id"));
-                ua.setLocationCountry(getStringOrNull(row, "country"));
-                ua.setLocationRegion(getStringOrNull(row, "region"));
-                ua.setHitCreationDate(parseTimestampOrNull(row, "hit_creation_date"));
-
-                Map<String, String> answers = new LinkedHashMap<>();
-                putIfNotNull(answers, "yearOfBirth", getStringOrNull(row, "year_of_birth"));
-                putIfNotNull(answers, "gender", getStringOrNull(row, "gender"));
-                putIfNotNull(answers, "maritalStatus", getStringOrNull(row, "marital_status"));
-                putIfNotNull(answers, "householdSize", getStringOrNull(row, "household_size"));
-                putIfNotNull(answers, "householdIncome", getStringOrNull(row, "household_income"));
-                putIfNotNull(answers, "educationalLevel", getStringOrNull(row, "educational_level"));
-                putIfNotNull(answers, "timeSpentOnMturk", getStringOrNull(row, "time_spent_on_mturk"));
-                putIfNotNull(answers, "weeklyIncomeFromMturk", getStringOrNull(row, "weekly_income_from_mturk"));
-                putIfNotNull(answers, "languagesSpoken", getStringOrNull(row, "languages_spoken"));
-
-                if (!answers.isEmpty()) {
-                    ua.setAnswers(answers);
-                }
-                results.add(ua);
-            }
-
-            logger.info("Loaded " + results.size() + " rows from " + BQ_DATASET + "." + BQ_TABLE + " for " + sortableDate);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.log(Level.WARNING, "Interrupted querying BigQuery responses for " + sortableDate, e);
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to query BigQuery responses for " + sortableDate + ": " + e.getMessage(), e);
-        }
-        return results;
-    }
-
-    /**
-     * Load from the Datastore backup table (test.UserAnswer_2025MAR20) which has
-     * Datastore export format with nested answers RECORD and camelCase column names.
-     */
-    private List<UserAnswer> loadFromBackupTable(String sortableDate) {
-        List<UserAnswer> results = new ArrayList<>();
-        try {
-            BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
-            String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
-
-            String sql = String.format(
-                    "SELECT date, workerId, hitId, locationCountry, locationRegion, hitCreationDate, answers "
-                    + "FROM `%s.%s.%s` WHERE DATE(date) = '%s'",
-                    projectId, BQ_BACKUP_DATASET, BQ_BACKUP_TABLE, sortableDate);
-
-            QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
-            TableResult tableResult = bigQuery.query(queryConfig);
-            Schema tableSchema = tableResult.getSchema();
-
-            for (FieldValueList row : tableResult.iterateAll()) {
-                UserAnswer ua = new UserAnswer();
-                ua.setDate(parseTimestamp(row, "date"));
-                ua.setWorkerId(getStringOrNull(row, "workerId"));
-                ua.setHitId(getStringOrNull(row, "hitId"));
-                ua.setLocationCountry(getStringOrNull(row, "locationCountry"));
-                ua.setLocationRegion(getStringOrNull(row, "locationRegion"));
-                ua.setHitCreationDate(parseTimestampOrNull(row, "hitCreationDate"));
-
-                Map<String, String> answers = parseAnswersRecord(row, tableSchema);
-                if (!answers.isEmpty()) {
-                    ua.setAnswers(answers);
-                }
-                results.add(ua);
-            }
-
-            logger.info("Loaded " + results.size() + " rows from backup " + BQ_BACKUP_DATASET + "." + BQ_BACKUP_TABLE + " for " + sortableDate);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.log(Level.WARNING, "Interrupted querying BigQuery backup for " + sortableDate, e);
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to query BigQuery backup for " + sortableDate + ": " + e.getMessage(), e);
-        }
-        return results;
-    }
-
-    /**
-     * Parse the 'answers' field from a Datastore export row.
-     * The backup table stores answers as a flat RECORD with named sub-fields
-     * (e.g., answers.gender, answers.householdSize) rather than a Datastore
-     * map format with repeated {key, value} entries.
-     */
-    private Map<String, String> parseAnswersRecord(FieldValueList row, Schema tableSchema) {
-        Map<String, String> answers = new LinkedHashMap<>();
-        try {
-            FieldValue answersField = row.get("answers");
-            if (!answersField.isNull() && answersField.getAttribute() == FieldValue.Attribute.RECORD) {
-                FieldValueList record = answersField.getRecordValue();
-
-                // Get the sub-field names from the schema
-                com.google.cloud.bigquery.Field answersSchemaField = tableSchema.getFields().get("answers");
-                if (answersSchemaField != null && answersSchemaField.getSubFields() != null) {
-                    FieldList subFields = answersSchemaField.getSubFields();
-                    for (int i = 0; i < subFields.size() && i < record.size(); i++) {
-                        String fieldName = subFields.get(i).getName();
-                        if ("__key__".equals(fieldName)) continue;
-                        try {
-                            FieldValue val = record.get(i);
-                            if (!val.isNull()) {
-                                answers.put(fieldName, val.getStringValue());
-                            }
-                        } catch (Exception e) {
-                            // Skip unparseable sub-field
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Field might not exist
-        }
-        return answers;
-    }
-
-    private Date parseTimestamp(FieldValueList row, String fieldName) {
-        Date result = parseTimestampOrNull(row, fieldName);
-        return result != null ? result : new Date();
-    }
-
-    private Date parseTimestampOrNull(FieldValueList row, String fieldName) {
-        try {
-            FieldValue val = row.get(fieldName);
-            if (val.isNull()) return null;
-            String dateVal = val.getStringValue();
-
-            // Try epoch micros first (Datastore export format)
-            try {
-                long micros = Long.parseLong(dateVal);
-                return new Date(micros / 1000);
-            } catch (NumberFormatException e) {
-                // Try floating-point epoch seconds
-                try {
-                    double epochSeconds = Double.parseDouble(dateVal);
-                    return new Date((long) (epochSeconds * 1000));
-                } catch (NumberFormatException e2) {
-                    // Not numeric
-                }
-            }
-
-            // Try ISO formats
-            String[] patterns = {"yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-                    "yyyy-MM-dd HH:mm:ss z", "yyyy-MM-dd HH:mm:ss"};
-            for (String pattern : patterns) {
-                try {
-                    SimpleDateFormat sdf = new SimpleDateFormat(pattern);
-                    sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
-                    return sdf.parse(dateVal);
-                } catch (ParseException ignored) {
-                }
-            }
-        } catch (Exception e) {
-            // Field might not exist
-        }
-        return null;
-    }
-
-    private String getStringOrNull(FieldValueList row, String fieldName) {
-        try {
-            FieldValue val = row.get(fieldName);
-            return val.isNull() ? null : val.getStringValue();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private void putIfNotNull(Map<String, String> map, String key, String value) {
-        if (value != null) {
-            map.put(key, value);
-        }
     }
 
     private static final Set<String> DEMOGRAPHIC_KEYS = Set.of(
