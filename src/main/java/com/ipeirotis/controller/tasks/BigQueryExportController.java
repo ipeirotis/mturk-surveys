@@ -36,12 +36,20 @@ public class BigQueryExportController {
 
 	/**
 	 * Export a single date to BigQuery. Called by Cloud Tasks during backfill.
+	 * Returns 200 even on BigQuery errors (to prevent Cloud Tasks retries that
+	 * cause transaction conflict storms). Errors are logged for monitoring.
 	 * Example: /tasks/exportDateToBigQuery?date=01/15/2024
 	 */
 	@GetMapping("/tasks/exportDateToBigQuery")
-	public Map<String, Object> exportDate(@RequestParam String date) throws ParseException {
-		int rows = bigQueryExportService.exportDate(date);
-		return Map.of("status", "ok", "date", date, "rowsExported", rows);
+	public Map<String, Object> exportDate(@RequestParam String date) {
+		try {
+			int rows = bigQueryExportService.exportDate(date);
+			return Map.of("status", "ok", "date", date, "rowsExported", rows);
+		} catch (Exception e) {
+			java.util.logging.Logger.getLogger(getClass().getName())
+					.log(java.util.logging.Level.WARNING, "BigQuery export failed for " + date + ": " + e.getMessage(), e);
+			return Map.of("status", "error", "date", date, "error", e.getMessage() != null ? e.getMessage() : e.getClass().getName());
+		}
 	}
 
 	private static final int MAX_CHUNKS = 30;

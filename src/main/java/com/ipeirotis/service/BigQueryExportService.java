@@ -78,22 +78,30 @@ public class BigQueryExportService {
 		DateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 		isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
 
-		// Build a single transactional script: DELETE + INSERT(s)
-		// This prevents duplicates from concurrent exports for the same date
-		StringBuilder script = new StringBuilder();
-		script.append("BEGIN TRANSACTION;\n");
+		// Step 1: Delete existing rows for this date (non-transactional)
+		String deleteSql = String.format("DELETE FROM %s WHERE DATE(date) = '%s'",
+				fullTable, sortableDate);
+		try {
+			bigQuery.query(QueryJobConfiguration.newBuilder(deleteSql).build());
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new RuntimeException("Interrupted during BigQuery delete", e);
+		} catch (BigQueryException e) {
+			if (e.getMessage() != null && e.getMessage().contains("concurrent")) {
+				logger.warning("Concurrent update conflict during delete for " + dateStr + ", will retry later");
+				throw new RuntimeException("BigQuery concurrent update conflict for " + dateStr, e);
+			}
+			throw e;
+		}
 
-		// Delete existing rows for this date
-		script.append(String.format("DELETE FROM %s WHERE DATE(date) = '%s';\n",
-				fullTable, sortableDate));
-
-		// Build INSERT statements in batches
+		// Step 2: Insert rows in batches (non-transactional)
 		int batchSize = 200;
 		for (int i = 0; i < answers.size(); i += batchSize) {
 			int end = Math.min(i + batchSize, answers.size());
 			List<UserAnswer> batch = answers.subList(i, end);
 
-			script.append(String.format("INSERT INTO %s "
+			StringBuilder insertSql = new StringBuilder();
+			insertSql.append(String.format("INSERT INTO %s "
 					+ "(date, worker_id, survey_id, country, region, city, hit_id, "
 					+ "hit_creation_date, ip_address, year_of_birth, gender, marital_status, "
 					+ "household_size, household_income, educational_level, "
@@ -102,39 +110,39 @@ public class BigQueryExportService {
 
 			for (int j = 0; j < batch.size(); j++) {
 				UserAnswer ua = batch.get(j);
-				if (j > 0) script.append(", ");
-				script.append("(");
+				if (j > 0) insertSql.append(", ");
+				insertSql.append("(");
 
 				// date
-				script.append(ua.getDate() != null
+				insertSql.append(ua.getDate() != null
 						? "TIMESTAMP('" + isoFormat.format(ua.getDate()) + "')" : "NULL");
-				script.append(", ");
+				insertSql.append(", ");
 
 				// worker_id (SHA256-hashed)
 				String workerId = ua.getWorkerId();
-				script.append(workerId != null ? sqlString(sha256Hex(workerId)) : "NULL");
-				script.append(", ");
+				insertSql.append(workerId != null ? sqlString(sha256Hex(workerId)) : "NULL");
+				insertSql.append(", ");
 
 				// survey_id
-				script.append(sqlString(ua.getSurveyId()));
-				script.append(", ");
+				insertSql.append(sqlString(ua.getSurveyId()));
+				insertSql.append(", ");
 
 				// country, region, city
-				script.append(sqlString(ua.getLocationCountry())).append(", ");
-				script.append(sqlString(ua.getLocationRegion())).append(", ");
-				script.append(sqlString(ua.getLocationCity())).append(", ");
+				insertSql.append(sqlString(ua.getLocationCountry())).append(", ");
+				insertSql.append(sqlString(ua.getLocationRegion())).append(", ");
+				insertSql.append(sqlString(ua.getLocationCity())).append(", ");
 
 				// hit_id
-				script.append(sqlString(ua.getHitId())).append(", ");
+				insertSql.append(sqlString(ua.getHitId())).append(", ");
 
 				// hit_creation_date
-				script.append(ua.getHitCreationDate() != null
+				insertSql.append(ua.getHitCreationDate() != null
 						? "TIMESTAMP('" + isoFormat.format(ua.getHitCreationDate()) + "')" : "NULL");
-				script.append(", ");
+				insertSql.append(", ");
 
 				// ip_address (SHA256-hashed)
 				String ip = ua.getIp();
-				script.append(ip != null ? sqlString(sha256Hex(ip)) : "NULL");
+				insertSql.append(ip != null ? sqlString(sha256Hex(ip)) : "NULL");
 
 				// answer fields
 				Map<String, String> a = ua.getAnswers();
@@ -142,24 +150,25 @@ public class BigQueryExportService {
 						"householdIncome", "educationalLevel", "timeSpentOnMturk",
 						"weeklyIncomeFromMturk", "languagesSpoken"};
 				for (String key : keys) {
-					script.append(", ");
-					script.append(a != null ? sqlString(a.get(key)) : "NULL");
+					insertSql.append(", ");
+					insertSql.append(a != null ? sqlString(a.get(key)) : "NULL");
 				}
 
-				script.append(")");
+				insertSql.append(")");
 			}
-			script.append(";\n");
-		}
 
-		script.append("COMMIT TRANSACTION;\n");
-
-		try {
-			QueryJobConfiguration scriptConfig = QueryJobConfiguration.newBuilder(script.toString())
-					.build();
-			bigQuery.query(scriptConfig);
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw new RuntimeException("Interrupted during BigQuery export transaction", e);
+			try {
+				bigQuery.query(QueryJobConfiguration.newBuilder(insertSql.toString()).build());
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				throw new RuntimeException("Interrupted during BigQuery insert", e);
+			} catch (BigQueryException e) {
+				if (e.getMessage() != null && e.getMessage().contains("concurrent")) {
+					logger.warning("Concurrent update conflict during insert for " + dateStr + ", will retry later");
+					throw new RuntimeException("BigQuery concurrent update conflict for " + dateStr, e);
+				}
+				throw e;
+			}
 		}
 
 		int totalExported = answers.size();
@@ -239,7 +248,6 @@ public class BigQueryExportService {
 
 	/**
 	 * Ensure the BigQuery dataset and table exist, creating them if needed.
-	 * The dataset is made publicly readable.
 	 */
 	public void ensureTableExists(BigQuery bigQuery, String projectId) {
 		// Create dataset if it doesn't exist
@@ -251,22 +259,6 @@ public class BigQueryExportService {
 					.build();
 			dataset = bigQuery.create(datasetInfo);
 			logger.info("Created BigQuery dataset: " + DATASET_ID);
-		}
-
-		// Make dataset publicly readable
-		try {
-			Acl publicAccess = Acl.of(new Acl.Group("allUsers"), Acl.Role.READER);
-			List<Acl> acls = new ArrayList<>(dataset.getAcl());
-			boolean hasPublicAccess = acls.stream().anyMatch(
-					acl -> acl.getEntity() instanceof Acl.Group
-							&& "allUsers".equals(((Acl.Group) acl.getEntity()).getIdentifier()));
-			if (!hasPublicAccess) {
-				acls.add(publicAccess);
-				bigQuery.update(dataset.toBuilder().setAcl(acls).build());
-				logger.info("Set public access on dataset: " + DATASET_ID);
-			}
-		} catch (BigQueryException e) {
-			logger.log(Level.WARNING, "Could not set public access on dataset: " + e.getMessage(), e);
 		}
 
 		// Create table if it doesn't exist
