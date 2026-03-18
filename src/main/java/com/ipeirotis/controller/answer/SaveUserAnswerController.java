@@ -47,8 +47,9 @@ public class SaveUserAnswerController {
 
 		// Server-side dedup: reject if this worker already answered this HIT
 		if (userAnswer.getWorkerId() != null && userAnswer.getHitId() != null) {
-			UserAnswer existing = userAnswerService.get(userAnswer.getHitId());
-			if (existing != null && userAnswer.getWorkerId().equals(existing.getWorkerId())) {
+			UserAnswer existing = userAnswerService.findByWorkerAndHit(
+					userAnswer.getWorkerId(), userAnswer.getHitId());
+			if (existing != null) {
 				logger.info("Duplicate answer rejected: workerId=" + userAnswer.getWorkerId()
 						+ " hitId=" + userAnswer.getHitId());
 				if (callback != null) {

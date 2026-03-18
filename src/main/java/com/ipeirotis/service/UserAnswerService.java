@@ -32,6 +32,17 @@ public class UserAnswerService {
         return userAnswerDao.getByProperty("hitId", hitId);
     }
 
+    /**
+     * Find an existing answer by workerId and hitId.
+     * Returns the first match, or null if none exists.
+     */
+    public UserAnswer findByWorkerAndHit(String workerId, String hitId) {
+        return ofy().load().type(UserAnswer.class)
+                .filter("workerId", workerId)
+                .filter("hitId", hitId)
+                .first().now();
+    }
+
     public void save(List<UserAnswer> userAnswers) {
         userAnswerDao.save(userAnswers);
     }
