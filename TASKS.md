@@ -290,6 +290,30 @@ Focused hardening and cleanup tasks to reduce operational risk and improve contr
 
 - [ ] **T12.9** — **Replace unbounded cache with Caffeine** — Swap `ConcurrentMapCacheManager` for Caffeine with explicit max size, TTL, and optional metrics hooks.
 
+- [ ] **T12.12** — **Fix duplicate-write race condition in answer ingestion** — Replace check-then-save dedup with transactional/idempotent persistence keyed by `(workerId, hitId)` to prevent concurrent duplicate inserts.
+
+- [ ] **T12.13** — **Bound recursive/self-enqueued retries** — Add retry counters + exponential backoff to self-requeue paths (e.g., HIT creation/backfill recursion) and dead-letter handling after max attempts.
+
+- [ ] **T12.14** — **Externalize hardcoded backup project/bucket configuration** — Move `DatastoreBackupController` constants to required env config with fail-fast startup validation.
+
+- [ ] **T12.15** — **Standardize date formats across API/task endpoints** — Prefer ISO `yyyy-MM-dd` (or dual parser with strict validation) to reduce operator mistakes across `/api/**` and `/tasks/**`.
+
+- [ ] **T12.16** — **Harden request context handling in answer ingestion** — Guard `getIp()` against null/non-servlet contexts and malformed forwarding headers.
+
+- [ ] **T12.17** — **Reuse MTurk clients instead of per-call creation** — Introduce managed singleton clients (prod/sandbox) with explicit timeout + lifecycle management.
+
+- [ ] **T12.18** — **Make global dedup memory-safe** — Refactor `deduplicateGlobal()` to streaming/partitioned processing rather than loading all groups into memory.
+
+- [ ] **T12.19** — **Expose reliable export failure signals** — Adjust BigQuery export task contract so failures are observable/retriable (status codes + metrics + reconciliation workflow), not silently treated as success.
+
+- [ ] **T12.20** — **Refactor `SurveyService` into focused modules** — Split CRUD/template/validation/legacy aggregation responsibilities to reduce coupling and rule drift.
+
+- [ ] **T12.21** — **Add controller/security coverage for critical routes** — Add MVC tests for task auth guards, answer ingestion contracts, and export/restore endpoints.
+
+- [ ] **T12.22** — **Reduce reflection-heavy tests** — Convert private-method reflection tests to behavior-focused tests over public APIs and collaborator contracts.
+
+- [ ] **T12.23** — **Add concurrency tests for idempotency** — Add parallel-submission tests to verify duplicate prevention under contention.
+
 ### Documentation Quality
 
 - [ ] **T12.10** — **Expand README for onboarding** — Add setup prerequisites, local run instructions, environment variable requirements, test commands, and high-level architecture.
