@@ -34,3 +34,9 @@ jobs:
 
       - name: Deploy to App Engine
         run: mvn appengine:deploy -B -Dapp.deploy.promote=true
+
+      - name: Deploy cron jobs
+        run: gcloud app deploy src/main/appengine/cron.yaml --project=mturk-demographics --quiet
+
+      - name: Deploy Datastore indexes
+        run: gcloud app deploy src/main/appengine/index.yaml --project=mturk-demographics --quiet
