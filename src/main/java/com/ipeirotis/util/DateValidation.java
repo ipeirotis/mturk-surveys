@@ -3,14 +3,16 @@ package com.ipeirotis.util;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.util.Calendar;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Shared date validation for task endpoints that accept from/to date ranges.
  */
 public class DateValidation {
 
-    private static final int MAX_RANGE_DAYS = 4100; // ~11 years, covers full dataset 2015-present
+    // Earliest reasonable date (before the survey started in 2015)
+    private static final int EARLIEST_YEAR = 2000;
+    // How far into the future 'to' dates are allowed
+    private static final int MAX_FUTURE_YEARS = 2;
 
     /**
      * Validate a date string can be parsed with the given pattern.
@@ -32,7 +34,8 @@ public class DateValidation {
     }
 
     /**
-     * Validate a from/to date range: both parseable, from <= to, range not too large.
+     * Validate a from/to date range: both parseable, from <= to, dates within
+     * reasonable bounds (not before 2000, not more than 2 years in the future).
      *
      * @throws IllegalArgumentException on any validation failure
      */
@@ -53,11 +56,16 @@ public class DateValidation {
                         "from (" + from + ") must not be after to (" + to + ")");
             }
 
-            long days = TimeUnit.MILLISECONDS.toDays(
-                    end.getTimeInMillis() - start.getTimeInMillis()) + 1;
-            if (days > MAX_RANGE_DAYS) {
+            if (start.get(Calendar.YEAR) < EARLIEST_YEAR) {
                 throw new IllegalArgumentException(
-                        "Date range too large: " + days + " days (max " + MAX_RANGE_DAYS + ")");
+                        "from date is before " + EARLIEST_YEAR + ": " + from);
+            }
+
+            Calendar maxFuture = Calendar.getInstance();
+            maxFuture.add(Calendar.YEAR, MAX_FUTURE_YEARS);
+            if (end.after(maxFuture)) {
+                throw new IllegalArgumentException(
+                        "to date is too far in the future: " + to);
             }
         } catch (ParseException e) {
             // Already validated above, should not happen
