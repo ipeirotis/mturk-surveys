@@ -226,12 +226,40 @@ public class SurveyService {
     /**
      * List all answers in a date range regardless of surveyId.
      * Useful for querying legacy entities that may have null surveyId.
+     * Fetches in chunks of 500 to limit memory usage.
      */
     public List<UserAnswer> listAnswersByDateRange(Date from, Date to) {
-        Map<String, Object> params = new HashMap<String, Object>();
-        params.put("date >=", from);
-        params.put("date <", to);
-        return userAnswerService.query(params);
+        List<UserAnswer> result = new ArrayList<>();
+        final int chunkSize = 500;
+        com.google.cloud.datastore.Cursor cursor = null;
+        boolean hasMore = true;
+
+        while (hasMore) {
+            com.googlecode.objectify.cmd.Query<UserAnswer> query =
+                    com.googlecode.objectify.ObjectifyService.ofy().load().type(UserAnswer.class)
+                            .filter("date >=", from)
+                            .filter("date <", to)
+                            .order("date")
+                            .limit(chunkSize);
+
+            if (cursor != null) {
+                query = query.startAt(cursor);
+            }
+
+            com.google.cloud.datastore.QueryResults<UserAnswer> iterator = query.iterator();
+            int count = 0;
+            while (iterator.hasNext()) {
+                result.add(iterator.next());
+                count++;
+            }
+
+            if (count < chunkSize) {
+                hasMore = false;
+            } else {
+                cursor = iterator.getCursorAfter();
+            }
+        }
+        return result;
     }
 
     public DemographicsSurveyAnswersByPeriod getDemographicsAnswers(String from, String to) throws ParseException {

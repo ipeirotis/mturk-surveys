@@ -229,9 +229,30 @@ public class DemographicsSnapshotService {
             snapshot.setP75ResponseTimeMinutes(percentile(responseTimesMinutes, 75));
         }
 
-        snapshotDao.save(snapshot);
-        logger.info("Saved snapshot for " + dateStr + " with " + answers.size() + " responses");
-        return snapshot;
+        // Atomic optimistic lock: check-and-save inside a transaction to prevent
+        // concurrent builds from overwriting each other.
+        final DemographicsSnapshot snapshotToSave = snapshot;
+        final String dateKey = dateStr;
+        final int answerCount = answers.size();
+        DemographicsSnapshot result = com.googlecode.objectify.ObjectifyService.ofy().transact(() -> {
+            DemographicsSnapshot existing = snapshotDao.get(dateKey);
+            if (existing != null && existing.getLastUpdated() != null) {
+                long ageMs = System.currentTimeMillis() - existing.getLastUpdated().getTime();
+                if (ageMs < 5 * 60 * 1000) {
+                    logger.info("Snapshot for " + dateKey + " was updated "
+                            + (ageMs / 1000) + "s ago, skipping to prevent concurrent overwrite");
+                    return existing;
+                }
+            }
+            snapshotToSave.setLastUpdated(new Date());
+            snapshotDao.save(snapshotToSave);
+            return snapshotToSave;
+        });
+
+        if (result == snapshotToSave) {
+            logger.info("Saved snapshot for " + dateStr + " with " + answerCount + " responses");
+        }
+        return result;
     }
 
     /**

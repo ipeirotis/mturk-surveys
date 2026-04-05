@@ -82,31 +82,37 @@ public class DatastoreBackupController {
 			String apiUrl = "https://datastore.googleapis.com/v1/projects/" + PROJECT_ID + ":export";
 			URL url = new URL(apiUrl);
 			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-			conn.setRequestMethod("POST");
-			conn.setRequestProperty("Authorization", "Bearer " + accessToken);
-			conn.setRequestProperty("Content-Type", "application/json");
-			conn.setDoOutput(true);
+			try {
+				conn.setConnectTimeout(10_000);
+				conn.setReadTimeout(30_000);
+				conn.setRequestMethod("POST");
+				conn.setRequestProperty("Authorization", "Bearer " + accessToken);
+				conn.setRequestProperty("Content-Type", "application/json");
+				conn.setDoOutput(true);
 
-			try (OutputStream os = conn.getOutputStream()) {
-				os.write(json.toString().getBytes(StandardCharsets.UTF_8));
-			}
+				try (OutputStream os = conn.getOutputStream()) {
+					os.write(json.toString().getBytes(StandardCharsets.UTF_8));
+				}
 
-			int responseCode = conn.getResponseCode();
-			String responseBody;
-			try (var is = responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()) {
-				responseBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-			}
+				int responseCode = conn.getResponseCode();
+				String responseBody;
+				try (var is = responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()) {
+					responseBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+				}
 
-			result.put("httpStatus", responseCode);
+				result.put("httpStatus", responseCode);
 
-			if (responseCode >= 200 && responseCode < 300) {
-				result.put("status", "ok");
-				result.put("response", responseBody);
-				logger.info("Datastore export started: " + outputUrl);
-			} else {
-				result.put("status", "error");
-				result.put("error", responseBody);
-				logger.log(Level.WARNING, "Datastore export failed (" + responseCode + "): " + responseBody);
+				if (responseCode >= 200 && responseCode < 300) {
+					result.put("status", "ok");
+					result.put("response", responseBody);
+					logger.info("Datastore export started: " + outputUrl);
+				} else {
+					result.put("status", "error");
+					result.put("error", responseBody);
+					logger.log(Level.WARNING, "Datastore export failed (" + responseCode + "): " + responseBody);
+				}
+			} finally {
+				conn.disconnect();
 			}
 		} catch (IOException e) {
 			result.put("status", "error");

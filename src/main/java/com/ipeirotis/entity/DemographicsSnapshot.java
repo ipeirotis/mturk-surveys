@@ -1,5 +1,6 @@
 package com.ipeirotis.entity;
 
+import java.util.Date;
 import java.util.Map;
 
 import com.googlecode.objectify.annotation.Cache;
@@ -59,6 +60,9 @@ public class DemographicsSnapshot {
 
     // Day of week (Sun, Mon, etc.)
     private String dayOfWeek;
+
+    // Timestamp of last update, used for optimistic locking
+    private Date lastUpdated;
 
     public String getId() {
         return id;
@@ -306,5 +310,13 @@ public class DemographicsSnapshot {
 
     public void setResponseTimeCount(Integer responseTimeCount) {
         this.responseTimeCount = responseTimeCount;
+    }
+
+    public Date getLastUpdated() {
+        return lastUpdated;
+    }
+
+    public void setLastUpdated(Date lastUpdated) {
+        this.lastUpdated = lastUpdated;
     }
 }

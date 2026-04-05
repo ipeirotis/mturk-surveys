@@ -188,7 +188,7 @@ Improvements to error handling, resilience, and operational stability for a prod
 
 - [x] **T9.3** — **Add global catch-all exception handler** — Extended `RestResponseEntityExceptionHandler` with handlers for `MturkException` → 502, `ParseException` → 400, `IllegalArgumentException` → 400, `TaskEnqueueException` → 502, and catch-all `Exception` → 500. All handlers return structured `ErrorResponse` JSON bodies with timestamp, status code, and message. Severe errors are logged. Extracted `buildResponse()` helper to reduce duplication. *(completed)*
 
-- [ ] **T9.4** — **Add retry with backoff on MTurk API calls** — Wrap `MturkService` methods with Spring Retry (`@Retryable`) or manual exponential backoff for transient failures (network errors, rate limiting). Configure max 3 retries with 1s/2s/4s delays. Add `spring-retry` dependency.
+- [x] **T9.4** — **Add retry with backoff on MTurk API calls** — Added `spring-retry` and `spring-aspects` dependencies. Enabled `@EnableRetry` on the application class. Added `@Retryable` annotations to all 6 public `MturkService` methods with max 3 attempts and exponential backoff (1s, 2s delays). Retries on `SdkClientException` (network errors) and `MturkException` (service-side transient errors). *(completed)*
 
 - [x] **T9.5** — **Add retry limits to task re-enqueuing** — Added `retryCount` parameter to `CreateHITController` with max 5 retries and exponential backoff (2s, 4s, 8s, 16s, 32s). After max retries, logs SEVERE and returns 500 instead of re-enqueuing. Added `page` parameter to `DeleteHITsController` with max 200 pages (6000 HITs) safety limit to prevent infinite cursor-based pagination loops. *(completed)*
 
@@ -198,23 +198,23 @@ Improvements to error handling, resilience, and operational stability for a prod
 
 - [x] **T9.7** — **Configure MTurk client timeouts** — Set API call timeout (30s) and per-attempt timeout (10s) via `ClientOverrideConfiguration` on both production and sandbox `MTurkClient` singletons. Clients are created once at startup and closed via `@PreDestroy`. *(completed)*
 
-- [ ] **T9.8** — **Configure BigQuery client timeouts** — Set `QueryJobConfiguration` timeouts and `BigQueryOptions` retry settings. Add a 60s timeout on `bigQuery.query()` calls and a 120s timeout on bulk `insertAll()` operations.
+- [x] **T9.8** — **Configure BigQuery client timeouts** — Created `BigQueryConfig` bean with `BigQueryOptions` retry settings (120s total timeout, 4 max attempts, exponential backoff 1s→16s). Injected the configured `BigQuery` client into `BigQueryExportService` instead of using `getDefaultInstance()`. Added `setJobTimeoutMs()` on individual queries: 60s for deletes/counts, 120s for inserts/dedup operations. *(completed)*
 
-- [ ] **T9.9** — **Fix HttpURLConnection resource leak** — In `DatastoreBackupController`, wrap `HttpURLConnection` usage in try-with-resources. Set connect timeout (10s) and read timeout (30s).
+- [x] **T9.9** — **Fix HttpURLConnection resource leak** — In `DatastoreBackupController`, wrapped `HttpURLConnection` usage in try-finally with `conn.disconnect()`. Set connect timeout (10s) and read timeout (30s) via `setConnectTimeout()` and `setReadTimeout()`. *(completed)*
 
 ### Memory & Query Bounds
 
-- [ ] **T9.10** — **Paginate large in-memory queries** — Refactor `UserAnswerService.listByDateRange()` and `SurveyService.listAnswersByDateRange()` to use cursor-based iteration instead of loading all results into a `List`. Use Objectify's `QueryResultIterator` with chunked processing (e.g., 500 entities at a time) for snapshot building and BigQuery export.
+- [x] **T9.10** — **Paginate large in-memory queries** — Refactored `UserAnswerService.listByDateRange()` to use chunked cursor-based iteration (500 entities per chunk) via new `iterateByDateRange()` method. Refactored `SurveyService.listAnswersByDateRange()` with the same chunked pattern using Objectify's `QueryResults` cursor. Both methods now avoid loading full result sets in a single Datastore RPC. *(completed)*
 
-- [ ] **T9.11** — **Stream CSV export from Datastore** — Refactor `SurveyController.exportAnswersCsv()` to use cursor-based pagination inside the `StreamingResponseBody`, fetching 500 entities at a time and writing directly to the output stream, instead of loading the entire date range into memory first.
+- [x] **T9.11** — **Stream CSV export from Datastore** — Refactored `SurveyController.exportAnswersCsv()` to use `UserAnswerService.iterateByDateRange()` inside the `StreamingResponseBody`, streaming entities in chunks of 500 directly to the output stream instead of loading the entire date range into memory first. *(completed)*
 
 - [x] **T9.12** — **Add cache eviction policy** — Replaced `ConcurrentMapCacheManager` with `CaffeineCacheManager` backed by Caffeine. Configured max 100 entries and 1-hour TTL. Added `caffeine` dependency to pom.xml (version managed by Spring Boot parent). Prevents unbounded memory growth on long-running instances. *(completed)*
 
 ### Idempotency & Data Integrity
 
-- [ ] **T9.13** — **Make HIT creation idempotent** — Add a `UniqueRequestToken` to `CreateHitRequest` using a deterministic key (e.g., hash of survey ID + date + hour). MTurk's API will reject duplicate creation attempts with the same token, preventing double-HIT creation on task retries.
+- [x] **T9.13** — **Make HIT creation idempotent** — Added `uniqueRequestToken` to `CreateHitRequest` in `MturkService.createHIT()` using a SHA-256 hash of `surveyId + current date/hour`. MTurk's API rejects duplicate creation attempts with the same token, preventing double-HIT creation on task retries within the same hour. *(completed)*
 
-- [ ] **T9.14** — **Add optimistic locking to snapshot writes** — Before saving a `DemographicsSnapshot`, check if one already exists for the same date. If it does and was updated recently (within 5 minutes), skip the write to prevent concurrent builds from overwriting each other.
+- [x] **T9.14** — **Add optimistic locking to snapshot writes** — Added `lastUpdated` timestamp field to `DemographicsSnapshot` entity. Before saving, `buildSnapshot()` checks if an existing snapshot was updated within the last 5 minutes and skips the write if so, returning the existing snapshot. This prevents concurrent snapshot builds from overwriting each other. *(completed)*
 
 ## Track 10: Scalability & Performance
 

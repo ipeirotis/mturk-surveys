@@ -3,11 +3,27 @@ package com.ipeirotis.service;
 import com.ipeirotis.entity.Survey;
 import com.ipeirotis.util.SafeDecimalFormat;
 import jakarta.annotation.PreDestroy;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.services.mturk.MTurkClient;
-import software.amazon.awssdk.services.mturk.model.*;
+import software.amazon.awssdk.services.mturk.model.ApproveAssignmentRequest;
+import software.amazon.awssdk.services.mturk.model.Assignment;
+import software.amazon.awssdk.services.mturk.model.CreateHitRequest;
+import software.amazon.awssdk.services.mturk.model.CreateHitResponse;
+import software.amazon.awssdk.services.mturk.model.DeleteHitRequest;
+import software.amazon.awssdk.services.mturk.model.DeleteHitResponse;
+import software.amazon.awssdk.services.mturk.model.GetHitRequest;
+import software.amazon.awssdk.services.mturk.model.GetHitResponse;
+import software.amazon.awssdk.services.mturk.model.HIT;
+import software.amazon.awssdk.services.mturk.model.ListAssignmentsForHitRequest;
+import software.amazon.awssdk.services.mturk.model.ListAssignmentsForHitResponse;
+import software.amazon.awssdk.services.mturk.model.ListHiTsRequest;
+import software.amazon.awssdk.services.mturk.model.ListHiTsResponse;
 
 import java.net.URI;
 import java.text.NumberFormat;
@@ -65,6 +81,8 @@ public class MturkService {
         try { sandboxClient.close(); } catch (Exception e) { /* ignore */ }
     }
 
+    @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
+            maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public HIT getHIT(Boolean production, String hitId) {
         MTurkClient client = getClient(production);
         GetHitRequest.Builder requestBuilder = GetHitRequest.builder().hitId(hitId);
@@ -72,12 +90,16 @@ public class MturkService {
         return response.hit();
     }
 
+    @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
+            maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public DeleteHitResponse deleteHIT(Boolean production, String hitId) {
         MTurkClient client = getClient(production);
         DeleteHitRequest.Builder requestBuilder = DeleteHitRequest.builder().hitId(hitId);
         return client.deleteHIT(requestBuilder.build());
     }
 
+    @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
+            maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public List<Assignment> listAssignmentsForHit(Boolean production, String hitId) {
         MTurkClient client = getClient(production);
         ListAssignmentsForHitRequest.Builder requestBuilder = ListAssignmentsForHitRequest.builder().hitId(hitId);
@@ -85,6 +107,8 @@ public class MturkService {
         return response.assignments();
     }
 
+    @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
+            maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public void approveAssignment(Boolean production, String assignmentId) {
         MTurkClient client = getClient(production);
         ApproveAssignmentRequest.Builder requestBuilder = ApproveAssignmentRequest.builder().assignmentId(assignmentId);
@@ -92,6 +116,8 @@ public class MturkService {
         client.approveAssignment(requestBuilder.build());
     }
 
+    @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
+            maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public List<HIT> listHits(Boolean production) {
         MTurkClient client = getClient(production);
         ListHiTsRequest.Builder requestBuilder = ListHiTsRequest.builder().maxResults(100);
@@ -99,7 +125,9 @@ public class MturkService {
         return response.hiTs();
     }
 
-    public HIT createHIT(Boolean production, Survey survey) {
+    @Retryable(retryFor = {SdkClientException.class},
+            maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
+    public HIT createHIT(Boolean production, Survey survey, String idempotencyToken) {
         MTurkClient client = getClient(production);
         CreateHitRequest.Builder requestBuilder = CreateHitRequest.builder();
         requestBuilder.title(survey.getTitle());
@@ -110,6 +138,9 @@ public class MturkService {
         requestBuilder.assignmentDurationInSeconds(DEFAULT_ASSIGNMENT_DURATION_IN_SECONDS);
         requestBuilder.autoApprovalDelayInSeconds(DEFAULT_AUTO_APPROVAL_DELAY_IN_SECONDS);
         requestBuilder.lifetimeInSeconds(DEFAULT_LIFETIME_IN_SECONDS);
+
+        // Idempotency token: caller-supplied stable token to prevent duplicate HITs on retries
+        requestBuilder.uniqueRequestToken(idempotencyToken);
 
         if (survey.getHtmlQuestion() != null) {
             requestBuilder.question(wrapHTMLQuestions(survey.getHtmlQuestion(), DEFAULT_FRAME_HEIGHT));
