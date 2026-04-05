@@ -16,15 +16,22 @@ import java.util.logging.Logger;
  *
  * Only allows requests from:
  * - App Engine Cron (X-Appengine-Cron: true)
- * - Google Cloud Tasks (X-CloudTasks-TaskName header present)
+ * - Google Cloud Tasks (X-CloudTasks-TaskName or X-AppEngine-TaskName header)
+ * - Admin API key (X-Task-Admin-Key header matching TASK_ADMIN_KEY env var)
  * - Local development (GAE_APPLICATION env var not set)
  *
- * On App Engine, these headers are stripped from external requests by the
- * infrastructure, so they can only be present on genuine internal requests.
+ * On App Engine, cron and task headers are stripped from external requests by
+ * the infrastructure, so they can only be present on genuine internal requests.
  */
 public class TaskAuthFilter implements Filter {
 
     private static final Logger logger = Logger.getLogger(TaskAuthFilter.class.getName());
+
+    private final String adminKey;
+
+    public TaskAuthFilter() {
+        this.adminKey = System.getenv("TASK_ADMIN_KEY");
+    }
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -53,11 +60,20 @@ public class TaskAuthFilter implements Filter {
             return;
         }
 
+        // Allow requests with a valid admin API key
+        if (adminKey != null && !adminKey.isBlank()) {
+            String providedKey = httpRequest.getHeader("X-Task-Admin-Key");
+            if (adminKey.equals(providedKey)) {
+                chain.doFilter(request, response);
+                return;
+            }
+        }
+
         // Reject all other requests
         logger.warning("Rejected unauthorized request to " + httpRequest.getRequestURI()
                 + " from " + httpRequest.getRemoteAddr());
         httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
         httpResponse.setContentType("application/json");
-        httpResponse.getWriter().write("{\"error\":\"Forbidden: task endpoints require App Engine Cron or Cloud Tasks headers\"}");
+        httpResponse.getWriter().write("{\"error\":\"Forbidden: task endpoints require App Engine Cron, Cloud Tasks, or admin key\"}");
     }
 }

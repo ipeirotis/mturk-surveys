@@ -180,7 +180,7 @@ Improvements to error handling, resilience, and operational stability for a prod
 
 ### Task Endpoint Security (Critical)
 
-- [x] **T9.1** — **Authenticate `/tasks/` endpoints** — Added `TaskAuthFilter` (registered on `/tasks/*` in `FilterConfig`) that verifies requests originate from App Engine cron (`X-Appengine-Cron: true`) or Cloud Tasks (`X-CloudTasks-TaskName` header). Rejects unauthorized requests with 403 JSON response. Allows all requests in local development (no `GAE_APPLICATION` env var). On App Engine, these headers are stripped from external requests by infrastructure, so they can only be present on genuine internal requests. *(completed)*
+- [x] **T9.1** — **Authenticate `/tasks/` endpoints** — Added `TaskAuthFilter` (registered on `/tasks/*` in `FilterConfig`) that verifies requests originate from App Engine cron (`X-Appengine-Cron: true`), Cloud Tasks (`X-CloudTasks-TaskName` or `X-AppEngine-TaskName` header), or an admin API key (`X-Task-Admin-Key` header matching `TASK_ADMIN_KEY` env var). Rejects unauthorized requests with 403 JSON response. Allows all requests in local development (no `GAE_APPLICATION` env var). On App Engine, cron/task headers are stripped from external requests by infrastructure, so they can only be present on genuine internal requests. *(completed)*
 
 - [ ] **T9.2** — **Add input validation to task endpoints** — Add `@NotBlank` and date format validation to all `@RequestParam` on task controllers (`SnapshotController`, `BigQueryExportController`, `DatastoreRestoreController`, `DatastoreBackupController`). Validate date ranges (from ≤ to, max range limits) to prevent resource exhaustion from unbounded queries.
 
@@ -266,7 +266,7 @@ Focused hardening and cleanup tasks to reduce operational risk and improve contr
 
 ### Endpoint Security
 
-- [x] **T12.1** — **Restrict `/tasks/**` and `/tasks/debug/**` endpoints** — Added `TaskAuthFilter` registered on `/tasks/*` in `FilterConfig` (order=2, after Objectify filter). Verifies `X-Appengine-Cron: true` or `X-CloudTasks-TaskName` header. Returns 403 JSON for unauthorized callers. Bypassed in local dev (no `GAE_APPLICATION` env var). Shared implementation with T9.1. *(completed)*
+- [x] **T12.1** — **Restrict `/tasks/**` and `/tasks/debug/**` endpoints** — Added `TaskAuthFilter` registered on `/tasks/*` in `FilterConfig` (order=2, after Objectify filter). Verifies `X-Appengine-Cron: true`, `X-CloudTasks-TaskName`/`X-AppEngine-TaskName`, or admin API key (`X-Task-Admin-Key` matching `TASK_ADMIN_KEY` env var). Returns 403 JSON for unauthorized callers. Bypassed in local dev (no `GAE_APPLICATION` env var). Shared implementation with T9.1. *(completed)*
 
 - [x] **T12.2** — **Move dangerous debug controllers behind feature flag** — Added `@ConditionalOnProperty(name = "debug.tasks.enabled", havingValue = "true", matchIfMissing = false)` to both `DebugDatastoreController` and `DiagnosticController`. Beans are not registered unless `DEBUG_TASKS_ENABLED=true` env var is set. Added property binding in `application.properties`. *(completed)*
 
