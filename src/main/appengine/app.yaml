@@ -11,7 +11,7 @@ env_variables:
   LOCATION_ID: "us-central1"
 
 liveness_check:
-  path: "/actuator/health"
+  path: "/actuator/health/liveness"
   check_interval_sec: 30
   timeout_sec: 4
   failure_threshold: 3
