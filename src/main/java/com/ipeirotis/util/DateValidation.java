@@ -3,7 +3,9 @@ package com.ipeirotis.util;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Locale;
 
 /**
  * Shared date validation for task endpoints that accept from/to date ranges.
@@ -24,8 +26,7 @@ public class DateValidation {
         if (date == null || date.isBlank()) {
             throw new IllegalArgumentException(paramName + " is required");
         }
-        DateFormat df = SafeDateFormat.forPattern(pattern);
-        df.setLenient(false);
+        DateFormat df = newStrictFormat(pattern);
         ParsePosition pos = new ParsePosition(0);
         df.parse(date, pos);
         if (pos.getIndex() != date.length() || pos.getErrorIndex() >= 0) {
@@ -45,8 +46,7 @@ public class DateValidation {
         requireValidDate(to, "to", pattern);
 
         try {
-            DateFormat df = SafeDateFormat.forPattern(pattern);
-            df.setLenient(false);
+            DateFormat df = newStrictFormat(pattern);
             Calendar start = Calendar.getInstance();
             start.setTime(df.parse(from));
             Calendar end = Calendar.getInstance();
@@ -72,5 +72,12 @@ public class DateValidation {
             // Already validated above, should not happen
             throw new IllegalArgumentException("Invalid date format", e);
         }
+    }
+
+    /** Create a fresh non-lenient formatter to avoid mutating the thread-local cached instance. */
+    private static DateFormat newStrictFormat(String pattern) {
+        DateFormat df = new SimpleDateFormat(pattern, Locale.ENGLISH);
+        df.setLenient(false);
+        return df;
     }
 }
