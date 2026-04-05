@@ -5,20 +5,16 @@ import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.threeten.bp.Duration;
 
 @Configuration
 public class BigQueryConfig {
 
     @Bean
     public BigQuery bigQuery() {
-        RetrySettings retrySettings = BigQueryOptions.getDefaultInstance()
-                .getRetrySettings().toBuilder()
-                .setTotalTimeout(Duration.ofSeconds(120))
-                .setInitialRetryDelay(Duration.ofSeconds(1))
-                .setRetryDelayMultiplier(2.0)
-                .setMaxRetryDelay(Duration.ofSeconds(16))
+        RetrySettings defaults = BigQueryOptions.getDefaultInstance().getRetrySettings();
+        RetrySettings retrySettings = defaults.toBuilder()
                 .setMaxAttempts(4)
+                .setRetryDelayMultiplier(2.0)
                 .build();
 
         return BigQueryOptions.newBuilder()

@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import software.amazon.awssdk.services.mturk.model.HIT;
-import software.amazon.awssdk.services.mturk.model.MturkException;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -59,7 +59,7 @@ public class CreateHITController {
 				logger.info(responseText);
 				return new ResponseEntity<>(responseText, HttpStatus.OK);
 			}
-		} catch (MturkException e) {
+		} catch (SdkServiceException e) {
 			// If MTurk says the HIT already exists (idempotent duplicate), treat as success
 			if (e.getMessage() != null && e.getMessage().contains("HitAlreadyExists")) {
 				logger.info("HIT already exists for token " + idempotencyToken + " (idempotent success)");
