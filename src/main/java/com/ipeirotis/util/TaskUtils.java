@@ -15,12 +15,13 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 public class TaskUtils {
 
-	private static final Logger logger = Logger.getLogger(TaskUtils.class.getName());
+	private static final Logger logger = LoggerFactory.getLogger(TaskUtils.class);
 
 	public static String queueTask(String url, Map<String, String> params) {
 		return queueTask(url, params, 0);
@@ -66,6 +67,12 @@ public class TaskUtils {
 						.setBody(ByteString.copyFromUtf8(body));
 			}
 
+			// Propagate correlation ID for end-to-end tracing
+			String parentRequestId = MDC.get("requestId");
+			if (parentRequestId != null) {
+				requestBuilder.putHeaders("X-Parent-Request-Id", parentRequestId);
+			}
+
 			Task.Builder taskBuilder =
 				Task.newBuilder()
 					.setAppEngineHttpRequest(requestBuilder.build());
@@ -82,7 +89,7 @@ public class TaskUtils {
 			Task task = client.createTask(queuePath, taskBuilder.build());
 			return "Task created: " + task.getName();
 		} catch(Exception e) {
-			logger.log(Level.SEVERE, "Failed to create Cloud Task for URL: " + fullUrl, e);
+			logger.error("Failed to create Cloud Task for URL: " + fullUrl, e);
 			throw new TaskEnqueueException("Failed to enqueue task for URL: " + fullUrl, e);
 		}
 	}

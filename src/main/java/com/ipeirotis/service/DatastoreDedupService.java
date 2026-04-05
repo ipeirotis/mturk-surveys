@@ -12,12 +12,13 @@ import static com.googlecode.objectify.ObjectifyService.ofy;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.util.*;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class DatastoreDedupService {
 
-	private static final Logger logger = Logger.getLogger(DatastoreDedupService.class.getName());
+	private static final Logger logger = LoggerFactory.getLogger(DatastoreDedupService.class);
 
 	@Autowired
 	private SurveyService surveyService;

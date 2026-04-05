@@ -9,13 +9,13 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import java.text.ParseException;
 import java.util.Date;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @ControllerAdvice
 public class RestResponseEntityExceptionHandler extends ResponseEntityExceptionHandler {
 
-	private static final Logger log = Logger.getLogger(RestResponseEntityExceptionHandler.class.getName());
+	private static final Logger log = LoggerFactory.getLogger(RestResponseEntityExceptionHandler.class);
 
 	@ExceptionHandler(value = { ResourceNotFoundException.class })
 	protected ResponseEntity<Object> resourceNotFound(ResourceNotFoundException e, WebRequest request) {
@@ -39,19 +39,19 @@ public class RestResponseEntityExceptionHandler extends ResponseEntityExceptionH
 
 	@ExceptionHandler(value = { MturkException.class })
 	protected ResponseEntity<Object> mturkError(MturkException e, WebRequest request) {
-		log.log(Level.SEVERE, "MTurk API error", e);
+		log.error("MTurk API error", e);
 		return buildResponse("MTurk service error: " + e.getMessage(), HttpStatus.BAD_GATEWAY);
 	}
 
 	@ExceptionHandler(value = { TaskEnqueueException.class })
 	protected ResponseEntity<Object> taskEnqueueError(TaskEnqueueException e, WebRequest request) {
-		log.log(Level.SEVERE, "Cloud Tasks enqueue error", e);
+		log.error("Cloud Tasks enqueue error", e);
 		return buildResponse("Failed to enqueue task: " + e.getMessage(), HttpStatus.BAD_GATEWAY);
 	}
 
 	@ExceptionHandler(value = { Exception.class })
 	protected ResponseEntity<Object> handleAll(Exception e, WebRequest request) {
-		log.log(Level.SEVERE, "Unhandled exception: " + request.getDescription(false), e);
+		log.error("Unhandled exception: " + request.getDescription(false), e);
 		return buildResponse("Internal server error", HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 

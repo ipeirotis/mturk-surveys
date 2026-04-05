@@ -13,8 +13,8 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Service to compare Datastore vs BigQuery backup counts and restore
@@ -23,7 +23,7 @@ import java.util.logging.Logger;
 @Service
 public class DatastoreRestoreService {
 
-	private static final Logger logger = Logger.getLogger(DatastoreRestoreService.class.getName());
+	private static final Logger logger = LoggerFactory.getLogger(DatastoreRestoreService.class);
 
 	private static final String BQ_BACKUP_DATASET = "test";
 	private static final String BQ_BACKUP_TABLE = "UserAnswer_2025MAR20";
@@ -129,7 +129,7 @@ public class DatastoreRestoreService {
 			}
 			logger.info("Found " + existingKeys.size() + " existing entries in Datastore for " + dateStr);
 		} catch (ParseException e) {
-			logger.log(Level.WARNING, "Failed to parse date for existing-check: " + dateStr, e);
+			logger.warn("Failed to parse date for existing-check: " + dateStr, e);
 		}
 
 		// Filter out entries that already exist in Datastore
@@ -274,9 +274,9 @@ public class DatastoreRestoreService {
 			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			logger.log(Level.WARNING, "Interrupted querying BigQuery counts", e);
+			logger.warn("Interrupted querying BigQuery counts", e);
 		} catch (Exception e) {
-			logger.log(Level.WARNING, "Failed to query BigQuery counts: " + e.getMessage(), e);
+			logger.warn("Failed to query BigQuery counts: " + e.getMessage(), e);
 		}
 		return counts;
 	}
@@ -361,13 +361,13 @@ public class DatastoreRestoreService {
 		logger.info("Loaded " + results.size() + " full entities from backup for " + sortableDate
 				+ " (" + withAnswers + " with answers)");
 		if (withAnswers == 0 && !results.isEmpty()) {
-			logger.severe("WARNING: Loaded " + results.size() + " entities but NONE have answers — parsing may be broken!");
+			logger.error("WARNING: Loaded " + results.size() + " entities but NONE have answers — parsing may be broken!");
 		}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			logger.log(Level.WARNING, "Interrupted querying BigQuery backup for " + sortableDate, e);
+			logger.warn("Interrupted querying BigQuery backup for " + sortableDate, e);
 		} catch (Exception e) {
-			logger.log(Level.WARNING, "Failed to query BigQuery backup for " + sortableDate + ": " + e.getMessage(), e);
+			logger.warn("Failed to query BigQuery backup for " + sortableDate + ": " + e.getMessage(), e);
 		}
 		return results;
 	}
@@ -393,7 +393,7 @@ public class DatastoreRestoreService {
 				return answers;
 			}
 			if (answersField.getAttribute() != FieldValue.Attribute.RECORD) {
-				logger.warning("answers field is not RECORD, attribute=" + answersField.getAttribute());
+				logger.warn("answers field is not RECORD, attribute=" + answersField.getAttribute());
 				return answers;
 			}
 			FieldValueList record = answersField.getRecordValue();
@@ -408,14 +408,14 @@ public class DatastoreRestoreService {
 				} catch (IllegalArgumentException e) {
 					// Field doesn't exist in this record — skip
 				} catch (Exception e) {
-					logger.warning("Failed to parse answer field '" + fieldName + "': " + e.getMessage());
+					logger.warn("Failed to parse answer field '" + fieldName + "': " + e.getMessage());
 				}
 			}
 		} catch (IllegalArgumentException e) {
 			// 'answers' column doesn't exist in this table
 			logger.info("No 'answers' column in table: " + e.getMessage());
 		} catch (Exception e) {
-			logger.warning("Failed to parse answers record: " + e.getClass().getName() + ": " + e.getMessage());
+			logger.warn("Failed to parse answers record: " + e.getClass().getName() + ": " + e.getMessage());
 		}
 		return answers;
 	}

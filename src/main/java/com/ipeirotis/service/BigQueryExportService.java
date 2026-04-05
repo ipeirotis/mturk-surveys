@@ -4,6 +4,7 @@ import com.google.cloud.bigquery.*;
 import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
+import io.micrometer.core.annotation.Timed;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,13 +15,13 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class BigQueryExportService {
 
-	private static final Logger logger = Logger.getLogger(BigQueryExportService.class.getName());
+	private static final Logger logger = LoggerFactory.getLogger(BigQueryExportService.class);
 
 	private static final String DATASET_ID = "demographics";
 	private static final String TABLE_ID = "responses";
@@ -36,6 +37,7 @@ public class BigQueryExportService {
 	 * @param dateStr date in MM/dd/yyyy format
 	 * @return number of rows exported
 	 */
+	@Timed(value = "bigquery.export", description = "BigQuery export duration")
 	public int exportDate(String dateStr) throws ParseException {
 		DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
 		Calendar dateFrom = Calendar.getInstance();
@@ -91,7 +93,7 @@ public class BigQueryExportService {
 			throw new RuntimeException("Interrupted during BigQuery delete", e);
 		} catch (BigQueryException e) {
 			if (e.getMessage() != null && e.getMessage().contains("concurrent")) {
-				logger.warning("Concurrent update conflict during delete for " + dateStr + ", will retry later");
+				logger.warn("Concurrent update conflict during delete for " + dateStr + ", will retry later");
 				throw new RuntimeException("BigQuery concurrent update conflict for " + dateStr, e);
 			}
 			throw e;
@@ -168,7 +170,7 @@ public class BigQueryExportService {
 				throw new RuntimeException("Interrupted during BigQuery insert", e);
 			} catch (BigQueryException e) {
 				if (e.getMessage() != null && e.getMessage().contains("concurrent")) {
-					logger.warning("Concurrent update conflict during insert for " + dateStr + ", will retry later");
+					logger.warn("Concurrent update conflict during insert for " + dateStr + ", will retry later");
 					throw new RuntimeException("BigQuery concurrent update conflict for " + dateStr, e);
 				}
 				throw e;

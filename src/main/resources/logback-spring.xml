@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- JSON structured logging for Cloud Logging (production / App Engine) -->
+    <springProfile name="!local">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <!-- Cloud Logging expects "severity" instead of "level" -->
+                <fieldNames>
+                    <level>severity</level>
+                    <timestamp>timestamp</timestamp>
+                    <thread>thread</thread>
+                    <logger>logger</logger>
+                    <message>message</message>
+                    <stackTrace>stack_trace</stackTrace>
+                </fieldNames>
+                <!-- Include MDC fields (requestId, traceId) at top level -->
+                <includeMdcKeyName>requestId</includeMdcKeyName>
+                <includeMdcKeyName>parentRequestId</includeMdcKeyName>
+                <includeMdcKeyName>traceId</includeMdcKeyName>
+            </encoder>
+        </appender>
+    </springProfile>
+
+    <!-- Human-readable console logging for local development -->
+    <springProfile name="local">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%X{requestId}] - %msg%n</pattern>
+            </encoder>
+        </appender>
+    </springProfile>
+
+    <logger name="com.ipeirotis" level="INFO" />
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+    </root>
+
+</configuration>

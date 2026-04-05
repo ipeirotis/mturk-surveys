@@ -9,7 +9,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Security filter that restricts access to /tasks/ endpoints.
@@ -25,7 +26,7 @@ import java.util.logging.Logger;
  */
 public class TaskAuthFilter implements Filter {
 
-    private static final Logger logger = Logger.getLogger(TaskAuthFilter.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(TaskAuthFilter.class);
 
     private final String adminKey;
 
@@ -70,7 +71,7 @@ public class TaskAuthFilter implements Filter {
         }
 
         // Reject all other requests
-        logger.warning("Rejected unauthorized request to " + httpRequest.getRequestURI()
+        logger.warn("Rejected unauthorized request to " + httpRequest.getRequestURI()
                 + " from " + httpRequest.getRemoteAddr());
         httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
         httpResponse.setContentType("application/json");

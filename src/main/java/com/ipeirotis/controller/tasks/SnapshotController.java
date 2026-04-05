@@ -22,12 +22,13 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 public class SnapshotController {
 
-    private static final Logger logger = Logger.getLogger(SnapshotController.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(SnapshotController.class);
 
     @Autowired
     private DemographicsSnapshotService snapshotService;
@@ -188,7 +189,7 @@ public class SnapshotController {
         try {
             snapshotService.buildWeeklyRollup(monday.toString());
         } catch (Exception e) {
-            logger.warning("Weekly rollup rebuild failed for " + monday + ": " + e.getMessage());
+            logger.warn("Weekly rollup rebuild failed for " + monday + ": " + e.getMessage());
         }
 
         // Rebuild monthly rollup (month containing this date)
@@ -196,7 +197,7 @@ public class SnapshotController {
         try {
             snapshotService.buildMonthlyRollup(monthStart.toString());
         } catch (Exception e) {
-            logger.warning("Monthly rollup rebuild failed for " + monthStart + ": " + e.getMessage());
+            logger.warn("Monthly rollup rebuild failed for " + monthStart + ": " + e.getMessage());
         }
     }
 
@@ -363,7 +364,7 @@ public class SnapshotController {
                     TaskUtils.queueTask("/tasks/snapshotDate", params);
                     backfillTasks++;
                 } catch (ParseException e) {
-                    logger.warning("Failed to parse date for backfill: " + md);
+                    logger.warn("Failed to parse date for backfill: " + md);
                 }
             }
         }

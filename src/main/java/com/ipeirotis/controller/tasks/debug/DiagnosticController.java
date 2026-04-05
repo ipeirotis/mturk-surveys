@@ -17,8 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.googlecode.objectify.ObjectifyService.ofy;
 
@@ -31,7 +31,7 @@ import static com.googlecode.objectify.ObjectifyService.ofy;
 @ConditionalOnProperty(name = "debug.tasks.enabled", havingValue = "true", matchIfMissing = false)
 public class DiagnosticController {
 
-	private static final Logger logger = Logger.getLogger(DiagnosticController.class.getName());
+	private static final Logger logger = LoggerFactory.getLogger(DiagnosticController.class);
 
 	/**
 	 * Diagnose data volume for a single date by running multiple query strategies.
@@ -98,7 +98,7 @@ public class DiagnosticController {
 			result.put("strategy1_dateOnly", s1);
 		} catch (Exception e) {
 			result.put("strategy1_dateOnly", Map.of("error", e.getMessage()));
-			logger.warning("Strategy 1 failed: " + e.getMessage());
+			logger.warn("Strategy 1 failed: " + e.getMessage());
 		}
 
 		// Strategy 2: surveyId=demographics + date filter — keys-only count
@@ -115,7 +115,7 @@ public class DiagnosticController {
 			result.put("strategy2_compositeIndex", s2);
 		} catch (Exception e) {
 			result.put("strategy2_compositeIndex", Map.of("error", e.getMessage()));
-			logger.warning("Strategy 2 failed: " + e.getMessage());
+			logger.warn("Strategy 2 failed: " + e.getMessage());
 		}
 
 		// Strategy 3: surveyId=demographics only, filter dates in Java (bypasses date index)
@@ -152,7 +152,7 @@ public class DiagnosticController {
 				}
 			} catch (Exception e) {
 				result.put("strategy3_inMemoryDateFilter", Map.of("error", e.getMessage()));
-				logger.warning("Strategy 3 failed: " + e.getMessage());
+				logger.warn("Strategy 3 failed: " + e.getMessage());
 			}
 		} else {
 			result.put("strategy3_inMemoryDateFilter", "SKIPPED (add full=true to enable — slow full-scan)");
@@ -170,7 +170,7 @@ public class DiagnosticController {
 			result.put("strategy4_keysOnlyDate", s4);
 		} catch (Exception e) {
 			result.put("strategy4_keysOnlyDate", Map.of("error", e.getMessage()));
-			logger.warning("Strategy 4 failed: " + e.getMessage());
+			logger.warn("Strategy 4 failed: " + e.getMessage());
 		}
 
 		// Strategy 5: keys-only count with composite filter
@@ -187,7 +187,7 @@ public class DiagnosticController {
 			result.put("strategy5_keysOnlyComposite", s5);
 		} catch (Exception e) {
 			result.put("strategy5_keysOnlyComposite", Map.of("error", e.getMessage()));
-			logger.warning("Strategy 5 failed: " + e.getMessage());
+			logger.warn("Strategy 5 failed: " + e.getMessage());
 		}
 
 		logger.info("Diagnostic results for " + date + ": " + result);
@@ -677,7 +677,7 @@ public class DiagnosticController {
 					}
 				} catch (Exception e) {
 					errors++;
-					logger.log(Level.WARNING, "Error restoring entity " + entityId + ": " + e.getMessage(), e);
+					logger.warn("Error restoring entity " + entityId + ": " + e.getMessage(), e);
 				}
 			}
 
@@ -700,7 +700,7 @@ public class DiagnosticController {
 			result.put("error", "Interrupted: " + e.getMessage());
 		} catch (Exception e) {
 			result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
-			logger.log(Level.SEVERE, "Restore failed", e);
+			logger.error("Restore failed", e);
 		}
 
 		return result;
@@ -804,7 +804,7 @@ public class DiagnosticController {
 						}
 					} catch (Exception e) {
 						errors++;
-						logger.log(Level.WARNING, "Error restoring entity " + entityId + ": " + e.getMessage(), e);
+						logger.warn("Error restoring entity " + entityId + ": " + e.getMessage(), e);
 					}
 				}
 			}
@@ -828,7 +828,7 @@ public class DiagnosticController {
 			result.put("error", "Interrupted: " + e.getMessage());
 		} catch (Exception e) {
 			result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
-			logger.log(Level.SEVERE, "Restore range failed", e);
+			logger.error("Restore range failed", e);
 		}
 
 		return result;
@@ -1012,7 +1012,7 @@ public class DiagnosticController {
 			result.put("error", "Interrupted: " + e.getMessage());
 		} catch (Exception e) {
 			result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
-			logger.log(Level.SEVERE, "Reindex failed", e);
+			logger.error("Reindex failed", e);
 		}
 
 		return result;
@@ -1067,7 +1067,7 @@ public class DiagnosticController {
 
 		} catch (Exception e) {
 			result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
-			logger.log(Level.SEVERE, "Reindex range failed", e);
+			logger.error("Reindex range failed", e);
 		}
 
 		return result;
@@ -1126,7 +1126,7 @@ public class DiagnosticController {
 
 		} catch (Exception e) {
 			result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
-			logger.log(Level.SEVERE, "Backfill restore failed", e);
+			logger.error("Backfill restore failed", e);
 		}
 
 		return result;
@@ -1162,7 +1162,7 @@ public class DiagnosticController {
 		} catch (IllegalArgumentException e) {
 			// 'answers' column doesn't exist in this table
 		} catch (Exception e) {
-			logger.warning("Failed to parse answers: " + e.getClass().getName() + ": " + e.getMessage());
+			logger.warn("Failed to parse answers: " + e.getClass().getName() + ": " + e.getMessage());
 		}
 
 		// Fallback: try reading individual answer columns as top-level (for flattened exports)
