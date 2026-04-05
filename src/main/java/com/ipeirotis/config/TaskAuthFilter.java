@@ -45,8 +45,10 @@ public class TaskAuthFilter implements Filter {
             return;
         }
 
-        // Allow Cloud Tasks requests
-        if (httpRequest.getHeader("X-CloudTasks-TaskName") != null) {
+        // Allow Cloud Tasks requests (both header families for compatibility
+        // with AppEngineHttpRequest targets)
+        if (httpRequest.getHeader("X-CloudTasks-TaskName") != null
+                || httpRequest.getHeader("X-AppEngine-TaskName") != null) {
             chain.doFilter(request, response);
             return;
         }
