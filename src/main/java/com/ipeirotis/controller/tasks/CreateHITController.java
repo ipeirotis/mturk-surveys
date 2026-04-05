@@ -62,8 +62,10 @@ public class CreateHITController {
 				return new ResponseEntity<>(responseText, HttpStatus.OK);
 			}
 		} catch (SdkServiceException e) {
-			// If MTurk says the HIT already exists (idempotent duplicate), treat as success
-			if (e.getMessage() != null && e.getMessage().contains("HitAlreadyExists")) {
+			// If MTurk says the HIT already exists (idempotent duplicate), treat as success.
+			// Match on the structured error code, not message text.
+			if (e.awsErrorDetails() != null
+					&& "HitAlreadyExists".equals(e.awsErrorDetails().errorCode())) {
 				logger.info("HIT already exists for token " + idempotencyToken + " (idempotent success)");
 				return new ResponseEntity<>("HIT already exists (idempotent success)", HttpStatus.OK);
 			}

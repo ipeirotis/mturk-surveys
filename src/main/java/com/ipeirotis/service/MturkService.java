@@ -125,7 +125,7 @@ public class MturkService {
         return response.hiTs();
     }
 
-    @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
+    @Retryable(retryFor = {SdkClientException.class},
             maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public HIT createHIT(Boolean production, Survey survey, String idempotencyToken) {
         MTurkClient client = getClient(production);
