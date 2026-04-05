@@ -12,7 +12,11 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import software.amazon.awssdk.services.mturk.model.HIT;
+import software.amazon.awssdk.services.mturk.model.MturkException;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,9 +40,11 @@ public class CreateHITController {
 	public ResponseEntity createHIT(@RequestParam String surveyId, @RequestParam Boolean production,
 			@RequestParam(required = false, defaultValue = "0") int retryCount,
 			@RequestParam(required = false) String idempotencyToken) {
-		// Generate a stable token on the first attempt; propagate it through retries
+		// Generate a stable token on the first attempt; propagate it through retries.
+		// Hash to fit MTurk's 64-character limit for uniqueRequestToken.
 		if (idempotencyToken == null || idempotencyToken.isEmpty()) {
-			idempotencyToken = surveyId + "-" + Instant.now().toString() + "-" + UUID.randomUUID();
+			String raw = surveyId + "|" + Instant.now().toString() + "|" + UUID.randomUUID();
+			idempotencyToken = sha256Hex(raw);
 		}
 		try {
 			Survey survey = surveyService.get(surveyId);
@@ -53,16 +59,40 @@ public class CreateHITController {
 				logger.info(responseText);
 				return new ResponseEntity<>(responseText, HttpStatus.OK);
 			}
-		} catch (Exception e) {
-			if (retryCount >= MAX_RETRIES) {
-				logger.log(Level.SEVERE, "Error creating HIT after " + MAX_RETRIES + " retries, giving up", e);
-				// Return 200 so Cloud Tasks considers the task complete and stops retrying
-				return new ResponseEntity<>("Gave up after " + MAX_RETRIES + " retries: " + e.getMessage(), HttpStatus.OK);
+		} catch (MturkException e) {
+			// If MTurk says the HIT already exists (idempotent duplicate), treat as success
+			if (e.getMessage() != null && e.getMessage().contains("HitAlreadyExists")) {
+				logger.info("HIT already exists for token " + idempotencyToken + " (idempotent success)");
+				return new ResponseEntity<>("HIT already exists (idempotent success)", HttpStatus.OK);
 			}
-			logger.log(Level.WARNING, "Error creating HIT (retry " + (retryCount + 1) + "/" + MAX_RETRIES + "), re-enqueuing", e);
-			queueTask(surveyId, production, retryCount + 1, idempotencyToken);
-			// Return 200 so Cloud Tasks considers this task complete; the retry is handled by the enqueued task
-			return new ResponseEntity<>("Re-enqueued retry " + (retryCount + 1) + ": " + e.getMessage(), HttpStatus.OK);
+			return handleRetry(e, surveyId, production, retryCount, idempotencyToken);
+		} catch (Exception e) {
+			return handleRetry(e, surveyId, production, retryCount, idempotencyToken);
+		}
+	}
+
+	private ResponseEntity<String> handleRetry(Exception e, String surveyId, Boolean production,
+			int retryCount, String idempotencyToken) {
+		if (retryCount >= MAX_RETRIES) {
+			logger.log(Level.SEVERE, "Error creating HIT after " + MAX_RETRIES + " retries, giving up", e);
+			return new ResponseEntity<>("Gave up after " + MAX_RETRIES + " retries: " + e.getMessage(), HttpStatus.OK);
+		}
+		logger.log(Level.WARNING, "Error creating HIT (retry " + (retryCount + 1) + "/" + MAX_RETRIES + "), re-enqueuing", e);
+		queueTask(surveyId, production, retryCount + 1, idempotencyToken);
+		return new ResponseEntity<>("Re-enqueued retry " + (retryCount + 1) + ": " + e.getMessage(), HttpStatus.OK);
+	}
+
+	private static String sha256Hex(String input) {
+		try {
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+			StringBuilder hex = new StringBuilder(64);
+			for (byte b : hash) {
+				hex.append(String.format("%02x", b));
+			}
+			return hex.toString();
+		} catch (NoSuchAlgorithmException e) {
+			throw new RuntimeException("SHA-256 not available", e);
 		}
 	}
 
