@@ -2,6 +2,7 @@ package com.ipeirotis.service;
 
 import com.ipeirotis.entity.Survey;
 import com.ipeirotis.util.SafeDecimalFormat;
+import io.micrometer.core.annotation.Timed;
 import jakarta.annotation.PreDestroy;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
@@ -17,6 +18,8 @@ import software.amazon.awssdk.services.mturk.model.CreateHitRequest;
 import software.amazon.awssdk.services.mturk.model.CreateHitResponse;
 import software.amazon.awssdk.services.mturk.model.DeleteHitRequest;
 import software.amazon.awssdk.services.mturk.model.DeleteHitResponse;
+import software.amazon.awssdk.services.mturk.model.GetAccountBalanceRequest;
+import software.amazon.awssdk.services.mturk.model.GetAccountBalanceResponse;
 import software.amazon.awssdk.services.mturk.model.GetHitRequest;
 import software.amazon.awssdk.services.mturk.model.GetHitResponse;
 import software.amazon.awssdk.services.mturk.model.HIT;
@@ -29,14 +32,15 @@ import java.net.URI;
 import java.text.NumberFormat;
 import java.time.Duration;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import software.amazon.awssdk.regions.Region;
 
 @Service
 public class MturkService {
 
-    private static final Logger logger = Logger.getLogger(MturkService.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(MturkService.class);
 
     private static NumberFormat numberFormat = SafeDecimalFormat.forPattern("#0.00");
 
@@ -81,6 +85,13 @@ public class MturkService {
         try { sandboxClient.close(); } catch (Exception e) { /* ignore */ }
     }
 
+    public String getAccountBalance() {
+        GetAccountBalanceResponse response = productionClient
+                .getAccountBalance(GetAccountBalanceRequest.builder().build());
+        return response.availableBalance();
+    }
+
+    @Timed(value = "mturk.api", extraTags = {"operation", "getHIT"})
     @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
             maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public HIT getHIT(Boolean production, String hitId) {
@@ -90,6 +101,7 @@ public class MturkService {
         return response.hit();
     }
 
+    @Timed(value = "mturk.api", extraTags = {"operation", "deleteHIT"})
     @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
             maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public DeleteHitResponse deleteHIT(Boolean production, String hitId) {
@@ -98,6 +110,7 @@ public class MturkService {
         return client.deleteHIT(requestBuilder.build());
     }
 
+    @Timed(value = "mturk.api", extraTags = {"operation", "listAssignments"})
     @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
             maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public List<Assignment> listAssignmentsForHit(Boolean production, String hitId) {
@@ -125,6 +138,7 @@ public class MturkService {
         return response.hiTs();
     }
 
+    @Timed(value = "mturk.api", extraTags = {"operation", "createHIT"})
     @Retryable(retryFor = {SdkClientException.class},
             maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public HIT createHIT(Boolean production, Survey survey, String idempotencyToken) {

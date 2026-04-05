@@ -352,4 +352,5 @@ See [TASKS.md](TASKS.md) for the full task list. Summary:
 - [ ] **Track 7** — Frontend Modernization (T7.1 done: Vue 3 migration, T7.2–T7.3 done, T7.4–T7.8 done, T7.11 done, T7.15 done, T7.16–T7.19 done, T7.20–T7.22 done)
 - [x] **Track 8** — Data Access & API Quality (T8.1–T8.6: CORS, OpenAPI, counts endpoint, CSV export, enhanced filtering, BigQuery export)
 - [x] **Track 9** — Robustness & Reliability (all tasks completed: T9.1–T9.14)
+- [x] **Track 11** — Observability & Operations (T11.1–T11.6: Actuator health, custom indicators, Micrometer/Stackdriver metrics, structured JSON logging, correlation IDs, task status endpoint)
 - [ ] **Track 12** — API Security & Documentation (T12.1–T12.3, T12.6, T12.17 done)

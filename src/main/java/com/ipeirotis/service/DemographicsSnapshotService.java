@@ -12,6 +12,7 @@ import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
 import org.springframework.beans.factory.annotation.Autowired;
+import io.micrometer.core.annotation.Timed;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -23,13 +24,13 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class DemographicsSnapshotService {
 
-    private static final Logger logger = Logger.getLogger(DemographicsSnapshotService.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(DemographicsSnapshotService.class);
 
     private static final String[] DAYS = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     private static final Set<String> INCOME_LABELS = new LinkedHashSet<>();
@@ -61,6 +62,7 @@ public class DemographicsSnapshotService {
      * Build and save a snapshot for the given date from raw UserAnswer data.
      * Evicts all cached chart/aggregated/counts data since the underlying data has changed.
      */
+    @Timed(value = "snapshot.build", description = "Demographics snapshot build duration")
     @CacheEvict(value = {"chartData", "aggregatedAnswers", "counts"}, allEntries = true)
     public DemographicsSnapshot buildSnapshot(String dateStr) throws ParseException {
         Calendar dateFrom = Calendar.getInstance();

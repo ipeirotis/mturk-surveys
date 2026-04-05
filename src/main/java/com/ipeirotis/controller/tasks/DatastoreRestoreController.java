@@ -17,7 +17,8 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Controller for comparing Datastore vs BigQuery backup counts and
@@ -27,7 +28,7 @@ import java.util.logging.Logger;
 @RestController
 public class DatastoreRestoreController {
 
-	private static final Logger logger = Logger.getLogger(DatastoreRestoreController.class.getName());
+	private static final Logger logger = LoggerFactory.getLogger(DatastoreRestoreController.class);
 	private static final int MAX_CHUNKS = 30;
 
 	@Autowired

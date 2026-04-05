@@ -16,8 +16,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.ipeirotis.exception.ResourceNotFoundException;
 import com.ipeirotis.exception.ValidationException;
@@ -44,7 +44,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class SurveyService {
 
-    private static final Logger logger = Logger.getLogger(SurveyService.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(SurveyService.class);
     private static final String REGEX_WHITESPACE_BETWEEN_HTML = "[>]{1}\\s+[<]{1}";
 
     private static final String[] days = new String[] {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -102,7 +102,7 @@ public class SurveyService {
                 template = cfg.getTemplate(survey.getTemplate());
                 template.process(model, writer);
             } catch (Exception e) {
-                logger.log(Level.SEVERE, e.getMessage(), e);
+                logger.error(e.getMessage(), e);
                 throw new ResourceNotFoundException(
                         String.format("Error reading template: %s", survey.getTemplate()));
             }

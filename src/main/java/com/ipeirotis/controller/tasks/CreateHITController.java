@@ -21,14 +21,14 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/tasks")
 public class CreateHITController {
 
-	private static final Logger logger = Logger.getLogger(CreateHITController.class.getName());
+	private static final Logger logger = LoggerFactory.getLogger(CreateHITController.class);
 	private static final int MAX_RETRIES = 5;
 
 	@Autowired
@@ -52,7 +52,7 @@ public class CreateHITController {
 			Survey survey = surveyService.get(surveyId);
 			if(survey == null) {
 				String error = String.format("Error creating HIT: survey %s doesn't exist", surveyId);
-				logger.log(Level.SEVERE, error);
+				logger.error(error);
 				return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
 			} else {
 				HIT hit = mturkService.createHIT(production, survey, idempotencyToken);
@@ -78,10 +78,10 @@ public class CreateHITController {
 	private ResponseEntity<String> handleRetry(Exception e, String surveyId, Boolean production,
 			int retryCount, String idempotencyToken) {
 		if (retryCount >= MAX_RETRIES) {
-			logger.log(Level.SEVERE, "Error creating HIT after " + MAX_RETRIES + " retries, giving up", e);
+			logger.error("Error creating HIT after " + MAX_RETRIES + " retries, giving up", e);
 			return new ResponseEntity<>("Gave up after " + MAX_RETRIES + " retries: " + e.getMessage(), HttpStatus.OK);
 		}
-		logger.log(Level.WARNING, "Error creating HIT (retry " + (retryCount + 1) + "/" + MAX_RETRIES + "), re-enqueuing", e);
+		logger.warn("Error creating HIT (retry " + (retryCount + 1) + "/" + MAX_RETRIES + "), re-enqueuing", e);
 		queueTask(surveyId, production, retryCount + 1, idempotencyToken);
 		return new ResponseEntity<>("Re-enqueued retry " + (retryCount + 1) + ": " + e.getMessage(), HttpStatus.OK);
 	}

@@ -10,6 +10,13 @@ env_variables:
   QUEUE_ID: "default"
   LOCATION_ID: "us-central1"
 
+liveness_check:
+  path: "/actuator/health/liveness"
+  check_interval_sec: 30
+  timeout_sec: 4
+  failure_threshold: 3
+  success_threshold: 2
+
 handlers:
   - url: /.*
     secure: always

@@ -18,8 +18,8 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.googlecode.objectify.ObjectifyService.ofy;
 
@@ -27,7 +27,7 @@ import static com.googlecode.objectify.ObjectifyService.ofy;
 @RequestMapping("/tasks")
 public class DeleteHITsController {
 
-	private static final Logger logger = Logger.getLogger(DeleteHITsController.class.getName());
+	private static final Logger logger = LoggerFactory.getLogger(DeleteHITsController.class);
 	private static final int MAX_PAGES = 200; // Safety limit: 200 pages * 30 items = 6000 HITs max
 
 	@Autowired
@@ -41,7 +41,7 @@ public class DeleteHITsController {
 			String nextPageToken = delete(cursor);
 			if(nextPageToken != null) {
 				if (page >= MAX_PAGES) {
-					logger.log(Level.SEVERE, "deleteHITs reached max page limit (" + MAX_PAGES + "), stopping");
+					logger.error("deleteHITs reached max page limit (" + MAX_PAGES + "), stopping");
 					return;
 				}
 				queueTask("/tasks/deleteHITs", nextPageToken, page + 1);
@@ -74,9 +74,9 @@ public class DeleteHITsController {
 			UserAnswer userAnswer = iterator.next();
 			try {
 				mturkService.deleteHIT(true, userAnswer.getHitId());
-				logger.log(Level.INFO, String.format("Deleted HIT %s", userAnswer.getHitId()));
+				logger.info(String.format("Deleted HIT %s", userAnswer.getHitId()));
 			} catch(Exception e) {
-				logger.log(Level.SEVERE, String.format("Error deleting HIT %s", userAnswer.getHitId()), e);
+				logger.error(String.format("Error deleting HIT %s", userAnswer.getHitId()), e);
 			}
 			cont = true;
 		}

@@ -10,13 +10,13 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Configuration
 public class AwsCredentialsConfig {
 
-    private static final Logger logger = Logger.getLogger(AwsCredentialsConfig.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(AwsCredentialsConfig.class);
 
     private static final String ACCESS_KEY_SECRET = "aws-access-key-id";
     private static final String SECRET_KEY_SECRET = "aws-secret-access-key";
@@ -34,7 +34,7 @@ public class AwsCredentialsConfig {
                             AwsBasicCredentials.create(accessKey, secretKey));
                 }
             } catch (Exception e) {
-                logger.log(Level.WARNING,
+                logger.warn(
                         "Failed to load AWS credentials from Secret Manager, falling back to default provider chain", e);
             }
         }

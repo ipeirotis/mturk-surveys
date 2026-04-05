@@ -8,15 +8,24 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Configuration
 public class FilterConfig {
 
-    private static final Logger logger = Logger.getLogger(FilterConfig.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(FilterConfig.class);
 
     private static final String ADMIN_KEY_SECRET = "task-admin-key";
+
+    @Bean
+    public FilterRegistrationBean<RequestCorrelationFilter> requestCorrelationFilterRegistration() {
+        FilterRegistrationBean<RequestCorrelationFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new RequestCorrelationFilter());
+        registration.addUrlPatterns("/*");
+        registration.setOrder(0);
+        return registration;
+    }
 
     @Bean
     public FilterRegistrationBean<ObjectifyService.Filter> objectifyFilterRegistration() {
@@ -51,7 +60,7 @@ public class FilterConfig {
                 logger.info("Task admin key loaded from GCP Secret Manager");
                 return key;
             } catch (Exception e) {
-                logger.log(Level.WARNING,
+                logger.warn(
                         "Failed to load task admin key from Secret Manager, falling back to env var", e);
             }
         }

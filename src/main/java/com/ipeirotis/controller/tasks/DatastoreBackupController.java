@@ -14,8 +14,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Scheduled full Datastore export to Google Cloud Storage.
@@ -29,7 +29,7 @@ import java.util.logging.Logger;
 @RestController
 public class DatastoreBackupController {
 
-	private static final Logger logger = Logger.getLogger(DatastoreBackupController.class.getName());
+	private static final Logger logger = LoggerFactory.getLogger(DatastoreBackupController.class);
 
 	private static final String GCS_BUCKET = "demographics_data_export";
 	private static final String PROJECT_ID = "mturk-demographics";
@@ -109,7 +109,7 @@ public class DatastoreBackupController {
 				} else {
 					result.put("status", "error");
 					result.put("error", responseBody);
-					logger.log(Level.WARNING, "Datastore export failed (" + responseCode + "): " + responseBody);
+					logger.warn("Datastore export failed (" + responseCode + "): " + responseBody);
 				}
 			} finally {
 				conn.disconnect();
@@ -117,7 +117,7 @@ public class DatastoreBackupController {
 		} catch (IOException e) {
 			result.put("status", "error");
 			result.put("error", e.getMessage());
-			logger.log(Level.SEVERE, "Datastore export failed", e);
+			logger.error("Datastore export failed", e);
 		}
 
 		return result;

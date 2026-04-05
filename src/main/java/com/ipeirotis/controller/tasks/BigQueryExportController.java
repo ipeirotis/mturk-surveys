@@ -51,8 +51,8 @@ public class BigQueryExportController {
 			int rows = bigQueryExportService.exportDate(date);
 			return Map.of("status", "ok", "date", date, "rowsExported", rows);
 		} catch (Exception e) {
-			java.util.logging.Logger.getLogger(getClass().getName())
-					.log(java.util.logging.Level.WARNING, "BigQuery export failed for " + date + ": " + e.getMessage(), e);
+			org.slf4j.LoggerFactory.getLogger(getClass())
+					.warn("BigQuery export failed for " + date + ": " + e.getMessage(), e);
 			return Map.of("status", "error", "date", date, "error", e.getMessage() != null ? e.getMessage() : e.getClass().getName());
 		}
 	}

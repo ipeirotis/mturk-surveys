@@ -14,13 +14,14 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Date;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/")
 public class SaveUserAnswerController {
 
-	private static final Logger logger = Logger.getLogger(SaveUserAnswerController.class.getName());
+	private static final Logger logger = LoggerFactory.getLogger(SaveUserAnswerController.class);
 
 	@Autowired
 	private UserAnswerService userAnswerService;
