@@ -2,16 +2,20 @@ package com.ipeirotis.service;
 
 import com.ipeirotis.entity.Survey;
 import com.ipeirotis.util.SafeDecimalFormat;
+import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.services.mturk.MTurkClient;
-import software.amazon.awssdk.services.mturk.MTurkClientBuilder;
 import software.amazon.awssdk.services.mturk.model.*;
 
 import java.net.URI;
 import java.text.NumberFormat;
+import java.time.Duration;
 import java.util.List;
 import java.util.logging.Logger;
+
+import software.amazon.awssdk.regions.Region;
 
 @Service
 public class MturkService {
@@ -20,12 +24,6 @@ public class MturkService {
 
     private static NumberFormat numberFormat = SafeDecimalFormat.forPattern("#0.00");
 
-    private final AwsCredentialsProvider awsCredentialsProvider;
-
-    public MturkService(AwsCredentialsProvider awsCredentialsProvider) {
-        this.awsCredentialsProvider = awsCredentialsProvider;
-    }
-
     private static final String SANDBOX_ENDPOINT = "https://mturk-requester-sandbox.us-east-1.amazonaws.com";
     private static final long DEFAULT_ASSIGNMENT_DURATION_IN_SECONDS = (long) 60 * 60; // 1 hour
     private static final long DEFAULT_AUTO_APPROVAL_DELAY_IN_SECONDS = (long) 60; // 60 sec
@@ -33,6 +31,39 @@ public class MturkService {
     private static final long DEFAULT_FRAME_HEIGHT = 450L; // px
     private static final String CDATA_HEADER = "<![CDATA[";
     private static final String CDATA_FOOTER = "]]>";
+
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration API_CALL_TIMEOUT = Duration.ofSeconds(30);
+    private static final Region DEFAULT_REGION = Region.US_EAST_1;
+
+    private final MTurkClient productionClient;
+    private final MTurkClient sandboxClient;
+
+    public MturkService(AwsCredentialsProvider awsCredentialsProvider) {
+        ClientOverrideConfiguration overrideConfig = ClientOverrideConfiguration.builder()
+                .apiCallTimeout(API_CALL_TIMEOUT)
+                .apiCallAttemptTimeout(READ_TIMEOUT)
+                .build();
+
+        this.productionClient = MTurkClient.builder()
+                .credentialsProvider(awsCredentialsProvider)
+                .region(DEFAULT_REGION)
+                .overrideConfiguration(overrideConfig)
+                .build();
+
+        this.sandboxClient = MTurkClient.builder()
+                .credentialsProvider(awsCredentialsProvider)
+                .region(DEFAULT_REGION)
+                .endpointOverride(URI.create(SANDBOX_ENDPOINT))
+                .overrideConfiguration(overrideConfig)
+                .build();
+    }
+
+    @PreDestroy
+    public void close() {
+        try { productionClient.close(); } catch (Exception e) { /* ignore */ }
+        try { sandboxClient.close(); } catch (Exception e) { /* ignore */ }
+    }
 
     public HIT getHIT(Boolean production, String hitId) {
         MTurkClient client = getClient(production);
@@ -93,12 +124,7 @@ public class MturkService {
     }
 
     private MTurkClient getClient(Boolean production) {
-        MTurkClientBuilder builder = MTurkClient.builder();
-        builder.credentialsProvider(awsCredentialsProvider);
-        if(production == null || !production) {
-            builder.endpointOverride(URI.create(SANDBOX_ENDPOINT));
-        }
-        return builder.build();
+        return (production != null && production) ? productionClient : sandboxClient;
     }
 
     private String wrapHTMLQuestions(String html, long frameHeight) {

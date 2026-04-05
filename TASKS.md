@@ -182,7 +182,7 @@ Improvements to error handling, resilience, and operational stability for a prod
 
 - [x] **T9.1** — **Authenticate `/tasks/` endpoints** — Added `TaskAuthFilter` (registered on `/tasks/*` in `FilterConfig`) that verifies requests originate from App Engine cron (`X-Appengine-Cron: true`), Cloud Tasks (`X-CloudTasks-TaskName` or `X-AppEngine-TaskName` header), or an admin API key (`X-Task-Admin-Key` header matching `TASK_ADMIN_KEY` env var). Rejects unauthorized requests with 403 JSON response. Allows all requests in local development (no `GAE_APPLICATION` env var). On App Engine, cron/task headers are stripped from external requests by infrastructure, so they can only be present on genuine internal requests. *(completed)*
 
-- [ ] **T9.2** — **Add input validation to task endpoints** — Add `@NotBlank` and date format validation to all `@RequestParam` on task controllers (`SnapshotController`, `BigQueryExportController`, `DatastoreRestoreController`, `DatastoreBackupController`). Validate date ranges (from ≤ to, max range limits) to prevent resource exhaustion from unbounded queries.
+- [x] **T9.2** — **Add input validation to task endpoints** — Created `DateValidation` utility with `requireValidDate()` and `requireValidRange()` methods. Added validation to all task controllers that accept date parameters: `SnapshotController` (snapshotDate, backfillSnapshots, buildRollup), `BigQueryExportController` (exportDateToBigQuery, backfillBigQuery), `DatastoreRestoreController` (compareCounts, restoreDate, backfillRestore, smartRestore), and `DatastoreDedupController` (dedupDatastoreDate, dedupDatastore). Validates date format, from ≤ to ordering, and max range of 4100 days. `IllegalArgumentException` is caught by the existing global exception handler → 400. *(completed)*
 
 ### Error Handling & Resilience
 
@@ -190,13 +190,13 @@ Improvements to error handling, resilience, and operational stability for a prod
 
 - [ ] **T9.4** — **Add retry with backoff on MTurk API calls** — Wrap `MturkService` methods with Spring Retry (`@Retryable`) or manual exponential backoff for transient failures (network errors, rate limiting). Configure max 3 retries with 1s/2s/4s delays. Add `spring-retry` dependency.
 
-- [ ] **T9.5** — **Add retry limits to task re-enqueuing** — In `CreateHITController`, `DeleteHITsController`, and `ApproveAssignmentsController`, track retry count via a request parameter (e.g., `?retryCount=N`). Stop re-enqueuing after 5 attempts and log a SEVERE error instead of silently retrying forever.
+- [x] **T9.5** — **Add retry limits to task re-enqueuing** — Added `retryCount` parameter to `CreateHITController` with max 5 retries and exponential backoff (2s, 4s, 8s, 16s, 32s). After max retries, logs SEVERE and returns 500 instead of re-enqueuing. Added `page` parameter to `DeleteHITsController` with max 200 pages (6000 HITs) safety limit to prevent infinite cursor-based pagination loops. *(completed)*
 
 - [x] **T9.6** — **Fix silent failure in TaskUtils.queueTask()** — Created `TaskEnqueueException` (extends `RuntimeException`). Changed `TaskUtils.queueTask()` to throw `TaskEnqueueException` instead of returning `null` on failure. The exception is caught by the global exception handler (T9.3) which returns a 502 JSON response. Existing callers (task controllers) propagate the exception naturally since it's unchecked. *(completed)*
 
 ### Timeouts & Resource Management
 
-- [ ] **T9.7** — **Configure MTurk client timeouts** — Set connect timeout (5s), read timeout (10s), and total API call timeout (30s) on the `MturkClient` via `MturkClient.builder().overrideConfiguration(...)`. Close clients properly with try-with-resources or a shared singleton with `@PreDestroy` cleanup.
+- [x] **T9.7** — **Configure MTurk client timeouts** — Set API call timeout (30s) and per-attempt timeout (10s) via `ClientOverrideConfiguration` on both production and sandbox `MTurkClient` singletons. Clients are created once at startup and closed via `@PreDestroy`. *(completed)*
 
 - [ ] **T9.8** — **Configure BigQuery client timeouts** — Set `QueryJobConfiguration` timeouts and `BigQueryOptions` retry settings. Add a 60s timeout on `bigQuery.query()` calls and a 120s timeout on bulk `insertAll()` operations.
 
@@ -208,7 +208,7 @@ Improvements to error handling, resilience, and operational stability for a prod
 
 - [ ] **T9.11** — **Stream CSV export from Datastore** — Refactor `SurveyController.exportAnswersCsv()` to use cursor-based pagination inside the `StreamingResponseBody`, fetching 500 entities at a time and writing directly to the output stream, instead of loading the entire date range into memory first.
 
-- [ ] **T9.12** — **Add cache eviction policy** — Replace `ConcurrentMapCacheManager` with Caffeine cache (`spring-boot-starter-cache` + `caffeine` dependency). Configure maximum cache size (e.g., 100 entries), TTL (1 hour), and eviction listeners for logging. This prevents unbounded memory growth on long-running instances.
+- [x] **T9.12** — **Add cache eviction policy** — Replaced `ConcurrentMapCacheManager` with `CaffeineCacheManager` backed by Caffeine. Configured max 100 entries and 1-hour TTL. Added `caffeine` dependency to pom.xml (version managed by Spring Boot parent). Prevents unbounded memory growth on long-running instances. *(completed)*
 
 ### Idempotency & Data Integrity
 
@@ -280,7 +280,7 @@ Focused hardening and cleanup tasks to reduce operational risk and improve contr
 
 ### CORS & Transport Controls
 
-- [ ] **T12.6** — **Tighten CORS allowlist** — Replace wildcard origins in `CorsConfig` with an explicit list of trusted frontend domains (prod + optional staging), configurable via env var.
+- [x] **T12.6** — **Tighten CORS allowlist** — Replaced wildcard `*` origin in `CorsConfig` with explicit `https://demographics.mturk-tracker.com` and `https://mturk-demographics.appspot.com`. Additional origins can be added via `cors.allowed-origins` property (comma-separated) or `CORS_ALLOWED_ORIGINS` env var. *(completed)*
 
 - [ ] **T12.7** — **Add rate limiting for public API endpoints** — Add per-IP limits on `/api/**` read endpoints and stricter limits on write/submit endpoints to mitigate abuse and traffic spikes.
 
@@ -300,7 +300,7 @@ Focused hardening and cleanup tasks to reduce operational risk and improve contr
 
 - [ ] **T12.16** — **Harden request context handling in answer ingestion** — Guard `getIp()` against null/non-servlet contexts and malformed forwarding headers.
 
-- [ ] **T12.17** — **Reuse MTurk clients instead of per-call creation** — Introduce managed singleton clients (prod/sandbox) with explicit timeout + lifecycle management.
+- [x] **T12.17** — **Reuse MTurk clients instead of per-call creation** — Refactored `MturkService` to create production and sandbox `MTurkClient` singletons at startup instead of per-call. Both clients share a `ClientOverrideConfiguration` with timeouts. Clients are closed via `@PreDestroy` on shutdown. *(completed)*
 
 - [ ] **T12.18** — **Make global dedup memory-safe** — Refactor `deduplicateGlobal()` to streaming/partitioned processing rather than loading all groups into memory.
 
