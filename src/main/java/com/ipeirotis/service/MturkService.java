@@ -15,6 +15,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.logging.Logger;
 
+import software.amazon.awssdk.regions.Region;
+
 @Service
 public class MturkService {
 
@@ -30,9 +32,9 @@ public class MturkService {
     private static final String CDATA_HEADER = "<![CDATA[";
     private static final String CDATA_FOOTER = "]]>";
 
-    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration API_CALL_TIMEOUT = Duration.ofSeconds(30);
+    private static final Region DEFAULT_REGION = Region.US_EAST_1;
 
     private final MTurkClient productionClient;
     private final MTurkClient sandboxClient;
@@ -45,11 +47,13 @@ public class MturkService {
 
         this.productionClient = MTurkClient.builder()
                 .credentialsProvider(awsCredentialsProvider)
+                .region(DEFAULT_REGION)
                 .overrideConfiguration(overrideConfig)
                 .build();
 
         this.sandboxClient = MTurkClient.builder()
                 .credentialsProvider(awsCredentialsProvider)
+                .region(DEFAULT_REGION)
                 .endpointOverride(URI.create(SANDBOX_ENDPOINT))
                 .overrideConfiguration(overrideConfig)
                 .build();
