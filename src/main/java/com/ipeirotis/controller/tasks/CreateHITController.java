@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import software.amazon.awssdk.services.mturk.model.HIT;
-import software.amazon.awssdk.core.exception.SdkServiceException;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -61,7 +61,7 @@ public class CreateHITController {
 				logger.info(responseText);
 				return new ResponseEntity<>(responseText, HttpStatus.OK);
 			}
-		} catch (SdkServiceException e) {
+		} catch (AwsServiceException e) {
 			// If MTurk says the HIT already exists (idempotent duplicate), treat as success.
 			// Match on the structured error code, not message text.
 			if (e.awsErrorDetails() != null
