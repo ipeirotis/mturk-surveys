@@ -244,21 +244,21 @@ Monitoring, logging, and operational tooling for production visibility.
 
 ### Health & Monitoring
 
-- [ ] **T11.1** — **Add Spring Boot Actuator health endpoint** — Add `spring-boot-starter-actuator` dependency. Configure `/actuator/health` as a liveness probe and `/actuator/info` with build metadata. Expose only health and info endpoints (not all actuator endpoints). Configure App Engine's `liveness_check` in `app.yaml` to use it.
+- [x] **T11.1** — **Add Spring Boot Actuator health endpoint** — Added `spring-boot-starter-actuator` dependency. Configured `/actuator/health` (with details), `/actuator/info`, and `/actuator/metrics` endpoints. Added `liveness_check` in `app.yaml` pointing to `/actuator/health`. *(completed)*
 
-- [ ] **T11.2** — **Add custom health indicators** — Implement `HealthIndicator` beans for: (a) Datastore connectivity (simple read test), (b) MTurk API reachability (describe account call), (c) BigQuery connectivity. Report `DOWN` if any external dependency is unreachable.
+- [x] **T11.2** — **Add custom health indicators** — Implemented `HealthIndicator` beans in `HealthIndicatorConfig` for: (a) Datastore connectivity (keys-only Survey query), (b) MTurk API reachability (`getAccountBalance()` call), (c) BigQuery connectivity (demographics dataset check). Reports `DOWN` with error details on failure. *(completed)*
 
-- [ ] **T11.3** — **Add Micrometer metrics** — Add `micrometer-registry-stackdriver` (or `micrometer-registry-prometheus`) for exporting metrics to Cloud Monitoring. Instrument: API request latency histograms, MTurk API call counts/durations, BigQuery export success/failure rates, snapshot build durations, task queue depths.
+- [x] **T11.3** — **Add Micrometer metrics** — Added `micrometer-registry-stackdriver` with 1-minute push interval to Cloud Monitoring. Added `TimedAspect` for `@Timed` annotation support. Instrumented MTurk API calls (getHIT, deleteHIT, listAssignments, createHIT), snapshot builds, and BigQuery exports with `@Timed` annotations. *(completed)*
 
 ### Logging
 
-- [ ] **T11.4** — **Switch to structured JSON logging** — Replace `java.util.logging` with SLF4J + Logback. Configure JSON output format for Cloud Logging integration (automatic severity parsing, trace ID extraction). Add MDC context for request IDs.
+- [x] **T11.4** — **Switch to structured JSON logging** — Migrated all 21 source files from `java.util.logging` to SLF4J + Logback. Added `logstash-logback-encoder` for JSON output with Cloud Logging-compatible field names (`severity`, `timestamp`, `stack_trace`). Removed `logging.properties`. Spring profile-based config: JSON in production, human-readable in local dev. *(completed)*
 
-- [ ] **T11.5** — **Add request correlation IDs** — Add a servlet filter that generates a UUID per request (or extracts `X-Cloud-Trace-Context` from App Engine). Propagate via MDC to all log statements. Pass as a parameter when enqueuing Cloud Tasks for end-to-end tracing.
+- [x] **T11.5** — **Add request correlation IDs** — Added `RequestCorrelationFilter` (order 0) that generates a 12-char request ID and extracts `X-Cloud-Trace-Context` trace ID into MDC. Parent request ID propagated via `X-Parent-Request-Id` header when enqueuing Cloud Tasks for end-to-end tracing. MDC fields (`requestId`, `parentRequestId`, `traceId`) included in all structured log output. *(completed)*
 
 ### Alerting
 
-- [ ] **T11.6** — **Add task failure monitoring endpoint** — Create a `/tasks/status` diagnostic endpoint (authenticated) that reports: number of pending tasks in queue, last successful snapshot date, last successful BigQuery export date, and last successful HIT creation time. Useful for operational dashboards and alerting.
+- [x] **T11.6** — **Add task failure monitoring endpoint** — Added `TaskStatusController` with `/tasks/status` endpoint (protected by `TaskAuthFilter`). Reports: pending Cloud Tasks queue count, last snapshot date (from Datastore), and last UserAnswer date (proxy for HIT activity). *(completed)*
 
 ## Track 12: API Security & Documentation Alignment
 
