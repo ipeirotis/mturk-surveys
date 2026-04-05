@@ -18,9 +18,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -40,10 +40,12 @@ public class CreateHITController {
 	public ResponseEntity createHIT(@RequestParam String surveyId, @RequestParam Boolean production,
 			@RequestParam(required = false, defaultValue = "0") int retryCount,
 			@RequestParam(required = false) String idempotencyToken) {
-		// Generate a stable token on the first attempt; propagate it through retries.
-		// Hash to fit MTurk's 64-character limit for uniqueRequestToken.
+		// Generate a deterministic token from surveyId + time window so that
+		// retries (including crash-recovery redeliveries) produce the same token.
+		// Truncate to 15-minute intervals matching the cron schedule.
 		if (idempotencyToken == null || idempotencyToken.isEmpty()) {
-			String raw = surveyId + "|" + Instant.now().toString() + "|" + UUID.randomUUID();
+			long window = Instant.now().truncatedTo(ChronoUnit.SECONDS).getEpochSecond() / 900;
+			String raw = surveyId + "|" + window;
 			idempotencyToken = sha256Hex(raw);
 		}
 		try {

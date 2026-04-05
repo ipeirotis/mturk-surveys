@@ -229,21 +229,30 @@ public class DemographicsSnapshotService {
             snapshot.setP75ResponseTimeMinutes(percentile(responseTimesMinutes, 75));
         }
 
-        // Optimistic locking: skip write if an existing snapshot was updated within the last 5 minutes
-        DemographicsSnapshot existing = snapshotDao.get(dateStr);
-        if (existing != null && existing.getLastUpdated() != null) {
-            long ageMs = System.currentTimeMillis() - existing.getLastUpdated().getTime();
-            if (ageMs < 5 * 60 * 1000) {
-                logger.info("Snapshot for " + dateStr + " was updated "
-                        + (ageMs / 1000) + "s ago, skipping to prevent concurrent overwrite");
-                return existing;
+        // Atomic optimistic lock: check-and-save inside a transaction to prevent
+        // concurrent builds from overwriting each other.
+        final DemographicsSnapshot snapshotToSave = snapshot;
+        final String dateKey = dateStr;
+        final int answerCount = answers.size();
+        DemographicsSnapshot result = com.googlecode.objectify.ObjectifyService.ofy().transact(() -> {
+            DemographicsSnapshot existing = snapshotDao.get(dateKey);
+            if (existing != null && existing.getLastUpdated() != null) {
+                long ageMs = System.currentTimeMillis() - existing.getLastUpdated().getTime();
+                if (ageMs < 5 * 60 * 1000) {
+                    logger.info("Snapshot for " + dateKey + " was updated "
+                            + (ageMs / 1000) + "s ago, skipping to prevent concurrent overwrite");
+                    return existing;
+                }
             }
-        }
+            snapshotToSave.setLastUpdated(new Date());
+            snapshotDao.save(snapshotToSave);
+            return snapshotToSave;
+        });
 
-        snapshot.setLastUpdated(new Date());
-        snapshotDao.save(snapshot);
-        logger.info("Saved snapshot for " + dateStr + " with " + answers.size() + " responses");
-        return snapshot;
+        if (result == snapshotToSave) {
+            logger.info("Saved snapshot for " + dateStr + " with " + answerCount + " responses");
+        }
+        return result;
     }
 
     /**
