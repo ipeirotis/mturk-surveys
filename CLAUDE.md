@@ -144,6 +144,8 @@ src/main/appengine/
 | `LOCATION_ID` | Yes | `us-central1` | GCP region for Cloud Tasks |
 | `GOOGLE_CLOUD_PROJECT` | Auto | *(set by GAE)* | GCP project ID (provided automatically on App Engine) |
 | `PORT` | No | `8080` | Server port (provided automatically on App Engine) |
+| `TASK_ADMIN_KEY` | No | *(none)* | Fallback admin API key for local dev only. In production, loaded from Secret Manager (`task-admin-key`). |
+| `DEBUG_TASKS_ENABLED` | No | `false` | Set to `true` to enable `/tasks/debug/*` diagnostic endpoints |
 
 #### GCP Secret Manager Secrets
 AWS credentials are stored in **GCP Secret Manager** (not in env vars). The app reads them at startup via `AwsCredentialsConfig`. Create these secrets in the `mturk-demographics` project:
@@ -152,6 +154,7 @@ AWS credentials are stored in **GCP Secret Manager** (not in env vars). The app 
 |---|---|
 | `aws-access-key-id` | AWS access key for the MTurk requester account |
 | `aws-secret-access-key` | AWS secret key for the MTurk requester account |
+| `task-admin-key` | Admin API key for manually triggering `/tasks/*` endpoints. Pass via `X-Task-Admin-Key` header. |
 
 To create the secrets:
 ```bash

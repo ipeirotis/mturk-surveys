@@ -6,6 +6,9 @@ import com.ipeirotis.util.SafeDateFormat;
 import com.ipeirotis.util.TaskUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -40,7 +43,7 @@ public class BigQueryExportController {
 	 * cause transaction conflict storms). Errors are logged for monitoring.
 	 * Example: /tasks/exportDateToBigQuery?date=01/15/2024
 	 */
-	@GetMapping("/tasks/exportDateToBigQuery")
+	@PostMapping("/tasks/exportDateToBigQuery")
 	public Map<String, Object> exportDate(@RequestParam String date) {
 		try {
 			int rows = bigQueryExportService.exportDate(date);
@@ -61,7 +64,7 @@ public class BigQueryExportController {
 	 * is <= MAX_CHUNKS days does it enqueue individual exportDateToBigQuery tasks per day.
 	 * Example: /tasks/backfillBigQuery?from=01/01/2015&to=03/09/2026
 	 */
-	@GetMapping("/tasks/backfillBigQuery")
+	@RequestMapping(value = "/tasks/backfillBigQuery", method = {RequestMethod.GET, RequestMethod.POST})
 	public Map<String, Object> backfill(@RequestParam String from, @RequestParam String to) throws ParseException {
 		DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
 

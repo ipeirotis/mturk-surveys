@@ -7,7 +7,10 @@ import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
 import com.ipeirotis.util.TaskUtils;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,8 +25,10 @@ import static com.googlecode.objectify.ObjectifyService.ofy;
 /**
  * Diagnostic endpoint to debug missing UserAnswer data.
  * Compares different query strategies to identify index vs data issues.
+ * Disabled by default; set DEBUG_TASKS_ENABLED=true to enable.
  */
 @RestController
+@ConditionalOnProperty(name = "debug.tasks.enabled", havingValue = "true", matchIfMissing = false)
 public class DiagnosticController {
 
 	private static final Logger logger = Logger.getLogger(DiagnosticController.class.getName());
@@ -380,7 +385,7 @@ public class DiagnosticController {
 	 * Example: /tasks/reindexUserAnswers?from=10/01/2020&to=12/31/2022
 	 * With cursor: /tasks/reindexUserAnswers?from=10/01/2020&to=12/31/2022&cursor=...
 	 */
-	@GetMapping("/tasks/debug/reindexUserAnswers")
+	@RequestMapping(value = "/tasks/debug/reindexUserAnswers", method = {RequestMethod.GET, RequestMethod.POST})
 	public Map<String, Object> reindexUserAnswers(
 			@RequestParam String from, @RequestParam String to,
 			@RequestParam(required = false) String cursor) throws ParseException {
@@ -708,7 +713,7 @@ public class DiagnosticController {
 	 * Example: /tasks/restoreRange?dataset=test&table=UserAnswer_2025MAR20&from=2021-01-01&to=2021-01-31&dryRun=false
 	 * Force-overwrite existing entities: /tasks/restoreRange?...&force=true
 	 */
-	@GetMapping("/tasks/debug/restoreRange")
+	@RequestMapping(value = "/tasks/debug/restoreRange", method = {RequestMethod.GET, RequestMethod.POST})
 	public Map<String, Object> restoreRange(
 			@RequestParam String dataset,
 			@RequestParam String table,
@@ -916,7 +921,7 @@ public class DiagnosticController {
 	 * Example: /tasks/reindexEntities?dataset=test&table=UserAnswer_2025MAR20&from=2021-01-01&to=2021-01-31
 	 * Add dryRun=true (default) to preview without saving.
 	 */
-	@GetMapping("/tasks/debug/reindexEntities")
+	@RequestMapping(value = "/tasks/debug/reindexEntities", method = {RequestMethod.GET, RequestMethod.POST})
 	public Map<String, Object> reindexEntities(
 			@RequestParam String dataset,
 			@RequestParam String table,

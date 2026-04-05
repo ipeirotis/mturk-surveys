@@ -8,6 +8,9 @@ import com.ipeirotis.util.SafeDateFormat;
 import com.ipeirotis.util.TaskUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -124,7 +127,7 @@ public class SnapshotController {
      * Build a single rollup. Called by Cloud Tasks during backfill.
      * Example: /tasks/buildRollup?date=2024-01-01&granularity=weekly
      */
-    @GetMapping("/tasks/buildRollup")
+    @PostMapping("/tasks/buildRollup")
     public Map<String, Object> buildSingleRollup(@RequestParam String date, @RequestParam String granularity) {
         if ("weekly".equals(granularity)) {
             snapshotService.buildWeeklyRollup(date);
@@ -159,7 +162,7 @@ public class SnapshotController {
      * the correct final result.
      * Example: /tasks/snapshotDate?date=01/15/2024
      */
-    @GetMapping("/tasks/snapshotDate")
+    @PostMapping("/tasks/snapshotDate")
     public Map<String, Object> snapshotDate(@RequestParam String date) throws ParseException {
         snapshotService.buildSnapshot(date);
         rebuildRollupsForDate(date);
@@ -203,7 +206,7 @@ public class SnapshotController {
      * is <= MAX_CHUNKS days does it enqueue individual snapshotDate tasks per day.
      * Example: /tasks/backfillSnapshots?from=01/01/2010&to=03/09/2026
      */
-    @GetMapping("/tasks/backfillSnapshots")
+    @RequestMapping(value = "/tasks/backfillSnapshots", method = {RequestMethod.GET, RequestMethod.POST})
     public Map<String, Object> backfill(@RequestParam String from, @RequestParam String to) throws ParseException {
         DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
 

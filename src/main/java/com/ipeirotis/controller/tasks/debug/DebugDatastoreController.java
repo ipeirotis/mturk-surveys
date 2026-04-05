@@ -6,6 +6,7 @@ import com.ipeirotis.service.DatastoreRestoreService;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,8 +20,10 @@ import java.util.*;
 /**
  * Debug endpoints for diagnosing Datastore and BigQuery data issues.
  * These are NOT called by cron — they exist for manual debugging only.
+ * Disabled by default; set DEBUG_TASKS_ENABLED=true to enable.
  */
 @RestController
+@ConditionalOnProperty(name = "debug.tasks.enabled", havingValue = "true", matchIfMissing = false)
 public class DebugDatastoreController {
 
 	@Autowired
