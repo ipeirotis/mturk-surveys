@@ -2,6 +2,7 @@ package com.ipeirotis.util;
 
 import java.text.DateFormat;
 import java.text.ParseException;
+import java.text.ParsePosition;
 import java.util.Calendar;
 
 /**
@@ -23,11 +24,11 @@ public class DateValidation {
         if (date == null || date.isBlank()) {
             throw new IllegalArgumentException(paramName + " is required");
         }
-        try {
-            DateFormat df = SafeDateFormat.forPattern(pattern);
-            df.setLenient(false);
-            df.parse(date);
-        } catch (ParseException e) {
+        DateFormat df = SafeDateFormat.forPattern(pattern);
+        df.setLenient(false);
+        ParsePosition pos = new ParsePosition(0);
+        df.parse(date, pos);
+        if (pos.getIndex() != date.length() || pos.getErrorIndex() >= 0) {
             throw new IllegalArgumentException(
                     paramName + " must be in " + pattern + " format, got: " + date);
         }

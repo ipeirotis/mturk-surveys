@@ -54,7 +54,8 @@ public class CreateHITController {
 			}
 			logger.log(Level.WARNING, "Error creating HIT (retry " + (retryCount + 1) + "/" + MAX_RETRIES + "), re-enqueuing", e);
 			queueTask(surveyId, production, retryCount + 1);
-			return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+			// Return 200 so Cloud Tasks considers this task complete; the retry is handled by the enqueued task
+			return new ResponseEntity<>("Re-enqueued retry " + (retryCount + 1) + ": " + e.getMessage(), HttpStatus.OK);
 		}
 	}
 
