@@ -7,6 +7,7 @@ import com.ipeirotis.entity.UserAnswer;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
 import com.ipeirotis.util.TaskUtils;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,8 +23,10 @@ import static com.googlecode.objectify.ObjectifyService.ofy;
 /**
  * Diagnostic endpoint to debug missing UserAnswer data.
  * Compares different query strategies to identify index vs data issues.
+ * Disabled by default; set DEBUG_TASKS_ENABLED=true to enable.
  */
 @RestController
+@ConditionalOnProperty(name = "debug.tasks.enabled", havingValue = "true", matchIfMissing = false)
 public class DiagnosticController {
 
 	private static final Logger logger = Logger.getLogger(DiagnosticController.class.getName());

@@ -7,8 +7,8 @@ import com.ipeirotis.util.TaskUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import software.amazon.awssdk.services.mturk.model.HIT;
@@ -29,7 +29,7 @@ public class CreateHITController {
 	@Autowired
 	private SurveyService surveyService;
 
-	@GetMapping({"/createHIT"})
+	@RequestMapping(value = "/createHIT", method = {RequestMethod.GET, RequestMethod.POST})
 	public ResponseEntity createHIT(@RequestParam String surveyId, @RequestParam Boolean production) {
 		try {
 			Survey survey = surveyService.get(surveyId);

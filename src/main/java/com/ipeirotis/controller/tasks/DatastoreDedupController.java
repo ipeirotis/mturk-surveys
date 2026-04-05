@@ -6,6 +6,9 @@ import com.ipeirotis.util.SafeDateFormat;
 import com.ipeirotis.util.TaskUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,7 +28,7 @@ public class DatastoreDedupController {
 	 * Deduplicate Datastore UserAnswer entries for a single date.
 	 * Example: /tasks/dedupDatastoreDate?date=2024-01-15
 	 */
-	@GetMapping("/tasks/dedupDatastoreDate")
+	@PostMapping("/tasks/dedupDatastoreDate")
 	public Map<String, Object> deduplicateDate(@RequestParam String date) throws ParseException {
 		int deleted = datastoreDedupService.deduplicateDate(date);
 		return Map.of("status", "ok", "date", date, "duplicatesDeleted", deleted);
@@ -49,7 +52,7 @@ public class DatastoreDedupController {
 	 * for large ranges (same pattern as BigQueryExportController.backfill).
 	 * Example: /tasks/dedupDatastore?from=2015-03-26&to=2026-03-16
 	 */
-	@GetMapping("/tasks/dedupDatastore")
+	@RequestMapping(value = "/tasks/dedupDatastore", method = {RequestMethod.GET, RequestMethod.POST})
 	public Map<String, Object> deduplicateRange(@RequestParam String from, @RequestParam String to) throws ParseException {
 		DateFormat sortableDf = SafeDateFormat.forPattern("yyyy-MM-dd");
 		DateFormat taskDf = SafeDateFormat.forPattern("yyyy-MM-dd");

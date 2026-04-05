@@ -6,6 +6,9 @@ import com.ipeirotis.util.SafeDateFormat;
 import com.ipeirotis.util.TaskUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -67,7 +70,7 @@ public class DatastoreRestoreController {
 	 *
 	 * @param date date in yyyy-MM-dd format
 	 */
-	@GetMapping("/tasks/restoreDateFromBigQuery")
+	@PostMapping("/tasks/restoreDateFromBigQuery")
 	public Map<String, Object> restoreDate(@RequestParam String date,
 			@RequestParam(required = false) String table) {
 		int restored = restoreService.restoreDate(date, table);
@@ -89,7 +92,7 @@ public class DatastoreRestoreController {
 	 * @param from start date in yyyy-MM-dd format
 	 * @param to   end date in yyyy-MM-dd format
 	 */
-	@GetMapping("/tasks/backfillRestoreFromBigQuery")
+	@RequestMapping(value = "/tasks/backfillRestoreFromBigQuery", method = {RequestMethod.GET, RequestMethod.POST})
 	public Map<String, Object> backfillRestore(
 			@RequestParam String from, @RequestParam String to,
 			@RequestParam(required = false) String table) throws ParseException {

@@ -5,6 +5,7 @@ import com.google.cloud.tasks.v2.CloudTasksClient;
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.cloud.tasks.v2.QueueName;
 import com.google.cloud.tasks.v2.Task;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 import com.ipeirotis.exception.TaskEnqueueException;
 
@@ -43,23 +44,31 @@ public class TaskUtils {
 			// Construct the fully qualified queue name.
 			String queuePath = QueueName.of(projectId, location, queueName).toString();
 
+			// Build form-encoded body from params
+			String body = "";
 			if(params != null) {
 				List<String> paramsList = new ArrayList<>();
 				for(Map.Entry<String, String> entry : params.entrySet()) {
 					paramsList.add(URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8)
 						+ "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8));
 				}
-				fullUrl = fullUrl + "?" + String.join("&", paramsList);
+				body = String.join("&", paramsList);
 			}
 
-			// Construct the task body.
+			// Construct the task body using POST with form-encoded params.
+			AppEngineHttpRequest.Builder requestBuilder = AppEngineHttpRequest.newBuilder()
+					.setRelativeUri(fullUrl)
+					.setHttpMethod(HttpMethod.POST);
+
+			if (!body.isEmpty()) {
+				requestBuilder
+						.putHeaders("Content-Type", "application/x-www-form-urlencoded")
+						.setBody(ByteString.copyFromUtf8(body));
+			}
+
 			Task.Builder taskBuilder =
 				Task.newBuilder()
-					.setAppEngineHttpRequest(
-						AppEngineHttpRequest.newBuilder()
-							.setRelativeUri(fullUrl)
-							.setHttpMethod(HttpMethod.GET)
-							.build());
+					.setAppEngineHttpRequest(requestBuilder.build());
 
 			if (delaySeconds > 0) {
 				Instant executeTime = Instant.now().plusSeconds(delaySeconds);

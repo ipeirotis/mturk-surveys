@@ -17,4 +17,13 @@ public class FilterConfig {
         return registration;
     }
 
+    @Bean
+    public FilterRegistrationBean<TaskAuthFilter> taskAuthFilterRegistration() {
+        FilterRegistrationBean<TaskAuthFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new TaskAuthFilter());
+        registration.addUrlPatterns("/tasks/*");
+        registration.setOrder(2);
+        return registration;
+    }
+
 }

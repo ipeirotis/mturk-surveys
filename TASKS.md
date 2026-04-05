@@ -180,7 +180,7 @@ Improvements to error handling, resilience, and operational stability for a prod
 
 ### Task Endpoint Security (Critical)
 
-- [ ] **T9.1** — **Authenticate `/tasks/` endpoints** — Add a request filter or interceptor that verifies task requests originate from App Engine cron or Cloud Tasks. Check for the `X-Appengine-Cron: true` header (cron jobs) and `X-CloudTasks-TaskName` header (Cloud Tasks). Reject requests without these headers with 403. This prevents external actors from triggering destructive operations like `/tasks/deleteHITs`, `/tasks/restoreDateFromBigQuery`, or `/tasks/backupDatastore`.
+- [x] **T9.1** — **Authenticate `/tasks/` endpoints** — Added `TaskAuthFilter` (registered on `/tasks/*` in `FilterConfig`) that verifies requests originate from App Engine cron (`X-Appengine-Cron: true`) or Cloud Tasks (`X-CloudTasks-TaskName` header). Rejects unauthorized requests with 403 JSON response. Allows all requests in local development (no `GAE_APPLICATION` env var). On App Engine, these headers are stripped from external requests by infrastructure, so they can only be present on genuine internal requests. *(completed)*
 
 - [ ] **T9.2** — **Add input validation to task endpoints** — Add `@NotBlank` and date format validation to all `@RequestParam` on task controllers (`SnapshotController`, `BigQueryExportController`, `DatastoreRestoreController`, `DatastoreBackupController`). Validate date ranges (from ≤ to, max range limits) to prevent resource exhaustion from unbounded queries.
 
@@ -266,11 +266,11 @@ Focused hardening and cleanup tasks to reduce operational risk and improve contr
 
 ### Endpoint Security
 
-- [ ] **T12.1** — **Restrict `/tasks/**` and `/tasks/debug/**` endpoints** — Add server-side auth checks so task/debug routes only allow App Engine Cron, Cloud Tasks, or authenticated admin users. Return `403` for all other callers.
+- [x] **T12.1** — **Restrict `/tasks/**` and `/tasks/debug/**` endpoints** — Added `TaskAuthFilter` registered on `/tasks/*` in `FilterConfig` (order=2, after Objectify filter). Verifies `X-Appengine-Cron: true` or `X-CloudTasks-TaskName` header. Returns 403 JSON for unauthorized callers. Bypassed in local dev (no `GAE_APPLICATION` env var). Shared implementation with T9.1. *(completed)*
 
-- [ ] **T12.2** — **Move dangerous debug controllers behind feature flag** — Gate controllers under `controller/tasks/debug` behind an environment toggle (e.g., `DEBUG_TASKS_ENABLED=false` by default), and disable in production.
+- [x] **T12.2** — **Move dangerous debug controllers behind feature flag** — Added `@ConditionalOnProperty(name = "debug.tasks.enabled", havingValue = "true", matchIfMissing = false)` to both `DebugDatastoreController` and `DiagnosticController`. Beans are not registered unless `DEBUG_TASKS_ENABLED=true` env var is set. Added property binding in `application.properties`. *(completed)*
 
-- [ ] **T12.3** — **Require non-GET methods for mutating task endpoints** — Convert state-changing task operations from `GET` to `POST` and validate required headers/body to prevent accidental invocation via crawlers, prefetchers, or cached links.
+- [x] **T12.3** — **Require non-GET methods for mutating task endpoints** — Changed `TaskUtils.queueTask()` from `HttpMethod.GET` to `HttpMethod.POST` with form-encoded body (`application/x-www-form-urlencoded`). Cloud Tasks-only endpoints changed to `@PostMapping`. Endpoints called by both cron (GET) and Cloud Tasks (POST) use `@RequestMapping(method = {GET, POST})`. Cron-only and read-only endpoints remain `@GetMapping`. Spring's `@RequestParam` reads from both query params and form body automatically. *(completed)*
 
 ### API Modernization
 
