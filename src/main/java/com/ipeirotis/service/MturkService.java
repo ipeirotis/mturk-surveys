@@ -14,15 +14,9 @@ import software.amazon.awssdk.services.mturk.MTurkClient;
 import software.amazon.awssdk.services.mturk.model.*;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.text.NumberFormat;
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import software.amazon.awssdk.regions.Region;
@@ -121,7 +115,7 @@ public class MturkService {
 
     @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
             maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
-    public HIT createHIT(Boolean production, Survey survey) {
+    public HIT createHIT(Boolean production, Survey survey, String idempotencyToken) {
         MTurkClient client = getClient(production);
         CreateHitRequest.Builder requestBuilder = CreateHitRequest.builder();
         requestBuilder.title(survey.getTitle());
@@ -133,9 +127,8 @@ public class MturkService {
         requestBuilder.autoApprovalDelayInSeconds(DEFAULT_AUTO_APPROVAL_DELAY_IN_SECONDS);
         requestBuilder.lifetimeInSeconds(DEFAULT_LIFETIME_IN_SECONDS);
 
-        // Idempotency token: hash of surveyId + current date/hour to prevent duplicate HITs on retries
-        String tokenInput = survey.getId() + "|" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH"));
-        requestBuilder.uniqueRequestToken(sha256Short(tokenInput));
+        // Idempotency token: caller-supplied stable token to prevent duplicate HITs on retries
+        requestBuilder.uniqueRequestToken(idempotencyToken);
 
         if (survey.getHtmlQuestion() != null) {
             requestBuilder.question(wrapHTMLQuestions(survey.getHtmlQuestion(), DEFAULT_FRAME_HEIGHT));
@@ -151,21 +144,6 @@ public class MturkService {
 
     private MTurkClient getClient(Boolean production) {
         return (production != null && production) ? productionClient : sandboxClient;
-    }
-
-    private static String sha256Short(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder(64);
-            for (byte b : hash) {
-                hex.append(String.format("%02x", b));
-            }
-            // MTurk uniqueRequestToken max length is 64 characters
-            return hex.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
-        }
     }
 
     private String wrapHTMLQuestions(String html, long frameHeight) {

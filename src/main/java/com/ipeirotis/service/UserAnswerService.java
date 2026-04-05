@@ -97,17 +97,15 @@ public class UserAnswerService {
      */
     public List<UserAnswer> listByDateRange(Date from, Date to) {
         List<UserAnswer> result = new ArrayList<>();
-        iterateByDateRange(from, to, ua -> {
-            applyPrivacyTransforms(ua);
-            result.add(ua);
-        });
+        iterateByDateRange(from, to, result::add);
         return result;
     }
 
     /**
      * Iterate over demographics answers by date range in chunks of 500,
      * calling the consumer for each entity. This avoids loading the entire
-     * result set into memory at once.
+     * result set into memory at once. Privacy transforms (MD5-hashed workerId,
+     * stripped IP) are applied before the consumer is called.
      */
     public void iterateByDateRange(Date from, Date to, Consumer<UserAnswer> consumer) {
         final int chunkSize = 500;
@@ -129,7 +127,9 @@ public class UserAnswerService {
             QueryResults<UserAnswer> iterator = query.iterator();
             int count = 0;
             while (iterator.hasNext()) {
-                consumer.accept(iterator.next());
+                UserAnswer ua = iterator.next();
+                applyPrivacyTransforms(ua);
+                consumer.accept(ua);
                 count++;
             }
 

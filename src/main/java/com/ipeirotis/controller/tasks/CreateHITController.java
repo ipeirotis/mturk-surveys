@@ -13,8 +13,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import software.amazon.awssdk.services.mturk.model.HIT;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -32,7 +34,12 @@ public class CreateHITController {
 
 	@RequestMapping(value = "/createHIT", method = {RequestMethod.GET, RequestMethod.POST})
 	public ResponseEntity createHIT(@RequestParam String surveyId, @RequestParam Boolean production,
-			@RequestParam(required = false, defaultValue = "0") int retryCount) {
+			@RequestParam(required = false, defaultValue = "0") int retryCount,
+			@RequestParam(required = false) String idempotencyToken) {
+		// Generate a stable token on the first attempt; propagate it through retries
+		if (idempotencyToken == null || idempotencyToken.isEmpty()) {
+			idempotencyToken = surveyId + "-" + Instant.now().toString() + "-" + UUID.randomUUID();
+		}
 		try {
 			Survey survey = surveyService.get(surveyId);
 			if(survey == null) {
@@ -40,7 +47,7 @@ public class CreateHITController {
 				logger.log(Level.SEVERE, error);
 				return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
 			} else {
-				HIT hit = mturkService.createHIT(production, survey);
+				HIT hit = mturkService.createHIT(production, survey, idempotencyToken);
 				String responseText = "created HIT with id: " + hit.hitId() +
 						", preview: https://" + (production ? "www" : "workersandbox") + ".mturk.com/mturk/preview?groupId=" + hit.hitGroupId();
 				logger.info(responseText);
@@ -53,17 +60,18 @@ public class CreateHITController {
 				return new ResponseEntity<>("Gave up after " + MAX_RETRIES + " retries: " + e.getMessage(), HttpStatus.OK);
 			}
 			logger.log(Level.WARNING, "Error creating HIT (retry " + (retryCount + 1) + "/" + MAX_RETRIES + "), re-enqueuing", e);
-			queueTask(surveyId, production, retryCount + 1);
+			queueTask(surveyId, production, retryCount + 1, idempotencyToken);
 			// Return 200 so Cloud Tasks considers this task complete; the retry is handled by the enqueued task
 			return new ResponseEntity<>("Re-enqueued retry " + (retryCount + 1) + ": " + e.getMessage(), HttpStatus.OK);
 		}
 	}
 
-	public void queueTask(String surveyId, boolean production, int retryCount) {
+	public void queueTask(String surveyId, boolean production, int retryCount, String idempotencyToken) {
 		Map<String, String> params = new HashMap<>();
 		params.put("surveyId", surveyId);
 		params.put("production", String.valueOf(production));
 		params.put("retryCount", String.valueOf(retryCount));
+		params.put("idempotencyToken", idempotencyToken);
 		// Exponential backoff: 2^retryCount seconds (2s, 4s, 8s, 16s, 32s)
 		long delaySeconds = (long) Math.pow(2, retryCount);
 		TaskUtils.queueTask("/tasks/createHIT", params, delaySeconds);
