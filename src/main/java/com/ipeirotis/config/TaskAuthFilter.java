@@ -16,8 +16,8 @@ import java.util.logging.Logger;
  *
  * Only allows requests from:
  * - App Engine Cron (X-Appengine-Cron: true)
- * - Google Cloud Tasks (X-CloudTasks-TaskName or X-AppEngine-TaskName header)
- * - Admin API key (X-Task-Admin-Key header matching TASK_ADMIN_KEY env var)
+ * - Google Cloud Tasks (X-AppEngine-TaskName header)
+ * - Admin API key (X-Task-Admin-Key header matching task-admin-key secret)
  * - Local development (GAE_APPLICATION env var not set)
  *
  * On App Engine, cron and task headers are stripped from external requests by
@@ -29,8 +29,8 @@ public class TaskAuthFilter implements Filter {
 
     private final String adminKey;
 
-    public TaskAuthFilter() {
-        this.adminKey = System.getenv("TASK_ADMIN_KEY");
+    public TaskAuthFilter(String adminKey) {
+        this.adminKey = adminKey;
     }
 
     @Override
