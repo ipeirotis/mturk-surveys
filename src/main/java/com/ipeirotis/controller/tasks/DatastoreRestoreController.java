@@ -2,6 +2,7 @@ package com.ipeirotis.controller.tasks;
 
 import com.ipeirotis.service.DatastoreRestoreService;
 import com.ipeirotis.util.CalendarUtils;
+import com.ipeirotis.util.DateValidation;
 import com.ipeirotis.util.SafeDateFormat;
 import com.ipeirotis.util.TaskUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,7 @@ public class DatastoreRestoreController {
 	public Map<String, Object> compareCounts(
 			@RequestParam String from, @RequestParam String to,
 			@RequestParam(required = false) String table) throws ParseException {
+		DateValidation.requireValidRange(from, to, "yyyy-MM-dd");
 		List<Map<String, Object>> mismatches = restoreService.compareCounts(from, to, table);
 
 		long totalDelta = 0;
@@ -73,6 +75,7 @@ public class DatastoreRestoreController {
 	@PostMapping("/tasks/restoreDateFromBigQuery")
 	public Map<String, Object> restoreDate(@RequestParam String date,
 			@RequestParam(required = false) String table) {
+		DateValidation.requireValidDate(date, "date", "yyyy-MM-dd");
 		int restored = restoreService.restoreDate(date, table);
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("status", "ok");
@@ -96,6 +99,7 @@ public class DatastoreRestoreController {
 	public Map<String, Object> backfillRestore(
 			@RequestParam String from, @RequestParam String to,
 			@RequestParam(required = false) String table) throws ParseException {
+		DateValidation.requireValidRange(from, to, "yyyy-MM-dd");
 		DateFormat df = SafeDateFormat.forPattern("yyyy-MM-dd");
 
 		Calendar start = Calendar.getInstance();
@@ -168,6 +172,7 @@ public class DatastoreRestoreController {
 	public Map<String, Object> smartRestore(
 			@RequestParam String from, @RequestParam String to,
 			@RequestParam(required = false) String table) throws ParseException {
+		DateValidation.requireValidRange(from, to, "yyyy-MM-dd");
 		List<Map<String, Object>> mismatches = restoreService.compareCounts(from, to, table);
 
 		int tasksEnqueued = 0;
