@@ -26,6 +26,9 @@ public class BigQueryExportService {
 	private static final String TABLE_ID = "responses";
 
 	@Autowired
+	private BigQuery bigQuery;
+
+	@Autowired
 	private SurveyService surveyService;
 
 	/**
@@ -67,8 +70,7 @@ public class BigQueryExportService {
 			return 0;
 		}
 
-		BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
-		String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
+		String projectId = bigQuery.getOptions().getProjectId();
 
 		ensureTableExists(bigQuery, projectId);
 
@@ -82,7 +84,8 @@ public class BigQueryExportService {
 		String deleteSql = String.format("DELETE FROM %s WHERE DATE(date) = '%s'",
 				fullTable, sortableDate);
 		try {
-			bigQuery.query(QueryJobConfiguration.newBuilder(deleteSql).build());
+			bigQuery.query(QueryJobConfiguration.newBuilder(deleteSql)
+					.setJobTimeoutMs(60_000L).build());
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			throw new RuntimeException("Interrupted during BigQuery delete", e);
@@ -158,7 +161,8 @@ public class BigQueryExportService {
 			}
 
 			try {
-				bigQuery.query(QueryJobConfiguration.newBuilder(insertSql.toString()).build());
+				bigQuery.query(QueryJobConfiguration.newBuilder(insertSql.toString())
+						.setJobTimeoutMs(120_000L).build());
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
 				throw new RuntimeException("Interrupted during BigQuery insert", e);
@@ -182,8 +186,7 @@ public class BigQueryExportService {
 	 * @return map with beforeCount, afterCount, duplicatesRemoved
 	 */
 	public Map<String, Object> deduplicateTable() {
-		BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
-		String projectId = BigQueryOptions.getDefaultInstance().getProjectId();
+		String projectId = bigQuery.getOptions().getProjectId();
 		String fullTable = String.format("`%s.%s.%s`", projectId, DATASET_ID, TABLE_ID);
 
 		Map<String, Object> result = new LinkedHashMap<>();
@@ -191,7 +194,8 @@ public class BigQueryExportService {
 		try {
 			// Count rows before dedup
 			String countSql = "SELECT COUNT(*) AS cnt FROM " + fullTable;
-			QueryJobConfiguration countConfig = QueryJobConfiguration.newBuilder(countSql).build();
+			QueryJobConfiguration countConfig = QueryJobConfiguration.newBuilder(countSql)
+					.setJobTimeoutMs(60_000L).build();
 			TableResult countResult = bigQuery.query(countConfig);
 			long beforeCount = countResult.iterateAll().iterator().next().get("cnt").getLongValue();
 			result.put("beforeCount", beforeCount);
@@ -208,7 +212,8 @@ public class BigQueryExportService {
 					+ ") WHERE row_num = 1",
 					fullTable, fullTable);
 
-			QueryJobConfiguration dedupConfig = QueryJobConfiguration.newBuilder(dedupSql).build();
+			QueryJobConfiguration dedupConfig = QueryJobConfiguration.newBuilder(dedupSql)
+					.setJobTimeoutMs(120_000L).build();
 			bigQuery.query(dedupConfig);
 
 			// Count rows after dedup

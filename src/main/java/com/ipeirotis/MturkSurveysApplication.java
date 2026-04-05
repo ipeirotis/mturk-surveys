@@ -8,11 +8,13 @@ import com.ipeirotis.entity.Survey;
 import com.ipeirotis.entity.UserAnswer;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.retry.annotation.EnableRetry;
 
 import java.util.HashSet;
 import java.util.Set;
 
 @SpringBootApplication
+@EnableRetry
 public class MturkSurveysApplication {
 
     private static final Set<Class> classes;

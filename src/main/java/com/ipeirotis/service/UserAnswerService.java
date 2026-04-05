@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 @Service
 public class UserAnswerService {
@@ -92,20 +93,52 @@ public class UserAnswerService {
     /**
      * List demographics answers by date range. Uses the (date ASC) index.
      * Results have privacy transforms applied (MD5-hashed workerId, stripped IP).
+     * Fetches in chunks of 500 to limit memory usage.
      */
     public List<UserAnswer> listByDateRange(Date from, Date to) {
-        Query<UserAnswer> query = ofy().load().type(UserAnswer.class)
-                .filter("surveyId", DEMOGRAPHICS_SURVEY_ID)
-                .filter("date >=", from)
-                .filter("date <", to)
-                .order("date");
-
         List<UserAnswer> result = new ArrayList<>();
-        for (UserAnswer ua : query) {
+        iterateByDateRange(from, to, ua -> {
             applyPrivacyTransforms(ua);
             result.add(ua);
-        }
+        });
         return result;
+    }
+
+    /**
+     * Iterate over demographics answers by date range in chunks of 500,
+     * calling the consumer for each entity. This avoids loading the entire
+     * result set into memory at once.
+     */
+    public void iterateByDateRange(Date from, Date to, Consumer<UserAnswer> consumer) {
+        final int chunkSize = 500;
+        Cursor cursor = null;
+        boolean hasMore = true;
+
+        while (hasMore) {
+            Query<UserAnswer> query = ofy().load().type(UserAnswer.class)
+                    .filter("surveyId", DEMOGRAPHICS_SURVEY_ID)
+                    .filter("date >=", from)
+                    .filter("date <", to)
+                    .order("date")
+                    .limit(chunkSize);
+
+            if (cursor != null) {
+                query = query.startAt(cursor);
+            }
+
+            QueryResults<UserAnswer> iterator = query.iterator();
+            int count = 0;
+            while (iterator.hasNext()) {
+                consumer.accept(iterator.next());
+                count++;
+            }
+
+            if (count < chunkSize) {
+                hasMore = false;
+            } else {
+                cursor = iterator.getCursorAfter();
+            }
+        }
     }
 
     private void applyPrivacyTransforms(UserAnswer userAnswer) {

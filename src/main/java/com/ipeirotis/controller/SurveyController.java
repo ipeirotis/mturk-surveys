@@ -137,11 +137,10 @@ public class SurveyController {
 					+ "householdSize,householdIncome,educationalLevel,timeSpentOnMturk,"
 					+ "weeklyIncomeFromMturk,languagesSpoken");
 
-			List<UserAnswer> answers = userAnswerService.listByDateRange(fromDate, toDate);
 			DateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 			isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
 
-			for (UserAnswer ua : answers) {
+			userAnswerService.iterateByDateRange(fromDate, toDate, ua -> {
 				Map<String, String> a = ua.getAnswers();
 				if (a == null) a = Collections.emptyMap();
 
@@ -174,7 +173,7 @@ public class SurveyController {
 				writer.print(csvEscape(a.get("weeklyIncomeFromMturk")));
 				writer.print(",");
 				writer.println(csvEscape(a.get("languagesSpoken")));
-			}
+			});
 			writer.flush();
 		};
 

@@ -3,16 +3,25 @@ package com.ipeirotis.service;
 import com.ipeirotis.entity.Survey;
 import com.ipeirotis.util.SafeDecimalFormat;
 import jakarta.annotation.PreDestroy;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.mturk.MTurkClient;
 import software.amazon.awssdk.services.mturk.model.*;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.text.NumberFormat;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import software.amazon.awssdk.regions.Region;
@@ -65,6 +74,8 @@ public class MturkService {
         try { sandboxClient.close(); } catch (Exception e) { /* ignore */ }
     }
 
+    @Retryable(retryFor = {SdkClientException.class, MturkException.class},
+            maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public HIT getHIT(Boolean production, String hitId) {
         MTurkClient client = getClient(production);
         GetHitRequest.Builder requestBuilder = GetHitRequest.builder().hitId(hitId);
@@ -72,12 +83,16 @@ public class MturkService {
         return response.hit();
     }
 
+    @Retryable(retryFor = {SdkClientException.class, MturkException.class},
+            maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public DeleteHitResponse deleteHIT(Boolean production, String hitId) {
         MTurkClient client = getClient(production);
         DeleteHitRequest.Builder requestBuilder = DeleteHitRequest.builder().hitId(hitId);
         return client.deleteHIT(requestBuilder.build());
     }
 
+    @Retryable(retryFor = {SdkClientException.class, MturkException.class},
+            maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public List<Assignment> listAssignmentsForHit(Boolean production, String hitId) {
         MTurkClient client = getClient(production);
         ListAssignmentsForHitRequest.Builder requestBuilder = ListAssignmentsForHitRequest.builder().hitId(hitId);
@@ -85,6 +100,8 @@ public class MturkService {
         return response.assignments();
     }
 
+    @Retryable(retryFor = {SdkClientException.class, MturkException.class},
+            maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public void approveAssignment(Boolean production, String assignmentId) {
         MTurkClient client = getClient(production);
         ApproveAssignmentRequest.Builder requestBuilder = ApproveAssignmentRequest.builder().assignmentId(assignmentId);
@@ -92,6 +109,8 @@ public class MturkService {
         client.approveAssignment(requestBuilder.build());
     }
 
+    @Retryable(retryFor = {SdkClientException.class, MturkException.class},
+            maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public List<HIT> listHits(Boolean production) {
         MTurkClient client = getClient(production);
         ListHiTsRequest.Builder requestBuilder = ListHiTsRequest.builder().maxResults(100);
@@ -99,6 +118,8 @@ public class MturkService {
         return response.hiTs();
     }
 
+    @Retryable(retryFor = {SdkClientException.class, MturkException.class},
+            maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public HIT createHIT(Boolean production, Survey survey) {
         MTurkClient client = getClient(production);
         CreateHitRequest.Builder requestBuilder = CreateHitRequest.builder();
@@ -110,6 +131,10 @@ public class MturkService {
         requestBuilder.assignmentDurationInSeconds(DEFAULT_ASSIGNMENT_DURATION_IN_SECONDS);
         requestBuilder.autoApprovalDelayInSeconds(DEFAULT_AUTO_APPROVAL_DELAY_IN_SECONDS);
         requestBuilder.lifetimeInSeconds(DEFAULT_LIFETIME_IN_SECONDS);
+
+        // Idempotency token: hash of surveyId + current date/hour to prevent duplicate HITs on retries
+        String tokenInput = survey.getId() + "|" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH"));
+        requestBuilder.uniqueRequestToken(sha256Short(tokenInput));
 
         if (survey.getHtmlQuestion() != null) {
             requestBuilder.question(wrapHTMLQuestions(survey.getHtmlQuestion(), DEFAULT_FRAME_HEIGHT));
@@ -125,6 +150,21 @@ public class MturkService {
 
     private MTurkClient getClient(Boolean production) {
         return (production != null && production) ? productionClient : sandboxClient;
+    }
+
+    private static String sha256Short(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(64);
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            // MTurk uniqueRequestToken max length is 64 characters
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
     }
 
     private String wrapHTMLQuestions(String html, long frameHeight) {

@@ -229,6 +229,18 @@ public class DemographicsSnapshotService {
             snapshot.setP75ResponseTimeMinutes(percentile(responseTimesMinutes, 75));
         }
 
+        // Optimistic locking: skip write if an existing snapshot was updated within the last 5 minutes
+        DemographicsSnapshot existing = snapshotDao.get(dateStr);
+        if (existing != null && existing.getLastUpdated() != null) {
+            long ageMs = System.currentTimeMillis() - existing.getLastUpdated().getTime();
+            if (ageMs < 5 * 60 * 1000) {
+                logger.info("Snapshot for " + dateStr + " was updated "
+                        + (ageMs / 1000) + "s ago, skipping to prevent concurrent overwrite");
+                return existing;
+            }
+        }
+
+        snapshot.setLastUpdated(new Date());
         snapshotDao.save(snapshot);
         logger.info("Saved snapshot for " + dateStr + " with " + answers.size() + " responses");
         return snapshot;
