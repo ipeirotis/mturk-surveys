@@ -22,7 +22,9 @@ public class DateValidation {
             throw new IllegalArgumentException(paramName + " is required");
         }
         try {
-            SafeDateFormat.forPattern(pattern).parse(date);
+            DateFormat df = SafeDateFormat.forPattern(pattern);
+            df.setLenient(false);
+            df.parse(date);
         } catch (ParseException e) {
             throw new IllegalArgumentException(
                     paramName + " must be in " + pattern + " format, got: " + date);
@@ -40,6 +42,7 @@ public class DateValidation {
 
         try {
             DateFormat df = SafeDateFormat.forPattern(pattern);
+            df.setLenient(false);
             Calendar start = Calendar.getInstance();
             start.setTime(df.parse(from));
             Calendar end = Calendar.getInstance();

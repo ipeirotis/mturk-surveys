@@ -30,6 +30,9 @@ public class DeleteHITsController {
 	private static final Logger logger = Logger.getLogger(DeleteHITsController.class.getName());
 	private static final int MAX_PAGES = 200; // Safety limit: 200 pages * 30 items = 6000 HITs max
 
+	@Autowired
+	private MturkService mturkService;
+
 	@RequestMapping(value = "/deleteHITs", method = {RequestMethod.GET, RequestMethod.POST})
 	public void deleteHITs(@RequestParam(required = false) String cursor,
 			@RequestParam(required = false) String sched,
