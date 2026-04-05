@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.services.mturk.MTurkClient;
 import software.amazon.awssdk.services.mturk.model.*;
 
@@ -74,7 +75,7 @@ public class MturkService {
         try { sandboxClient.close(); } catch (Exception e) { /* ignore */ }
     }
 
-    @Retryable(retryFor = {SdkClientException.class, MturkException.class},
+    @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
             maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public HIT getHIT(Boolean production, String hitId) {
         MTurkClient client = getClient(production);
@@ -83,7 +84,7 @@ public class MturkService {
         return response.hit();
     }
 
-    @Retryable(retryFor = {SdkClientException.class, MturkException.class},
+    @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
             maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public DeleteHitResponse deleteHIT(Boolean production, String hitId) {
         MTurkClient client = getClient(production);
@@ -91,7 +92,7 @@ public class MturkService {
         return client.deleteHIT(requestBuilder.build());
     }
 
-    @Retryable(retryFor = {SdkClientException.class, MturkException.class},
+    @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
             maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public List<Assignment> listAssignmentsForHit(Boolean production, String hitId) {
         MTurkClient client = getClient(production);
@@ -100,7 +101,7 @@ public class MturkService {
         return response.assignments();
     }
 
-    @Retryable(retryFor = {SdkClientException.class, MturkException.class},
+    @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
             maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public void approveAssignment(Boolean production, String assignmentId) {
         MTurkClient client = getClient(production);
@@ -109,7 +110,7 @@ public class MturkService {
         client.approveAssignment(requestBuilder.build());
     }
 
-    @Retryable(retryFor = {SdkClientException.class, MturkException.class},
+    @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
             maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public List<HIT> listHits(Boolean production) {
         MTurkClient client = getClient(production);
@@ -118,7 +119,7 @@ public class MturkService {
         return response.hiTs();
     }
 
-    @Retryable(retryFor = {SdkClientException.class, MturkException.class},
+    @Retryable(retryFor = {SdkClientException.class, SdkServiceException.class},
             maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
     public HIT createHIT(Boolean production, Survey survey) {
         MTurkClient client = getClient(production);
