@@ -4,6 +4,7 @@ import com.ipeirotis.dao.DemographicsSnapshotDao;
 import com.ipeirotis.entity.DemographicsSnapshot;
 import com.ipeirotis.service.DemographicsSnapshotService;
 import com.ipeirotis.util.CalendarUtils;
+import com.ipeirotis.util.DateValidation;
 import com.ipeirotis.util.SafeDateFormat;
 import com.ipeirotis.util.TaskUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -129,6 +130,7 @@ public class SnapshotController {
      */
     @PostMapping("/tasks/buildRollup")
     public Map<String, Object> buildSingleRollup(@RequestParam String date, @RequestParam String granularity) {
+        DateValidation.requireValidDate(date, "date", "yyyy-MM-dd");
         if ("weekly".equals(granularity)) {
             snapshotService.buildWeeklyRollup(date);
         } else if ("monthly".equals(granularity)) {
@@ -164,6 +166,7 @@ public class SnapshotController {
      */
     @PostMapping("/tasks/snapshotDate")
     public Map<String, Object> snapshotDate(@RequestParam String date) throws ParseException {
+        DateValidation.requireValidDate(date, "date", "MM/dd/yyyy");
         snapshotService.buildSnapshot(date);
         rebuildRollupsForDate(date);
         return Map.of("status", "ok", "date", date);
@@ -208,6 +211,7 @@ public class SnapshotController {
      */
     @RequestMapping(value = "/tasks/backfillSnapshots", method = {RequestMethod.GET, RequestMethod.POST})
     public Map<String, Object> backfill(@RequestParam String from, @RequestParam String to) throws ParseException {
+        DateValidation.requireValidRange(from, to, "MM/dd/yyyy");
         DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
 
         Calendar start = Calendar.getInstance();

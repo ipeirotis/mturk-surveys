@@ -2,6 +2,7 @@ package com.ipeirotis.controller.tasks;
 
 import com.ipeirotis.service.DatastoreDedupService;
 import com.ipeirotis.util.CalendarUtils;
+import com.ipeirotis.util.DateValidation;
 import com.ipeirotis.util.SafeDateFormat;
 import com.ipeirotis.util.TaskUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,7 @@ public class DatastoreDedupController {
 	 */
 	@PostMapping("/tasks/dedupDatastoreDate")
 	public Map<String, Object> deduplicateDate(@RequestParam String date) throws ParseException {
+		DateValidation.requireValidDate(date, "date", "yyyy-MM-dd");
 		int deleted = datastoreDedupService.deduplicateDate(date);
 		return Map.of("status", "ok", "date", date, "duplicatesDeleted", deleted);
 	}
@@ -54,6 +56,7 @@ public class DatastoreDedupController {
 	 */
 	@RequestMapping(value = "/tasks/dedupDatastore", method = {RequestMethod.GET, RequestMethod.POST})
 	public Map<String, Object> deduplicateRange(@RequestParam String from, @RequestParam String to) throws ParseException {
+		DateValidation.requireValidRange(from, to, "yyyy-MM-dd");
 		DateFormat sortableDf = SafeDateFormat.forPattern("yyyy-MM-dd");
 		DateFormat taskDf = SafeDateFormat.forPattern("yyyy-MM-dd");
 

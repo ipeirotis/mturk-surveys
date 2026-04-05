@@ -2,6 +2,7 @@ package com.ipeirotis.controller.tasks;
 
 import com.ipeirotis.service.BigQueryExportService;
 import com.ipeirotis.util.CalendarUtils;
+import com.ipeirotis.util.DateValidation;
 import com.ipeirotis.util.SafeDateFormat;
 import com.ipeirotis.util.TaskUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,7 @@ public class BigQueryExportController {
 	 */
 	@PostMapping("/tasks/exportDateToBigQuery")
 	public Map<String, Object> exportDate(@RequestParam String date) {
+		DateValidation.requireValidDate(date, "date", "MM/dd/yyyy");
 		try {
 			int rows = bigQueryExportService.exportDate(date);
 			return Map.of("status", "ok", "date", date, "rowsExported", rows);
@@ -66,6 +68,7 @@ public class BigQueryExportController {
 	 */
 	@RequestMapping(value = "/tasks/backfillBigQuery", method = {RequestMethod.GET, RequestMethod.POST})
 	public Map<String, Object> backfill(@RequestParam String from, @RequestParam String to) throws ParseException {
+		DateValidation.requireValidRange(from, to, "MM/dd/yyyy");
 		DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
 
 		Calendar start = Calendar.getInstance();

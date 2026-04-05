@@ -23,6 +23,7 @@ import java.util.logging.Logger;
 public class CreateHITController {
 
 	private static final Logger logger = Logger.getLogger(CreateHITController.class.getName());
+	private static final int MAX_RETRIES = 5;
 
 	@Autowired
 	private MturkService mturkService;
@@ -30,7 +31,8 @@ public class CreateHITController {
 	private SurveyService surveyService;
 
 	@RequestMapping(value = "/createHIT", method = {RequestMethod.GET, RequestMethod.POST})
-	public ResponseEntity createHIT(@RequestParam String surveyId, @RequestParam Boolean production) {
+	public ResponseEntity createHIT(@RequestParam String surveyId, @RequestParam Boolean production,
+			@RequestParam(required = false, defaultValue = "0") int retryCount) {
 		try {
 			Survey survey = surveyService.get(surveyId);
 			if(survey == null) {
@@ -45,17 +47,24 @@ public class CreateHITController {
 				return new ResponseEntity<>(responseText, HttpStatus.OK);
 			}
 		} catch (Exception e) {
-			logger.log(Level.SEVERE, "Error creating HIT", e);
-			queueTask(surveyId, production);
+			if (retryCount >= MAX_RETRIES) {
+				logger.log(Level.SEVERE, "Error creating HIT after " + MAX_RETRIES + " retries, giving up", e);
+				return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+			}
+			logger.log(Level.WARNING, "Error creating HIT (retry " + (retryCount + 1) + "/" + MAX_RETRIES + "), re-enqueuing", e);
+			queueTask(surveyId, production, retryCount + 1);
 			return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
 		}
 	}
 
-	public void queueTask(String surveyId, boolean production) {
+	public void queueTask(String surveyId, boolean production, int retryCount) {
 		Map<String, String> params = new HashMap<>();
 		params.put("surveyId", surveyId);
 		params.put("production", String.valueOf(production));
-		TaskUtils.queueTask("/tasks/createHIT", params);
+		params.put("retryCount", String.valueOf(retryCount));
+		// Exponential backoff: 2^retryCount seconds (2s, 4s, 8s, 16s, 32s)
+		long delaySeconds = (long) Math.pow(2, retryCount);
+		TaskUtils.queueTask("/tasks/createHIT", params, delaySeconds);
 	}
 
 }
