@@ -1,0 +1,31 @@
+# Build output
+target/
+build/
+out/
+dist/
+*.class
+*.jar
+*.war
+
+# Encrypted credentials (binary, not useful as context)
+*.enc
+
+# Minified assets
+*.min.js
+*.min.css
+
+# Dependencies
+node_modules/
+bower_components/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# GCP local
+.gcloud/
+local_db.bin
+
+# Cloud SDK installed by hooks
+/tmp/
