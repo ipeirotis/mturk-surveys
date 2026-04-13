@@ -4,11 +4,11 @@ Check data integrity by comparing Datastore and BigQuery for recent dates.
 
 ```
 bq query --use_legacy_sql=false '
-SELECT date, COUNT(*) as responses
+SELECT DATE(date) as day, COUNT(*) as responses
 FROM demographics.responses
-WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
-GROUP BY date
-ORDER BY date DESC
+WHERE DATE(date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+GROUP BY day
+ORDER BY day DESC
 '
 ```
 
