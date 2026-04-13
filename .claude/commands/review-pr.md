@@ -1,6 +1,6 @@
-Review the current branch's changes against master for a pull request.
+Review the current branch's changes against the default branch for a pull request.
 
-Run `git diff master...HEAD` and review all changes for:
+Determine the default branch by running `git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'` (typically `master`). Then run `git diff <default-branch>...HEAD` and review all changes for:
 
 1. **Security**: OWASP top 10 issues (injection, XSS, broken auth). Check that no secrets or credentials are committed.
 2. **Jakarta namespace**: Flag any `javax.*` imports — this project uses `jakarta.*` (Spring Boot 3.x).
