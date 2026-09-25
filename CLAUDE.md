@@ -2,9 +2,11 @@
 
 ## Project Overview
 
-**mturk-surveys** is a Java Spring Boot web application that runs continuous demographic surveys of Amazon Mechanical Turk workers. It creates HITs (Human Intelligence Tasks) on MTurk, collects worker responses, and provides aggregated demographics analytics through a web dashboard.
+**mturk-surveys** is a Java Spring Boot web application that ran continuous demographic surveys of Amazon Mechanical Turk workers. It created HITs (Human Intelligence Tasks) on MTurk, collected worker responses, and provides aggregated demographics analytics through a web dashboard.
 
-Deployed on **Google App Engine** (Java 21 runtime, GCP project `mturk-demographics`) with **Google Cloud Datastore** for persistence. The production URL is **https://demographics.mturk-tracker.com/**. The demographics survey has been running since **2015** — there is no useful data before that year.
+> **Data collection has ended.** Amazon closed Mechanical Turk on **September 30, 2026**. The `createHIT` and `deleteHITs` cron jobs are removed, and both task endpoints return without calling MTurk once the date in `mturk.closure-date` (`application.properties`) has passed. The dashboard, API, snapshots, BigQuery export and backups keep running over the archived 2015–2026 data.
+
+Deployed on **Google App Engine** (Java 21 runtime, GCP project `mturk-demographics`) with **Google Cloud Datastore** for persistence. The production URL is **https://demographics.mturk-tracker.com/**. The demographics survey ran from **March 2015** to **September 30, 2026** — there is no useful data outside that range.
 
 ## Tech Stack
 
@@ -94,7 +96,7 @@ src/main/resources/
 
 src/main/appengine/
 ├── app.yaml                         # GAE config (F2 instance, env vars for AWS creds)
-├── cron.yaml                        # Create HIT every 15min, delete HITs daily at 03:00
+├── cron.yaml                        # Daily snapshot, cache warm, BigQuery export; weekly backup + dedup
 └── index.yaml                       # Datastore composite indexes
 ```
 
@@ -110,9 +112,8 @@ src/main/appengine/
 | `/getAnswer` | GET | Get previous worker answer |
 | `/getHIT/{hitId}` | GET | Get MTurk HIT details |
 | `/listHITs` | GET | List all HITs |
-| `/tasks/createHIT` | GET | Create HIT (cron-triggered) |
-| `/tasks/deleteHITs` | GET | Delete old HITs (cron-triggered) |
-| `/tasks/approveAssignments` | GET | Approve completed assignments |
+| `/tasks/createHIT` | GET | Create HIT (no-op after MTurk closure; cron removed) |
+| `/tasks/deleteHITs` | GET | Delete old HITs (no-op after MTurk closure; cron removed) |
 
 ## Architecture & Conventions
 

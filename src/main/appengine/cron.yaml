@@ -1,10 +1,6 @@
+# The MTurk jobs (createHIT every 15 min, deleteHITs daily) were removed when
+# Amazon closed Mechanical Turk on 2026-09-30. The data jobs below still run.
 cron:
-- url: '/tasks/createHIT?surveyId=demographics&production=true'
-  schedule: 'every 15 minutes'
-  description: 'Create Demographics HIT'
-- url: '/tasks/deleteHITs'
-  schedule: 'every day 03:00'
-  description: 'Delete HITs'
 - url: '/tasks/snapshotDemographics'
   schedule: 'every day 04:00'
   description: 'Snapshot yesterday demographics data and rebuild affected rollups'

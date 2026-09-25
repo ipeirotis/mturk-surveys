@@ -181,7 +181,7 @@ const ChartView = {
 
         // Date validation limits
         var minDate = new Date(2015, 2, 26);
-        var maxDate = new Date();
+        var maxDate = latestDataDate();
 
         // Clamp persisted dates to valid range
         var initFrom = new Date(dateFilterState.from.value.getTime());
@@ -231,16 +231,16 @@ const ChartView = {
         var activePreset = ref('2Y');
 
         function applyPreset(preset) {
-            var to = new Date();
+            var to = new Date(maxDate.getTime());
             var from;
             if (preset.years === null && !preset.months) {
                 from = new Date(minDate.getTime());
             } else if (preset.months) {
-                from = new Date();
+                from = new Date(maxDate.getTime());
                 from.setMonth(from.getMonth() - preset.months);
                 if (from < minDate) from = new Date(minDate.getTime());
             } else {
-                from = new Date();
+                from = new Date(maxDate.getTime());
                 from.setFullYear(from.getFullYear() - preset.years);
                 if (from < minDate) from = new Date(minDate.getTime());
             }

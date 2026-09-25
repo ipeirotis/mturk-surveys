@@ -4,6 +4,7 @@ import com.ipeirotis.entity.Survey;
 import com.ipeirotis.util.SafeDecimalFormat;
 import io.micrometer.core.annotation.Timed;
 import jakarta.annotation.PreDestroy;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,8 @@ import software.amazon.awssdk.services.mturk.model.ListHiTsResponse;
 import java.net.URI;
 import java.text.NumberFormat;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +62,10 @@ public class MturkService {
     private final MTurkClient productionClient;
     private final MTurkClient sandboxClient;
 
+    // Amazon closed Mechanical Turk for workers and requesters after this date.
+    @Value("${mturk.closure-date:2026-09-30}")
+    private String closureDate;
+
     public MturkService(AwsCredentialsProvider awsCredentialsProvider) {
         ClientOverrideConfiguration overrideConfig = ClientOverrideConfiguration.builder()
                 .apiCallTimeout(API_CALL_TIMEOUT)
@@ -83,6 +90,14 @@ public class MturkService {
     public void close() {
         try { productionClient.close(); } catch (Exception e) { /* ignore */ }
         try { sandboxClient.close(); } catch (Exception e) { /* ignore */ }
+    }
+
+    /**
+     * Returns true once the MTurk service has shut down (the UTC date is past
+     * {@code mturk.closure-date}). Callers should skip MTurk API calls then.
+     */
+    public boolean isClosed() {
+        return LocalDate.now(ZoneOffset.UTC).isAfter(LocalDate.parse(closureDate));
     }
 
     public String getAccountBalance() {

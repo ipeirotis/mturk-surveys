@@ -6,7 +6,6 @@ import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
 import com.googlecode.objectify.ObjectifyService;
 import com.ipeirotis.entity.Survey;
-import com.ipeirotis.service.MturkService;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.context.annotation.Bean;
@@ -30,23 +29,6 @@ public class HealthIndicatorConfig {
                         .build();
             } catch (Exception e) {
                 logger.warn("Datastore health check failed", e);
-                return Health.down()
-                        .withDetail("error", e.getMessage())
-                        .build();
-            }
-        };
-    }
-
-    @Bean
-    public HealthIndicator mturkHealthIndicator(MturkService mturkService) {
-        return () -> {
-            try {
-                String balance = mturkService.getAccountBalance();
-                return Health.up()
-                        .withDetail("balance", balance)
-                        .build();
-            } catch (Exception e) {
-                logger.warn("MTurk health check failed", e);
                 return Health.down()
                         .withDetail("error", e.getMessage())
                         .build();

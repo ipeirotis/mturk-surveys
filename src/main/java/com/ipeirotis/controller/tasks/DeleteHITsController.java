@@ -37,6 +37,10 @@ public class DeleteHITsController {
 	public void deleteHITs(@RequestParam(required = false) String cursor,
 			@RequestParam(required = false) String sched,
 			@RequestParam(required = false, defaultValue = "0") int page) {
+		if (mturkService.isClosed()) {
+			logger.info("MTurk has closed; skipping HIT deletion");
+			return;
+		}
 		if(!"true".equals(sched)) {
 			String nextPageToken = delete(cursor);
 			if(nextPageToken != null) {
