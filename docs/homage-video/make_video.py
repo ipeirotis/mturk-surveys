@@ -17,6 +17,7 @@ from multiprocessing import Pool
 import matplotlib
 
 matplotlib.use("Agg")
+import matplotlib.lines  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
@@ -137,6 +138,16 @@ SPAN = read("span.csv")
 CY = read("country_year.csv")
 YOB = read("yob_year.csv")
 HOURS = read("cat_time_spent_on_mturk.csv")
+POP_TOTAL = read("pop_total.csv").iloc[0]
+POP_YEARS = read("pop_years.csv")
+POP_SEEN = read("pop_times_seen.csv")
+POP_HALF = read("pop_halflife.csv")
+POP_RETURN = read("pop_return.csv").set_index("gap")
+US_IN = read("us_india.csv").set_index("country")
+US_HOUSE = read("us_household.csv", keep_default_na=False)
+LANGS = read("languages.csv")
+LANG_COUNTS = read("lang_counts.csv")
+LANG_NAMES = {"Tegulu": "Telugu"}  # spelled that way in the survey form
 PAY = read("cat_weekly_income_from_mturk.csv")
 
 START, END = DAILY.d.min(), DAILY.d.max()
@@ -230,6 +241,18 @@ HOURS_S = HOURS_S / HOURS_S.sum()
 PAY_S = PAY.groupby("v").n.sum().reindex(PAY_ORDER)
 PAY_N = int(PAY_S.sum())
 PAY_S = PAY_S / PAY_S.sum()
+
+
+INCOME_ORDER = ["Less than $10,000", "$10,000-$14,999", "$15,000-$24,999", "$25,000-$39,999",
+                "$40,000-$59,999", "$60,000-$74,999", "$75,000-$99,999", "$100,000 or more"]
+INCOME_LABELS = ["< $10K", "$10–15K", "$15–25K", "$25–40K", "$40–60K", "$60–75K", "$75–100K",
+                 "$100K+"]
+SIZE_ORDER = ["1", "2", "3", "4", "5+"]
+SIZE_LABELS = ["1 person", "2", "3", "4", "5 or more"]
+_inc = US_HOUSE[US_HOUSE.q == "income"].set_index("v").n.reindex(INCOME_ORDER)
+INCOME_S = _inc / _inc.sum()
+_size = US_HOUSE[US_HOUSE.q == "size"].assign(v=lambda d: d.v.str.strip()).groupby("v").n.sum()
+SIZE_S = _size.reindex(SIZE_ORDER) / _size.reindex(SIZE_ORDER).sum()
 
 
 def median_label(s, labels):
@@ -415,48 +438,269 @@ def s_loyalty(fig, t):
          "Workers who joined late had less time to stay.", size=13, color=MUTED)
 
 
-def s_pool(fig, t):
-    chrome(fig, t, "So how many Turkers were there?", "We only ever saw a sample")
+def s_halflife(fig, t):
+    chrome(fig, t, "How long did workers stay on MTurk?", "Turkers kept leaving sooner")
     p = seg(t, 1.0, 5.5, smooth)
-    x0, x1 = 2015.2, 2026.8
-    xr = x0 + p * (x1 - x0)
-    ax = fig.add_axes([0.08, 0.14, 0.56, 0.6])
+    gmax = 24
+    ax = fig.add_axes([0.08, 0.14, 0.52, 0.6])
     style_ax(ax)
-    mm = MONTHLY[MONTHLY.x <= xr]
-    ax.bar(mm.x, mm.ret_w, width=1 / 12 * 0.75, color=BLUE, lw=0)
-    ax.bar(mm.x, mm.new_w, bottom=mm.ret_w, width=1 / 12 * 0.75, color=ORANGE, lw=0)
-    ax.set_xlim(x0, x1)
-    ax.set_ylim(0, 5000)
-    ax.set_yticks([0, 1000, 2000, 3000, 4000, 5000])
-    ax.set_yticklabels(["0", "1k", "2k", "3k", "4k", "5k"])
-    ax.set_xticks(range(2016, 2027, 2))
+    colors = (BLUE, ORANGE, AQUA)
+    gaps = POP_RETURN.index[POP_RETURN.index <= gmax]
+    gr = 2 + p * (gmax - 2)
+    for c, era in zip(colors, POP_RETURN.columns):
+        v = POP_RETURN.loc[gaps, era]
+        k = gaps <= gr
+        ax.plot(gaps[k], v[k] * 100, color=c, lw=3.5, solid_capstyle="round")
+    ax.set_xlim(1.5, gmax + 0.5)
+    ax.set_ylim(0, 30)
+    ax.set_yticks([0, 10, 20, 30])
+    ax.set_yticklabels(["0%", "10%", "20%", "30%"])
+    ax.set_xticks([2, 6, 12, 18, 24])
+    ax.set_xticklabels(["2", "6", "12", "18", "24 months later"])
+    ax.text(1.6, 29.5, "workers from one month who answered again", fontsize=16, color=INK2,
+            va="top")
+
+    rise(fig, t, 2.0, 0.66, 0.70, "Half of the workers were gone within", size=20, color=INK2)
+    for i, (c, row) in enumerate(zip(colors, POP_HALF.itertuples())):
+        y = 0.60 - i * 0.12
+        a = seg(t, 2.6 + 1.2 * i, 3.4 + 1.2 * i)
+        fig.patches.append(Rectangle((0.66, y + 0.008), 0.016, 0.016, transform=fig.transFigure,
+                                     color=c, alpha=a))
+        txt(fig, 0.685, y + 0.006, row.era, size=19, color=INK2, alpha=a)
+        months = row.half_life_days / 30.44
+        txt(fig, 0.94, y, f"{months:.0f} months", size=40, weight="bold", family=DISPLAY,
+            ha="right", alpha=a)
+    rise(fig, t, 7.2, 0.66, 0.235, "In the last years, even the workers", size=19, color=INK)
+    rise(fig, t, 7.3, 0.66, 0.205, "who came back did not stay for long.", size=19, color=INK)
+    rise(fig, t, 7.8, 0.08, 0.075,
+         "Open-population capture–recapture: overlap between 30-day periods decays "
+         "exponentially; half-life = ln 2 / λ (Difallah, Filatova & Ipeirotis, WSDM 2018).",
+         size=13, color=MUTED)
+
+
+def s_population(fig, t):
+    chrome(fig, t, "So how many Turkers were there?", "We met 157K. There were far more.")
+    ax = fig.add_axes([0.08, 0.14, 0.5, 0.6])
+    style_ax(ax)
+    kmax = 40
+    d = POP_SEEN[POP_SEEN.k <= kmax]
+    a1 = seg(t, 1.0, 2.0)
+    ax.bar(d.k, d.equal.clip(lower=0.8), width=0.7, color=AXIS, lw=0, alpha=a1)
+    pk = 1 + (kmax - 1) * seg(t, 2.8, 5.8, smooth)
+    o = d[(d.k <= pk) & (d.observed > 0)]
+    ax.plot(o.k, o.observed, "o", ms=8, color=BLUE, mec=BG, mew=1.5)
+    ax.set_yscale("log")
+    ax.set_ylim(0.8, 3e5)
+    ax.set_yticks([1, 10, 100, 1000, 10000, 100000])
+    ax.set_yticklabels(["1", "10", "100", "1K", "10K", "100K"])
+    ax.minorticks_off()
+    ax.set_xlim(0, kmax + 1)
+    ax.set_xticks([1, 10, 20, 30, 40])
+    ax.text(0.5, 2.4e5, "workers, by number of 30-day periods they answered in", fontsize=16,
+            color=INK2, va="top")
+    fig.patches.append(Rectangle((0.235, 0.665), 0.016, 0.016, transform=fig.transFigure,
+                                 color=AXIS, alpha=a1))
+    txt(fig, 0.258, 0.667, "if every worker were equally likely to take our HIT", size=15,
+        color=INK, alpha=a1)
+    a2 = seg(t, 2.8, 3.6)
+    ax.plot([], [])
+    fig.lines.append(matplotlib.lines.Line2D([0.243], [0.638], transform=fig.transFigure,
+                                             marker="o", ms=8, color=BLUE, mec=BG, alpha=a2))
+    txt(fig, 0.258, 0.632, "what we saw: far too many one-timers and regulars", size=15,
+        color=INK, alpha=a2)
+
+    T_ = POP_TOTAL
+    mix_lo, mix_hi = T_.mix4_N, T_.mix6_N
+    rise(fig, t, 1.5, 0.63, 0.70, fmt(T_.workers), size=40, weight="bold", family=DISPLAY)
+    rise(fig, t, 1.6, 0.63, 0.668, "workers we met, 2015–2026", size=17, color=INK2)
+    rise(fig, t, 4.0, 0.63, 0.585, f"~{fmt(round(T_.equal_N, -3))}", size=40, weight="bold",
+         family=DISPLAY, color=MUTED)
+    rise(fig, t, 4.1, 0.63, 0.553, "estimate if all workers were alike (too low)", size=17,
+         color=MUTED)
+    rise(fig, t, 6.6, 0.63, 0.46, f"≥ {fmt(round(T_.chao, -3))}", size=54, weight="bold",
+         family=DISPLAY)
+    rise(fig, t, 6.7, 0.63, 0.422, "lower bound, for any spread of propensities", size=17,
+         color=INK2)
+    rise(fig, t, 8.6, 0.63, 0.325, f"{round(mix_lo, -4) / 1000:.0f}K – {round(mix_hi, -4) / 1000:.0f}K",
+         size=40, weight="bold", family=DISPLAY)
+    rise(fig, t, 8.7, 0.63, 0.293, "models with heavily skewed propensities", size=17, color=INK2)
+    rise(fig, t, 10.2, 0.63, 0.21, "More than twice the workers we ever met", size=19, color=INK)
+    rise(fig, t, 10.3, 0.63, 0.18, "were on MTurk while we were watching.", size=19, color=INK)
+    rise(fig, t, 9.0, 0.08, 0.075,
+         "Capture–recapture over 140 periods. Lower bound: Chao (1987). Models: finite mixtures "
+         "of binomials, 4–6 classes. Method: Difallah, Filatova & Ipeirotis, WSDM 2018.",
+         size=13, color=MUTED)
+
+
+def s_years(fig, t):
+    chrome(fig, t, "Year by year", "Every year, tens of thousands we never met")
+    ax = fig.add_axes([0.08, 0.14, 0.6, 0.6])
+    style_ax(ax)
+    yrs = POP_YEARS.year.values
+    grow = np.array([seg(t, 1.0 + 0.25 * i, 2.0 + 0.25 * i) for i in range(len(yrs))])
+    ax.bar(yrs - 0.19, POP_YEARS.chao * grow, width=0.36, color=AQUA, lw=0)
+    ax.bar(yrs + 0.19, POP_YEARS.workers * grow, width=0.36, color=BLUE, lw=0)
+    for i, (y, v) in enumerate(zip(yrs, POP_YEARS.chao)):
+        if grow[i] > 0.3:
+            ax.text(y - 0.19, v * grow[i] + 900, f"{v / 1000:.0f}K", ha="center", fontsize=13,
+                    color=INK, alpha=grow[i])
+    ax.set_xlim(yrs[0] - 0.6, yrs[-1] + 0.6)
+    ax.set_ylim(0, 70000)
+    ax.set_yticks([0, 20000, 40000, 60000])
+    ax.set_yticklabels(["0", "20K", "40K", "60K"])
+    ax.set_xticks(yrs)
+    ax.set_xticklabels([f"’{y % 100:02d}" for y in yrs])
     a = seg(t, 1.0, 1.8)
-    for i, (c, lab) in enumerate(((ORANGE, "first answer ever"),
-                                  (BLUE, "had answered before"))):
+    for i, (c, lab) in enumerate(((AQUA, "on MTurk that year, at least (Chao lower bound)"),
+                                  (BLUE, "answered our survey that year"))):
         y = 0.715 - 0.035 * i
         fig.patches.append(Rectangle((0.09, y), 0.016, 0.016, transform=fig.transFigure,
                                      color=c, alpha=a))
         txt(fig, 0.113, y + 0.002, lab, size=16, color=INK, alpha=a)
-    txt(fig, 0.08, 0.755, "workers who answered each month", size=16, color=INK2, alpha=a)
+    early = POP_YEARS[POP_YEARS.year <= 2022].chao
+    late = POP_YEARS[POP_YEARS.year >= 2023].chao
+    rise(fig, t, 5.0, 0.72, 0.64, f"{early.min() / 1000:.0f}–{early.max() / 1000:.0f}K", size=50,
+         weight="bold", family=DISPLAY)
+    rise(fig, t, 5.1, 0.72, 0.605, "workers a year, 2015–2022", size=18, color=INK2)
+    rise(fig, t, 6.4, 0.72, 0.49, f"{late.min() / 1000:.0f}–{late.max() / 1000:.0f}K", size=50,
+         weight="bold", family=DISPLAY)
+    rise(fig, t, 6.5, 0.72, 0.455, "workers a year, 2023–2026", size=18, color=INK2)
+    rise(fig, t, 7.8, 0.72, 0.34, "The pool of available workers", size=19, color=INK)
+    rise(fig, t, 7.9, 0.72, 0.31, "roughly halved in the final years.", size=19, color=INK)
+    rise(fig, t, 8.4, 0.08, 0.075,
+         "Lower bound within each calendar year (12–13 thirty-day periods), Chao (1987).",
+         size=13, color=MUTED)
 
-    seen = FULL_MONTHS.w.median()
-    later = MONTHLY[(MONTHLY.m.dt.year >= 2016) & (MONTHLY.n >= 1000)]
-    new_share = (later.new_w / later.w).median()
-    rise(fig, t, 3.0, 0.69, 0.66, f"~{fmt(round(seen, -2))}", size=54, weight="bold", family=DISPLAY)
-    rise(fig, t, 3.2, 0.69, 0.625, "workers answered in a typical month", size=18, color=INK2)
-    rise(fig, t, 5.0, 0.69, 0.51, f"{pct(new_share)}", size=54, weight="bold", family=DISPLAY)
-    rise(fig, t, 5.2, 0.69, 0.475, "of them were answering for the first time,", size=18,
-         color=INK2)
-    rise(fig, t, 5.3, 0.69, 0.445, "in a typical month since 2016", size=18, color=INK2)
-    rise(fig, t, 7.2, 0.69, 0.33, f"{fmt(TOT.workers)} is who we met,", size=30, weight="bold",
-         family=DISPLAY)
-    rise(fig, t, 7.4, 0.69, 0.285, "not everyone who worked.", size=30, weight="bold",
-         family=DISPLAY)
-    rise(fig, t, 8.2, 0.69, 0.225, "Some Turkers took HITs every day;", size=18, color=INK2)
-    rise(fig, t, 8.3, 0.69, 0.195, "many rarely, and we never saw them.", size=18, color=INK2)
-    rise(fig, t, 8.6, 0.08, 0.075,
-         "Estimating the full population needs a model of how unevenly workers take HITs: "
-         "Difallah, Filatova & Ipeirotis, WSDM 2018.", size=13, color=MUTED)
+
+def s_us_india(fig, t):
+    chrome(fig, t, "Two workforces", "American and Indian Turkers were different people")
+    us, ind = US_IN.loc["US"], US_IN.loc["IN"]
+    metrics = [("Women", "female"), ("Married", "married"), ("Bachelor's degree or more", "college"),
+               ("Graduate degree", "graduate"), ("Work 20+ hours a week on MTurk", "hours20"),
+               ("Household income under $10K", "income_lt10k"),
+               ("Household of 4 or more", "household4")]
+    ax = fig.add_axes([0.30, 0.13, 0.4, 0.56])
+    style_ax(ax, ygrid=False)
+    ax.spines["bottom"].set_visible(False)
+    ax.set_xticks([])
+    ypos = np.arange(len(metrics))
+    grow = np.array([seg(t, 1.2 + 0.3 * i, 2.2 + 0.3 * i) for i in range(len(metrics))])
+    vu = np.array([us[c] for _, c in metrics])
+    vi = np.array([ind[c] for _, c in metrics])
+    ax.barh(ypos - 0.19, vu * grow, height=0.34, color=BLUE, lw=0)
+    ax.barh(ypos + 0.19, vi * grow, height=0.34, color=ORANGE, lw=0)
+    for i in range(len(metrics)):
+        if grow[i] > 0.05:
+            ax.text(vu[i] * grow[i] + 0.012, i - 0.19, pct(vu[i]), va="center", fontsize=14,
+                    color=INK, alpha=grow[i])
+            ax.text(vi[i] * grow[i] + 0.012, i + 0.19, pct(vi[i]), va="center", fontsize=14,
+                    color=INK, alpha=grow[i])
+    ax.set_yticks(ypos)
+    ax.set_yticklabels([m for m, _ in metrics], fontsize=17)
+    ax.set_ylim(len(metrics) - 0.4, -0.6)
+    ax.set_xlim(0, 1.08)
+    a = seg(t, 1.0, 1.8)
+    for i, (c, lab) in enumerate(((BLUE, f"United States  ·  median age {us.median_age:.0f}"),
+                                  (ORANGE, f"India  ·  median age {ind.median_age:.0f}"))):
+        y = 0.745 - 0.035 * i
+        fig.patches.append(Rectangle((0.30, y), 0.016, 0.016, transform=fig.transFigure,
+                                     color=c, alpha=a))
+        txt(fig, 0.323, y + 0.002, lab, size=16, color=INK, alpha=a)
+
+    ratio = ind.income_lt10k / us.income_lt10k
+    rise(fig, t, 4.6, 0.75, 0.60, "Indian Turkers were", size=21, color=INK)
+    rise(fig, t, 4.7, 0.75, 0.565, "more educated and", size=21, color=INK)
+    rise(fig, t, 4.8, 0.75, 0.53, "worked more hours,", size=21, color=INK)
+    rise(fig, t, 5.8, 0.75, 0.47, f"yet were {ratio:.0f}× as likely", size=21, color=INK)
+    rise(fig, t, 5.9, 0.75, 0.435, "to report a household", size=21, color=INK)
+    rise(fig, t, 6.0, 0.75, 0.40, "income under $10K.", size=21, color=INK)
+    rise(fig, t, 7.0, 0.08, 0.075,
+         "Answers from 2015–2022, when India was still a sizable share of the workforce.",
+         size=13, color=MUTED)
+
+
+def s_languages(fig, t):
+    total = LANG_COUNTS.n.sum()
+    chrome(fig, t, "Languages spoken", f"{LANGS.lang.nunique()} languages, one marketplace")
+    tab = LANGS.pivot_table(index="lang", columns="grp", values="n", aggfunc="sum", fill_value=0)
+    tab = tab.drop("English").assign(tot=lambda d: d.sum(axis=1)).sort_values("tot",
+                                                                            ascending=False)
+    top = tab.head(12)
+    ax = fig.add_axes([0.17, 0.13, 0.48, 0.6])
+    style_ax(ax, ygrid=False)
+    ax.spines["bottom"].set_visible(False)
+    ax.set_xticks([])
+    ypos = np.arange(len(top))
+    grow = np.array([seg(t, 1.2 + 0.15 * i, 2.2 + 0.15 * i) for i in range(len(top))])
+    left = np.zeros(len(top))
+    for grp, c in (("US", BLUE), ("IN", ORANGE), ("other", AQUA)):
+        w = top[grp].values / total * 100 * grow
+        ax.barh(ypos, w, left=left, height=0.66, color=c, lw=1.5, edgecolor=BG)
+        left += w
+    for i, v in enumerate(top.tot.values):
+        if grow[i] > 0.05:
+            ax.text(left[i] + 0.06, i, f"{v / total * 100:.1f}%", va="center", fontsize=15,
+                    color=INK2, alpha=grow[i])
+    ax.set_yticks(ypos)
+    ax.set_yticklabels([LANG_NAMES.get(x, x) for x in top.index], fontsize=17)
+    ax.set_ylim(len(top) - 0.4, -0.6)
+    ax.set_xlim(0, top.tot.max() / total * 100 * 1.18)
+    a = seg(t, 1.0, 1.8)
+    txt(fig, 0.06, 0.765, "share of answers listing each language, besides English", size=16,
+        color=INK2, alpha=a)
+    for i, (c, lab) in enumerate(((BLUE, "in the US"), (ORANGE, "in India"),
+                                  (AQUA, "elsewhere"))):
+        x = 0.43 + i * 0.085
+        fig.patches.append(Rectangle((x, 0.768), 0.014, 0.014, transform=fig.transFigure,
+                                     color=c, alpha=a))
+        txt(fig, x + 0.019, 0.769, lab, size=15, color=INK, alpha=a)
+
+    eng = LANGS[LANGS.lang == "English"].n.sum() / total
+    multi = LANG_COUNTS[LANG_COUNTS.k >= 2].n.sum() / total
+    rank = list(tab.index).index("Tamil") + 2  # +1 for English, +1 for 1-based
+    rise(fig, t, 3.6, 0.72, 0.64, pct(eng), size=50, weight="bold", family=DISPLAY)
+    rise(fig, t, 3.7, 0.72, 0.605, "listed English", size=18, color=INK2)
+    rise(fig, t, 4.8, 0.72, 0.50, pct(multi), size=50, weight="bold", family=DISPLAY)
+    rise(fig, t, 4.9, 0.72, 0.465, "listed two languages or more", size=18, color=INK2)
+    ordinal = {2: "second", 3: "third", 4: "fourth"}.get(rank, f"#{rank}")
+    rise(fig, t, 6.4, 0.72, 0.36, f"Tamil was the {ordinal} most common", size=19, color=INK)
+    rise(fig, t, 6.5, 0.72, 0.33, "language, ahead of Hindi, and", size=19, color=INK)
+    rise(fig, t, 6.6, 0.72, 0.30, "almost all of it came from India.", size=19, color=INK)
+    rise(fig, t, 7.2, 0.08, 0.075,
+         f"Multi-select question; {fmt(total)} answers. "
+         "“Telugu” appears as “Tegulu” in the original form.", size=13, color=MUTED)
+
+
+def s_households(fig, t):
+    chrome(fig, t, "At home", "Turker households: middle income, often families")
+    for j, (s_, labels, title, x) in enumerate((
+            (INCOME_S, INCOME_LABELS, "Household income (US workers)", 0.08),
+            (SIZE_S, SIZE_LABELS, "Household size (US workers)", 0.54))):
+        rise(fig, t, 0.8 + 0.3 * j, x, 0.72, title, size=22, weight="semibold")
+        ax = fig.add_axes([x + 0.07, 0.15, 0.34, 0.53])
+        style_ax(ax, ygrid=False)
+        ax.spines["bottom"].set_visible(False)
+        ax.set_xticks([])
+        vals = s_.values
+        ypos = np.arange(len(vals))
+        grow = np.array([seg(t, 1.3 + 0.3 * j + 0.12 * i, 2.3 + 0.3 * j + 0.12 * i)
+                         for i in range(len(vals))])
+        typical = median_label(s_, labels)
+        ax.barh(ypos, vals * grow, height=0.64, color=BLUE, lw=0)
+        ax.set_yticks(ypos)
+        ax.set_yticklabels(labels, fontsize=17)
+        ax.set_ylim(len(vals) - 0.4, -0.6)
+        ax.set_xlim(0, vals.max() * 1.5)
+        for i, v in enumerate(vals):
+            if grow[i] > 0.02:
+                lab = pct(v) + ("   ← median" if labels[i] == typical else "")
+                ax.text(v * grow[i] + vals.max() * 0.03, i, lab, va="center", fontsize=16,
+                        color=INK if labels[i] == typical else INK2, alpha=grow[i],
+                        weight="semibold" if labels[i] == typical else "regular")
+    big = SIZE_S[["3", "4", "5+"]].sum()
+    rise(fig, t, 5.0, 0.08, 0.085,
+         f"{pct(big)} of US Turkers lived in households of three or more; "
+         f"{pct(INCOME_S.iloc[0])} reported under $10K a year.", size=15, color=INK2)
 
 
 def s_where(fig, t):
@@ -684,10 +928,15 @@ SCENES = [
     ("calendar", 13, s_calendar),
     ("how_many", 14, s_how_many),
     ("loyalty", 11, s_loyalty),
-    ("pool", 12, s_pool),
+    ("halflife", 12, s_halflife),
+    ("population", 15, s_population),
+    ("years", 11, s_years),
     ("where", 12, s_where),
+    ("us_india", 12, s_us_india),
+    ("languages", 11, s_languages),
     ("gender", 10, s_gender),
     ("age", 13, s_age),
+    ("households", 10, s_households),
     ("answers", 12, s_answers),
     ("work", 10, s_work),
     ("closing", 10, s_closing),
@@ -757,7 +1006,8 @@ def add_music():
     silent = os.path.join(OUT, "video_only.mp4")
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst,
                     "-c", "copy", silent], check=True)
-    wav = music.render(os.path.join(OUT, "music.wav"), sum(s[1] for s in SCENES))
+    total = sum(s[1] for s in SCENES)
+    wav = music.render(os.path.join(OUT, "music.wav"), total, total - SCENES[-1][1])
     final = os.path.join(OUT, "mturk_tracker_homage.mp4")
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", silent, "-i", wav,
                     "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",

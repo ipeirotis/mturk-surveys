@@ -3,7 +3,7 @@
 over a pad, timed to the scenes in make_video.py. Everything is generated here,
 so there is nothing to license.
 
-    python3 music.py out/music.wav 124
+    python3 music.py out/music.wav <duration> <closing-card start>
 """
 import sys
 import wave
@@ -12,10 +12,8 @@ import numpy as np
 from scipy.signal import butter, fftconvolve, sosfilt
 
 SR = 44100
-CLOSING_AT = 114.0      # closing card starts here; it lands on a downbeat
-CLOSING_BAR = 33
-BAR = CLOSING_AT / CLOSING_BAR
-BEAT = BAR / 4
+TARGET_BAR = 3.45       # seconds per 4/4 bar, about 70 bpm; stretched so the closing card
+                        # starts exactly on a downbeat
 
 # (bass, pad voicing, arpeggio) per chord, as MIDI notes
 CHORDS = {
@@ -31,6 +29,8 @@ PHRASE_A = [(0, 0, 2, 76), (0, 2, 1, 74), (0, 3, 1, 72), (1, 0, 3, 72), (1, 3, 1
             (2, 0, 2, 67), (2, 2, 2, 72), (3, 0, 2, 74), (3, 2, 2, 71)]
 PHRASE_B = [(0, 0, 1.5, 76), (0, 1.5, 0.5, 79), (0, 2, 2, 76), (1, 0, 1, 77), (1, 1, 1, 76),
             (1, 2, 2, 72), (2, 0, 2, 76), (2, 2, 1, 74), (2, 3, 1, 72), (3, 0, 4, 74)]
+PHRASE_C = [(0, 0, 1, 72), (0, 1, 1, 76), (0, 2, 2, 81), (1, 0, 2, 77), (1, 2, 2, 76),
+            (2, 0, 1, 76), (2, 1, 1, 74), (2, 2, 2, 72), (3, 0, 3, 71), (3, 3, 1, 74)]
 
 
 def hz(m):
@@ -88,29 +88,36 @@ def add(buf, sig, start, pan=0.0):
     buf[i:j, 1] += sig[: j - i] * right
 
 
-def chord_at(bar):
-    if bar == CLOSING_BAR:
+def chord_at(bar, closing_bar):
+    if bar == closing_bar:
         return "F"
-    if bar > CLOSING_BAR:
+    if bar > closing_bar:
         return "C"
     return CYCLE[bar % 4]
 
 
-def level(bar):
+def level(bar, closing_bar):
     """Overall dynamics: rise through the data scenes, ease off before the end."""
-    return float(np.interp(bar, [0, 4, 10, 18, 26, 30, 33, 36],
+    c = closing_bar
+    return float(np.interp(bar, [0, 4, 10, 0.55 * c, 0.8 * c, c - 3, c, c + 3],
                            [0.55, 0.7, 0.85, 0.9, 1.0, 0.8, 0.75, 0.6]))
 
 
-def render(path, duration):
+def render(path, duration, closing_at):
+    global BAR, BEAT
+    closing_bar = max(12, round(closing_at / TARGET_BAR))
+    BAR = closing_at / closing_bar
+    BEAT = BAR / 4
+    CLOSING_BAR = closing_bar
+    melody_end = closing_bar - 3
     buf = np.zeros((int((duration + 4) * SR), 2))
     bars = int(np.ceil(duration / BAR))
     rng = np.random.default_rng(15)
     for b in range(bars):
         start = b * BAR
-        name = chord_at(b)
+        name = chord_at(b, closing_bar)
         root, voicing, arp = CHORDS[name]
-        lv = level(b)
+        lv = level(b, closing_bar)
         final = b >= CLOSING_BAR + 1
 
         # pad: every bar, held across the final chord
@@ -135,9 +142,9 @@ def render(path, duration):
             add(buf, bass(root, hold if final else BAR * 0.95, 0.16 * lv), start)
 
         # melody from bar 10 to the end of the answers scene
-        if 10 <= b < 30:
+        if 10 <= b < melody_end:
             cyc = (b - 10) // 4
-            phrase = PHRASE_A if cyc % 2 == 0 else PHRASE_B
+            phrase = (PHRASE_A, PHRASE_B, PHRASE_A, PHRASE_C)[cyc % 4]
             for (cb, beat, length, m) in phrase:
                 if cb == (b - 10) % 4:
                     add(buf, piano(m + 12, length * BEAT, 0.11 * lv, bright=0.6),
@@ -177,4 +184,4 @@ def render(path, duration):
 
 
 if __name__ == "__main__":
-    render(sys.argv[1], float(sys.argv[2]))
+    render(sys.argv[1], float(sys.argv[2]), float(sys.argv[3]))
