@@ -237,7 +237,12 @@ GET /tasks/restoreDateFromBigQuery?date=2024-06-15
 
 # Smart restore: only restore days where Datastore has fewer entries
 GET /tasks/smartRestoreFromBigQuery?from=2024-01-01&to=2024-12-31
+
+# Check the public table against Datastore (default compares against the backup table)
+GET /tasks/compareDatastoreBigQuery?from=2015-03-26&to=2021-06-30&table=demographics.responses
 ```
+
+`demographics.responses` is built from Datastore, so restoring a day into Datastore leaves the public table short until that day is re-exported. `restoreDateFromBigQuery` now enqueues `/tasks/exportDateToBigQuery` for the day whenever it restores entities. This gap is what dropped ~63K 2015–2021 answers from the public table: the backfill ran after the 2026-03-10 restore but before the 2026-03-17 restore, and the restored days were never re-exported.
 
 #### Rebuild snapshots and rollups
 

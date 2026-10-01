@@ -66,8 +66,9 @@ public class DatastoreRestoreController {
 	}
 
 	/**
-	 * Restore a single day's entries from BigQuery backup into Datastore.
-	 * Uses original Datastore entity IDs so existing entries are overwritten.
+	 * Restore a single day's entries from BigQuery backup into Datastore,
+	 * skipping (workerId, hitId) pairs that already exist. When anything is
+	 * restored, the day is re-exported to demographics.responses.
 	 *
 	 * Example: /tasks/restoreDateFromBigQuery?date=2024-01-15
 	 *
@@ -82,8 +83,27 @@ public class DatastoreRestoreController {
 		result.put("status", "ok");
 		result.put("date", date);
 		result.put("entitiesRestored", restored);
+		if (restored > 0) {
+			// demographics.responses is built from Datastore, so a restore that adds
+			// entities leaves the public table short until the day is re-exported.
+			result.put("bigQueryReexportEnqueued", enqueueBigQueryExport(date));
+		}
 		if (table != null) result.put("table", table);
 		return result;
+	}
+
+	private boolean enqueueBigQueryExport(String sortableDate) {
+		try {
+			Date day = SafeDateFormat.forPattern("yyyy-MM-dd").parse(sortableDate);
+			Map<String, String> params = new LinkedHashMap<>();
+			params.put("date", SafeDateFormat.forPattern("MM/dd/yyyy").format(day));
+			TaskUtils.queueTask("/tasks/exportDateToBigQuery", params);
+			return true;
+		} catch (Exception e) {
+			logger.error("Restored entities for " + sortableDate
+					+ " but failed to enqueue BigQuery re-export: " + e.getMessage(), e);
+			return false;
+		}
 	}
 
 	/**

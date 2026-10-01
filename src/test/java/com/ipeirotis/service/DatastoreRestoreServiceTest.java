@@ -44,6 +44,16 @@ class DatastoreRestoreServiceTest {
         assertEquals("prod.responses", result);
     }
 
+    @Test
+    void surveyIdColumn_publicTable_usesSnakeCase() {
+        assertEquals("survey_id", DatastoreRestoreService.surveyIdColumn("demographics.responses"));
+    }
+
+    @Test
+    void surveyIdColumn_backupTable_usesEntityPropertyName() {
+        assertEquals("surveyId", DatastoreRestoreService.surveyIdColumn("test.UserAnswer_2025MAR20"));
+    }
+
     private String invokeResolveTable(String table) throws Exception {
         DatastoreRestoreService service = new DatastoreRestoreService();
         Method method = DatastoreRestoreService.class.getDeclaredMethod("resolveTable", String.class);

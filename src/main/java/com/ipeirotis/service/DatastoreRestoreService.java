@@ -27,6 +27,7 @@ public class DatastoreRestoreService {
 
 	private static final String BQ_BACKUP_DATASET = "test";
 	private static final String BQ_BACKUP_TABLE = "UserAnswer_2025MAR20";
+	private static final String PUBLIC_TABLE = "demographics.responses";
 	private static final String DEFAULT_QUALIFIED_TABLE = BQ_BACKUP_DATASET + "." + BQ_BACKUP_TABLE;
 
 	@Autowired
@@ -242,6 +243,15 @@ public class DatastoreRestoreService {
 	/**
 	 * Get BigQuery daily counts for the backup table in one query.
 	 */
+	/**
+	 * The Datastore export backups keep the entity property name (surveyId); the
+	 * public table written by BigQueryExportService uses snake_case (survey_id).
+	 * Supporting both lets compareCounts check Datastore against demographics.responses.
+	 */
+	static String surveyIdColumn(String qualifiedTable) {
+		return PUBLIC_TABLE.equals(qualifiedTable) ? "survey_id" : "surveyId";
+	}
+
 	private String resolveTable(String table) {
 		if (table != null && !table.isBlank()) {
 			// Allow "dataset.table" or just "table" (defaults to test dataset)
@@ -260,9 +270,9 @@ public class DatastoreRestoreService {
 					"SELECT FORMAT_DATE('%%Y-%%m-%%d', DATE(date)) AS day, COUNT(*) AS cnt "
 					+ "FROM `%s.%s` "
 					+ "WHERE DATE(date) >= '%s' AND DATE(date) <= '%s' "
-					+ "AND surveyId = 'demographics' "
+					+ "AND %s = 'demographics' "
 					+ "GROUP BY day ORDER BY day",
-					projectId, qualifiedTable, fromDate, toDate);
+					projectId, qualifiedTable, fromDate, toDate, surveyIdColumn(qualifiedTable));
 
 			QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql).build();
 			TableResult result = bigQuery.query(queryConfig);
