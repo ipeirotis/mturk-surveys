@@ -1,5 +1,6 @@
 package com.ipeirotis.controller.tasks;
 
+import com.ipeirotis.service.BigQueryExportService;
 import com.ipeirotis.service.DatastoreRestoreService;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.DateValidation;
@@ -34,6 +35,9 @@ public class DatastoreRestoreController {
 	@Autowired
 	private DatastoreRestoreService restoreService;
 
+	@Autowired
+	private BigQueryExportService bigQueryExportService;
+
 	/**
 	 * Compare daily counts between Datastore and BigQuery backup for a date range.
 	 * Returns only days where the counts differ.
@@ -67,8 +71,8 @@ public class DatastoreRestoreController {
 
 	/**
 	 * Restore a single day's entries from BigQuery backup into Datastore,
-	 * skipping (workerId, hitId) pairs that already exist. When anything is
-	 * restored, the day is re-exported to demographics.responses.
+	 * skipping (workerId, hitId) pairs that already exist, then append the day's
+	 * missing rows to demographics.responses.
 	 *
 	 * Example: /tasks/restoreDateFromBigQuery?date=2024-01-15
 	 *
@@ -76,34 +80,21 @@ public class DatastoreRestoreController {
 	 */
 	@PostMapping("/tasks/restoreDateFromBigQuery")
 	public Map<String, Object> restoreDate(@RequestParam String date,
-			@RequestParam(required = false) String table) {
+			@RequestParam(required = false) String table) throws ParseException {
 		DateValidation.requireValidDate(date, "date", "yyyy-MM-dd");
 		int restored = restoreService.restoreDate(date, table);
+		// Append the day to demographics.responses in the same request, every time:
+		// if the export fails, the non-2xx response makes Cloud Tasks retry the whole
+		// restore, and the retry (which restores nothing new) still exports the day.
+		Date day = SafeDateFormat.forPattern("yyyy-MM-dd").parse(date);
+		int exported = bigQueryExportService.exportDate(SafeDateFormat.forPattern("MM/dd/yyyy").format(day));
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("status", "ok");
 		result.put("date", date);
 		result.put("entitiesRestored", restored);
-		if (restored > 0) {
-			// demographics.responses is built from Datastore, so a restore that adds
-			// entities leaves the public table short until the day is re-exported.
-			result.put("bigQueryReexportEnqueued", enqueueBigQueryExport(date));
-		}
+		result.put("rowsAppendedToBigQuery", exported);
 		if (table != null) result.put("table", table);
 		return result;
-	}
-
-	private boolean enqueueBigQueryExport(String sortableDate) {
-		try {
-			Date day = SafeDateFormat.forPattern("yyyy-MM-dd").parse(sortableDate);
-			Map<String, String> params = new LinkedHashMap<>();
-			params.put("date", SafeDateFormat.forPattern("MM/dd/yyyy").format(day));
-			TaskUtils.queueTask("/tasks/exportDateToBigQuery", params);
-			return true;
-		} catch (Exception e) {
-			logger.error("Restored entities for " + sortableDate
-					+ " but failed to enqueue BigQuery re-export: " + e.getMessage(), e);
-			return false;
-		}
 	}
 
 	/**

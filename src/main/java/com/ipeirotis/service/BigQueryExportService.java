@@ -1,7 +1,9 @@
 package com.ipeirotis.service;
 
 import com.google.cloud.bigquery.*;
+import com.ipeirotis.entity.BigQueryExportLock;
 import com.ipeirotis.entity.UserAnswer;
+import com.ipeirotis.exception.ExportInProgressException;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
 import io.micrometer.core.annotation.Timed;
@@ -18,6 +20,8 @@ import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
 @Service
 public class BigQueryExportService {
 
@@ -25,6 +29,8 @@ public class BigQueryExportService {
 
 	private static final String DATASET_ID = "demographics";
 	private static final String TABLE_ID = "responses";
+	/** Longer than any single-day export takes; an abandoned lease frees itself after this. */
+	private static final long LOCK_TTL_MS = 10 * 60 * 1000L;
 
 	@Autowired
 	private BigQuery bigQuery;
@@ -41,6 +47,56 @@ public class BigQueryExportService {
 	 */
 	@Timed(value = "bigquery.export", description = "BigQuery export duration")
 	public int exportDate(String dateStr) throws ParseException {
+		String sortableDate = SafeDateFormat.forPattern("yyyy-MM-dd")
+				.format(SafeDateFormat.forPattern("MM/dd/yyyy").parse(dateStr));
+		String owner = acquireLock(sortableDate);
+		try {
+			return exportDateLocked(dateStr);
+		} finally {
+			releaseLock(sortableDate, owner);
+		}
+	}
+
+	/**
+	 * Take the per-date lease so the existence check and the insert in
+	 * exportDateLocked cannot interleave with another export for the same date.
+	 * @return owner token to pass to releaseLock
+	 * @throws ExportInProgressException if another export holds an unexpired lease
+	 */
+	private String acquireLock(String sortableDate) {
+		String owner = UUID.randomUUID().toString();
+		boolean acquired = ofy().transact(() -> {
+			Date now = new Date();
+			BigQueryExportLock lock = ofy().load().type(BigQueryExportLock.class).id(sortableDate).now();
+			if (lock != null && lock.isHeldAt(now)) {
+				return false;
+			}
+			ofy().save().entity(new BigQueryExportLock(sortableDate, owner,
+					new Date(now.getTime() + LOCK_TTL_MS))).now();
+			return true;
+		});
+		if (!acquired) {
+			throw new ExportInProgressException("BigQuery export for " + sortableDate
+					+ " is already running; retry later");
+		}
+		return owner;
+	}
+
+	private void releaseLock(String sortableDate, String owner) {
+		try {
+			ofy().transact(() -> {
+				BigQueryExportLock lock = ofy().load().type(BigQueryExportLock.class).id(sortableDate).now();
+				if (lock != null && owner.equals(lock.getOwner())) {
+					ofy().delete().entity(lock).now();
+				}
+			});
+		} catch (RuntimeException e) {
+			// The lease expires on its own after LOCK_TTL_MS.
+			logger.warn("Failed to release BigQuery export lock for " + sortableDate + ": " + e.getMessage(), e);
+		}
+	}
+
+	private int exportDateLocked(String dateStr) throws ParseException {
 		DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
 		Calendar dateFrom = Calendar.getInstance();
 		dateFrom.setTime(df.parse(dateStr));
