@@ -100,6 +100,7 @@ public class DatastoreRestoreService {
 	}
 
 	public int restoreDate(String dateStr, String table) {
+		requireRestoreSource(table);
 		String qualifiedTable = resolveTable(table);
 		List<UserAnswer> entities = loadFullEntitiesFromBackup(dateStr, qualifiedTable);
 		if (entities.isEmpty()) {
@@ -250,6 +251,18 @@ public class DatastoreRestoreService {
 	 */
 	static String surveyIdColumn(String qualifiedTable) {
 		return PUBLIC_TABLE.equals(qualifiedTable) ? "survey_id" : "surveyId";
+	}
+
+	/**
+	 * Restores read the Datastore export backups (camelCase entity columns). The public
+	 * table has a different schema and is the canonical output, not a restore source,
+	 * so reject it up front instead of silently restoring nothing.
+	 */
+	public void requireRestoreSource(String table) {
+		if (PUBLIC_TABLE.equals(resolveTable(table))) {
+			throw new IllegalArgumentException(PUBLIC_TABLE + " cannot be used as a restore source; "
+					+ "use a Datastore backup table such as " + DEFAULT_QUALIFIED_TABLE);
+		}
 	}
 
 	private String resolveTable(String table) {

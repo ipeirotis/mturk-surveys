@@ -112,6 +112,7 @@ public class DatastoreRestoreController {
 			@RequestParam String from, @RequestParam String to,
 			@RequestParam(required = false) String table) throws ParseException {
 		DateValidation.requireValidRange(from, to, "yyyy-MM-dd");
+		restoreService.requireRestoreSource(table);
 		DateFormat df = SafeDateFormat.forPattern("yyyy-MM-dd");
 
 		Calendar start = Calendar.getInstance();
@@ -185,6 +186,7 @@ public class DatastoreRestoreController {
 			@RequestParam String from, @RequestParam String to,
 			@RequestParam(required = false) String table) throws ParseException {
 		DateValidation.requireValidRange(from, to, "yyyy-MM-dd");
+		restoreService.requireRestoreSource(table);
 		List<Map<String, Object>> mismatches = restoreService.compareCounts(from, to, table);
 
 		int tasksEnqueued = 0;

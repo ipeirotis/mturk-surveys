@@ -58,42 +58,62 @@ public class BigQueryExportService {
 	}
 
 	/**
-	 * Take the per-date lease so the existence check and the insert in
-	 * exportDateLocked cannot interleave with another export for the same date.
+	 * Take the leases for the export date and both neighbouring dates in one
+	 * transaction. loadExistingPairs checks a window of date +/- 1 day, so exports of
+	 * adjacent dates read overlapping windows; holding all three leases makes any two
+	 * exports whose windows overlap run one after the other, while exports further
+	 * apart still run in parallel.
 	 * @return owner token to pass to releaseLock
-	 * @throws ExportInProgressException if another export holds an unexpired lease
+	 * @throws ExportInProgressException if an export with an overlapping window holds a lease
 	 */
 	private String acquireLock(String sortableDate) {
 		String owner = UUID.randomUUID().toString();
+		List<String> dates = lockDates(sortableDate);
 		boolean acquired = ofy().transact(() -> {
 			Date now = new Date();
-			BigQueryExportLock lock = ofy().load().type(BigQueryExportLock.class).id(sortableDate).now();
-			if (lock != null && lock.isHeldAt(now)) {
-				return false;
+			Map<String, BigQueryExportLock> locks = ofy().load().type(BigQueryExportLock.class).ids(dates);
+			for (BigQueryExportLock lock : locks.values()) {
+				if (lock.isHeldAt(now)) {
+					return false;
+				}
 			}
-			ofy().save().entity(new BigQueryExportLock(sortableDate, owner,
-					new Date(now.getTime() + LOCK_TTL_MS))).now();
+			Date expiresAt = new Date(now.getTime() + LOCK_TTL_MS);
+			List<BigQueryExportLock> mine = new ArrayList<>();
+			for (String d : dates) {
+				mine.add(new BigQueryExportLock(d, owner, expiresAt));
+			}
+			ofy().save().entities(mine).now();
 			return true;
 		});
 		if (!acquired) {
-			throw new ExportInProgressException("BigQuery export for " + sortableDate
+			throw new ExportInProgressException("A BigQuery export overlapping " + sortableDate
 					+ " is already running; retry later");
 		}
 		return owner;
 	}
 
 	private void releaseLock(String sortableDate, String owner) {
+		List<String> dates = lockDates(sortableDate);
 		try {
 			ofy().transact(() -> {
-				BigQueryExportLock lock = ofy().load().type(BigQueryExportLock.class).id(sortableDate).now();
-				if (lock != null && owner.equals(lock.getOwner())) {
-					ofy().delete().entity(lock).now();
+				List<BigQueryExportLock> mine = new ArrayList<>();
+				for (BigQueryExportLock lock : ofy().load().type(BigQueryExportLock.class).ids(dates).values()) {
+					if (owner.equals(lock.getOwner())) {
+						mine.add(lock);
+					}
 				}
+				ofy().delete().entities(mine).now();
 			});
 		} catch (RuntimeException e) {
-			// The lease expires on its own after LOCK_TTL_MS.
-			logger.warn("Failed to release BigQuery export lock for " + sortableDate + ": " + e.getMessage(), e);
+			// The leases expire on their own after LOCK_TTL_MS.
+			logger.warn("Failed to release BigQuery export locks around " + sortableDate + ": " + e.getMessage(), e);
 		}
+	}
+
+	/** The export date and its neighbours, matching the window loadExistingPairs reads. */
+	static List<String> lockDates(String sortableDate) {
+		java.time.LocalDate day = java.time.LocalDate.parse(sortableDate);
+		return List.of(day.minusDays(1).toString(), sortableDate, day.plusDays(1).toString());
 	}
 
 	private int exportDateLocked(String dateStr) throws ParseException {

@@ -54,6 +54,19 @@ class DatastoreRestoreServiceTest {
         assertEquals("surveyId", DatastoreRestoreService.surveyIdColumn("test.UserAnswer_2025MAR20"));
     }
 
+    @Test
+    void requireRestoreSource_publicTable_isRejected() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new DatastoreRestoreService().requireRestoreSource("demographics.responses"));
+    }
+
+    @Test
+    void requireRestoreSource_backupTables_areAccepted() {
+        DatastoreRestoreService service = new DatastoreRestoreService();
+        assertDoesNotThrow(() -> service.requireRestoreSource(null));
+        assertDoesNotThrow(() -> service.requireRestoreSource("userAnswers_oct2020"));
+    }
+
     private String invokeResolveTable(String table) throws Exception {
         DatastoreRestoreService service = new DatastoreRestoreService();
         Method method = DatastoreRestoreService.class.getDeclaredMethod("resolveTable", String.class);
