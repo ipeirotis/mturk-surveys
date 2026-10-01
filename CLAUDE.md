@@ -181,7 +181,7 @@ The system has multiple layers of backup for disaster recovery.
 | Layer | Frequency | Location | What |
 |---|---|---|---|
 | **Datastore export** | Weekly (Sun 06:00 UTC) | `gs://demographics_data_export/<date>/` | Full raw entity backup of all Datastore kinds |
-| **BigQuery export** | Daily (05:00 UTC) | `demographics.responses` table | Individual UserAnswer rows with hashed worker IDs |
+| **BigQuery export** | Manual only (daily cron removed after MTurk closed) | `demographics.responses` table | Individual UserAnswer rows with hashed worker IDs. Append-only. |
 | **DemographicsSnapshot** | Daily (04:00 UTC) | Datastore | Pre-aggregated daily demographic counts |
 | **DemographicsRollup** | Daily (04:15 UTC) | Datastore | Weekly/monthly aggregates built from snapshots |
 
@@ -189,9 +189,29 @@ The system has multiple layers of backup for disaster recovery.
 
 | Table | Description |
 |---|---|
-| `demographics.responses` | Public dataset. Daily export of UserAnswer data (worker IDs + IPs SHA256-hashed). Covers 2015-03-26 to present. |
+| `demographics.responses` | **Canonical** public dataset (worker IDs + IPs SHA256-hashed, lowercase hex). 392,998 answers, 2015-03-26 to 2026-09-30. See "Canonical dataset" below. |
+| `test.MISQ_DataSet` | View over `demographics.responses` that keeps the old MISQ column names, with `worker_id`/`ip_address` as raw SHA-256 bytes (`FROM_HEX`). Before 2026-10-01 it unioned the two backups below, without dedup or survey filtering. |
+| `test.responses_backup_20261001` | Copy of `demographics.responses` taken right before the 2026-10-01 restore (329,772 rows). Safe to drop once the restore is accepted. |
 | `test.UserAnswer_2025MAR20` | One-time Datastore backup from 2025-03-20 (raw entity export via GCS). Covers 2020-11-03 to 2025-03-20. |
 | `test.userAnswers_oct2020` | Older Datastore backup. Covers 2015-03-26 to 2021-06-10. |
+
+### Canonical dataset
+
+`demographics.responses` is the source of truth for the archived 2015–2026 answers. Datastore and the backups are inputs to it, not the other way round.
+
+- **Never delete or rewrite rows in it from Datastore.** `BigQueryExportService.exportDate` is append-only: it inserts only (hashed worker, HIT) pairs not already in the table for that day. It used to `DELETE` the day and rebuild it from Datastore, which is how a partial Datastore wiped out good rows.
+- **2026-10-01 restore:** 63,226 answers from 2015-09 to 2021-06 were missing. The BigQuery backfill ran between the 2026-03-10 Datastore restore (which reused original IDs and only brought back part of each day) and the 2026-03-17 restore (new IDs, filled the rest), and the restored days were never re-exported. They were appended with one `INSERT … SELECT` from `test.userAnswers_oct2020` + `test.UserAnswer_2025MAR20` (`surveyId = 'demographics'`, earliest row per (workerId, hitId), `TO_HEX(SHA256(...))` for worker ID and IP, only pairs not already present).
+- To check the public table against Datastore: `GET /tasks/compareDatastoreBigQuery?from=…&to=…&table=demographics.responses`.
+
+#### Future work
+
+- [ ] **Deploy** the append-only export, the removed `exportToBigQuery` cron and the restore → re-export hook (branch `claude/tender-fermi-8s5gsg`). Until it's deployed, the old code is live and the 05:00 cron still runs. With no new answers after 2026-09-30, it finds an empty day and returns before its `DELETE`, so it's harmless. But don't trigger `backfillBigQuery` or `exportDateToBigQuery` for old dates until the deploy is done, because the live code deletes and rebuilds the day from Datastore.
+- [ ] **Timestamp precision:** the Java export wrote `date`/`hit_creation_date` truncated to whole seconds. The 63,226 rows appended on 2026-10-01 kept milliseconds. If consistency matters, run `UPDATE … SET date = TIMESTAMP_TRUNC(date, SECOND), hit_creation_date = TIMESTAMP_TRUNC(hit_creation_date, SECOND)` on those rows (production write, needs approval).
+- [ ] **3 duplicate (worker_id, hit_id) pairs** in `responses` predate the restore. `BigQueryExportService.deduplicateTable` would remove them, but it runs `CREATE OR REPLACE TABLE`, which drops the table and column descriptions. Prefer a targeted `DELETE` of the later duplicate rows (production write, needs approval).
+- [ ] **Dashboard vs. table:** snapshots and rollups are still built from Datastore (393,001 total vs. 392,998 in `responses`). Rebuilding them from `responses` would make the dashboard match the canonical table exactly. This wasn't done; it's a larger change to `DemographicsSnapshotService`.
+- [ ] **Point remaining tooling at `responses`:** `compareDatastoreBigQuery` still defaults to `test.UserAnswer_2025MAR20`, and the `data-check` / `backup-check` skills compare Datastore with the backups. Make `demographics.responses` the default reference.
+- [ ] **Weekly Datastore dedup** (`dedupDatastoreGlobal`) only scans `surveyId = 'demographics'` entities and deletes from Datastore. That's harmless to `responses` now that exports are append-only, but it can be retired along with any other Datastore write path once nothing reads Datastore directly.
+- [ ] **Session credentials:** in Claude Code cloud sessions, `CLOUDSDK_AUTH_ACCESS_TOKEN` may be set to an expired token, which overrides the service account and causes "Invalid Credentials". Prefix `bq`/`gcloud` with `env -u CLOUDSDK_AUTH_ACCESS_TOKEN`, or remove the variable from the environment settings.
 
 ### GCS Bucket
 
@@ -242,7 +262,7 @@ GET /tasks/smartRestoreFromBigQuery?from=2024-01-01&to=2024-12-31
 GET /tasks/compareDatastoreBigQuery?from=2015-03-26&to=2021-06-30&table=demographics.responses
 ```
 
-`demographics.responses` is built from Datastore, so restoring a day into Datastore leaves the public table short until that day is re-exported. `restoreDateFromBigQuery` now enqueues `/tasks/exportDateToBigQuery` for the day whenever it restores entities. This gap is what dropped ~63K 2015–2021 answers from the public table: the backfill ran after the 2026-03-10 restore but before the 2026-03-17 restore, and the restored days were never re-exported.
+Restoring a day into Datastore doesn't touch `demographics.responses`, so `restoreDateFromBigQuery` now enqueues `/tasks/exportDateToBigQuery` for the day whenever it restores entities. That export is append-only and adds only pairs missing from the table. This gap is what dropped ~63K 2015–2021 answers from the public table: the backfill ran after the 2026-03-10 restore but before the 2026-03-17 restore, and the restored days were never re-exported.
 
 #### Rebuild snapshots and rollups
 

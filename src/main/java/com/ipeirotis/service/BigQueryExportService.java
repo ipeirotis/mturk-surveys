@@ -33,9 +33,11 @@ public class BigQueryExportService {
 	private SurveyService surveyService;
 
 	/**
-	 * Export a single day's data to BigQuery.
+	 * Append a single day's Datastore answers to BigQuery. Append-only: rows already in
+	 * demographics.responses (matched by hashed worker ID + HIT ID) are left untouched,
+	 * and nothing is ever deleted, so Datastore cannot shrink the canonical table.
 	 * @param dateStr date in MM/dd/yyyy format
-	 * @return number of rows exported
+	 * @return number of rows appended
 	 */
 	@Timed(value = "bigquery.export", description = "BigQuery export duration")
 	public int exportDate(String dateStr) throws ParseException {
@@ -82,21 +84,20 @@ public class BigQueryExportService {
 		DateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 		isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
 
-		// Step 1: Delete existing rows for this date (non-transactional)
-		String deleteSql = String.format("DELETE FROM %s WHERE DATE(date) = '%s'",
-				fullTable, sortableDate);
-		try {
-			bigQuery.query(QueryJobConfiguration.newBuilder(deleteSql)
-					.setJobTimeoutMs(60_000L).build());
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw new RuntimeException("Interrupted during BigQuery delete", e);
-		} catch (BigQueryException e) {
-			if (e.getMessage() != null && e.getMessage().contains("concurrent")) {
-				logger.warn("Concurrent update conflict during delete for " + dateStr + ", will retry later");
-				throw new RuntimeException("BigQuery concurrent update conflict for " + dateStr, e);
+		// Step 1: demographics.responses is the canonical archive, so never delete from it.
+		// Only append (worker, HIT) pairs that are not already in the table for this date.
+		Set<String> existing = loadExistingPairs(fullTable, sortableDate);
+		int candidates = answers.size();
+		List<UserAnswer> missing = new ArrayList<>();
+		for (UserAnswer ua : answers) {
+			if (!existing.contains(pairKey(ua))) {
+				missing.add(ua);
 			}
-			throw e;
+		}
+		answers = missing;
+		if (answers.isEmpty()) {
+			logger.info("All " + candidates + " entries for " + dateStr + " already in BigQuery");
+			return 0;
 		}
 
 		// Step 2: Insert rows in batches (non-transactional)
@@ -178,8 +179,40 @@ public class BigQueryExportService {
 		}
 
 		int totalExported = answers.size();
-		logger.info("Exported " + totalExported + " rows to BigQuery for " + dateStr);
+		logger.info("Appended " + totalExported + " missing rows to BigQuery for " + dateStr
+				+ " (" + (candidates - totalExported) + " already present)");
 		return totalExported;
+	}
+
+	/**
+	 * (hashed worker_id, hit_id) pairs already in the table around one UTC day. The
+	 * neighbouring days are included because a row's timestamp in the table can differ
+	 * slightly from Datastore's and land on the other side of midnight.
+	 */
+	private Set<String> loadExistingPairs(String fullTable, String sortableDate) {
+		String sql = String.format(
+				"SELECT worker_id, hit_id FROM %s WHERE DATE(date) BETWEEN "
+				+ "DATE_SUB(DATE '%s', INTERVAL 1 DAY) AND DATE_ADD(DATE '%s', INTERVAL 1 DAY)",
+				fullTable, sortableDate, sortableDate);
+		Set<String> pairs = new HashSet<>();
+		try {
+			TableResult result = bigQuery.query(QueryJobConfiguration.newBuilder(sql)
+					.setJobTimeoutMs(60_000L).build());
+			for (FieldValueList row : result.iterateAll()) {
+				FieldValue w = row.get("worker_id");
+				FieldValue h = row.get("hit_id");
+				pairs.add((w.isNull() ? "" : w.getStringValue()) + "|" + (h.isNull() ? "" : h.getStringValue()));
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new RuntimeException("Interrupted reading existing BigQuery rows", e);
+		}
+		return pairs;
+	}
+
+	static String pairKey(UserAnswer ua) {
+		return (ua.getWorkerId() != null ? sha256Hex(ua.getWorkerId()) : "")
+				+ "|" + (ua.getHitId() != null ? ua.getHitId() : "");
 	}
 
 	/**

@@ -55,6 +55,19 @@ class BigQueryExportServiceTest {
         assertEquals(64, result.length());
     }
 
+    @Test
+    void pairKey_hashesWorkerIdLikeTheTable() throws Exception {
+        com.ipeirotis.entity.UserAnswer ua = new com.ipeirotis.entity.UserAnswer();
+        ua.setWorkerId("hello");
+        ua.setHitId("HIT1");
+        assertEquals(invokeSha256Hex("hello") + "|HIT1", BigQueryExportService.pairKey(ua));
+    }
+
+    @Test
+    void pairKey_nullFields_useEmptyStrings() {
+        assertEquals("|", BigQueryExportService.pairKey(new com.ipeirotis.entity.UserAnswer()));
+    }
+
     private String invokeSha256Hex(String input) throws Exception {
         Method method = BigQueryExportService.class.getDeclaredMethod("sha256Hex", String.class);
         method.setAccessible(true);

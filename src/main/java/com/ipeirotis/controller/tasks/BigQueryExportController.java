@@ -26,7 +26,8 @@ public class BigQueryExportController {
 	private BigQueryExportService bigQueryExportService;
 
 	/**
-	 * Cron-triggered: export yesterday's demographics data to BigQuery.
+	 * Append yesterday's demographics data to BigQuery. Was the daily cron job until
+	 * MTurk closed; kept for manual use. Append-only, see BigQueryExportService.exportDate.
 	 */
 	@GetMapping("/tasks/exportToBigQuery")
 	public Map<String, Object> exportYesterday() throws ParseException {
