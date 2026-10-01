@@ -44,10 +44,6 @@ def load_captures():
     return caps
 
 
-def occ_of(date):
-    return (pd.Timestamp(date) - START).days // 30
-
-
 # ---------------------------------------------------------------- closed-population models
 def log_binom(k, n):
     return gammaln(n + 1) - gammaln(k + 1) - gammaln(n - k + 1)
@@ -117,18 +113,19 @@ def equal_catchability(freq, n):
     return dict(p=p, N=f.sum() / (1 - (1 - p) ** n))
 
 
-def year_window(caps, year):
-    """Capture frequencies within one calendar year, with 30-day occasions counted from the
-    year's first survey day (the last occasion absorbs the leftover days)."""
-    first = max(pd.Timestamp(f"{year}-01-01"), START)
-    d0 = (first - START).days
-    d1 = (pd.Timestamp(f"{year}-12-31") - START).days
+def local_caps(caps, first, last):
+    """Captures between two dates, with 30-day occasions counted from the first survey day in
+    that range (a shorter final occasion stays separate, so no occasion exceeds 30 days)."""
+    d0 = (max(pd.Timestamp(first), START) - START).days
+    d1 = (pd.Timestamp(last) - START).days
     w = caps[(caps.day >= d0) & (caps.day <= d1)]
-    span = w.day.max() - d0 + 1
-    n_occ = max(1, span // 30)
-    occ = np.minimum((w.day - d0) // 30, n_occ - 1)
-    freq = w.assign(o=occ).groupby("w").o.nunique().value_counts().to_dict()
-    return freq, int(occ.nunique())
+    return w.assign(occ=(w.day - d0) // 30)
+
+
+def year_window(caps, year):
+    w = local_caps(caps, f"{year}-01-01", f"{year}-12-31")
+    freq = w.groupby("w").occ.nunique().value_counts().to_dict()
+    return freq, int(w.occ.nunique())
 
 
 def window(caps, o0, o1):
@@ -204,7 +201,8 @@ def main():
     # Half-life by era, and the share of a period's workers seen again t periods later
     rows, backs = [], []
     for name, a, b in ERAS:
-        op = open_population(caps, max(0, occ_of(a)), min(last, occ_of(b)))
+        era = local_caps(caps, a, b)
+        op = open_population(era, 0, era.occ.max())
         rows.append(dict(era=name, half_life_days=op["half_life"],
                          active_equal_catchability=op["Nd"]))
         backs.append(op["back"].rename(name))

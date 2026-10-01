@@ -25,7 +25,7 @@ Dynamics of Mechanical Turk Workers* (WSDM 2018), with 30-day periods as capture
 |---|---|---|---|
 | Workers seen | 39,461 | 38,753 | 157,255 |
 | Chao lower bound | 97,579 | 96,738 | 330,594 |
-| Open-population half-life | 404 days | 428 days | 537 / 478 / 253 days (2015–19 / 2020–22 / 2023–26) |
+| Open-population half-life | 404 days | 428 days | 535 / 479 / 255 days (2015–19 / 2020–22 / 2023–26) |
 | Equal-catchability active pool | ~12K | 12.2K | — |
 
 The zero-truncated beta-binomial (paper Eq. 4) has its maximum at α → 0 on this data
