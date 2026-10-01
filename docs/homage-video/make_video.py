@@ -957,7 +957,8 @@ def render_scene(idx):
         t = k / FPS
         fig.clf()
         fn(fig, t)
-        cover = 1 - min(seg(t, 0, FADE, smooth), 1 - seg(t, dur - FADE, dur, smooth))
+        fade_out = 0.0 if idx == len(SCENES) - 1 else seg(t, dur - FADE, dur, smooth)
+        cover = 1 - min(seg(t, 0, FADE, smooth), 1 - fade_out)  # last card holds to the end
         if cover > 0.001:
             fig.patches.append(Rectangle((0, 0), 1, 1, transform=fig.transFigure, color=BG,
                                          alpha=cover, zorder=1000))
