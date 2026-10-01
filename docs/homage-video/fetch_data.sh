@@ -33,14 +33,6 @@ Q "SELECT span_bucket, COUNT(*) w FROM (
      WHERE worker_id IS NOT NULL GROUP BY worker_id)
    GROUP BY 1 ORDER BY 1" > data/span.csv
 
-# Capture-recapture (Lincoln-Petersen) on consecutive months
-Q "WITH r AS (SELECT DISTINCT DATE_TRUNC(DATE(date), MONTH) m, worker_id FROM $T),
-   c AS (SELECT m, COUNT(*) n FROM r GROUP BY m)
-   SELECT a.m, ca.n n1, cb.n n2, COUNT(b.worker_id) both_m, SAFE_DIVIDE(ca.n * cb.n, COUNT(b.worker_id)) lp
-   FROM r a JOIN c ca ON ca.m = a.m JOIN c cb ON cb.m = DATE_ADD(a.m, INTERVAL 1 MONTH)
-   LEFT JOIN r b ON b.worker_id = a.worker_id AND b.m = DATE_ADD(a.m, INTERVAL 1 MONTH)
-   GROUP BY 1, 2, 3 ORDER BY 1" > data/lp.csv
-
 # Monthly demographics
 Q "SELECT DATE_TRUNC(DATE(date), MONTH) m, COUNT(*) n, COUNT(DISTINCT worker_id) w,
      COUNTIF(LOWER(gender) = 'female') / COUNT(*) female,

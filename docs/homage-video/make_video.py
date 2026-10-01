@@ -132,7 +132,6 @@ DAILY = read("daily.csv", parse_dates=["d"])
 MONTHLY = read("monthly.csv", parse_dates=["m"])
 TASKDIST = read("taskdist.csv")
 SPAN = read("span.csv")
-LP = read("lp.csv", parse_dates=["m"])
 CY = read("country_year.csv")
 YOB = read("yob_year.csv")
 HOURS = read("cat_time_spent_on_mturk.csv")
@@ -182,11 +181,12 @@ SPAN = SPAN.set_index("span_bucket").w.reindex(range(0, SPAN.span_bucket.max() +
 SURV = SPAN[::-1].cumsum()[::-1] / SPAN.sum()
 SURV_X = np.arange(len(SURV)) * 30 / 365.25
 
-# Capture-recapture pool, months with a full sample on both sides
-LPV = LP[(LP.n1 >= 1000) & (LP.n2 >= 1000)].copy()
-LPV["x"] = LPV.m.map(year_frac) + 1 / 12  # sits between month m and m+1
-LPV["smooth"] = LPV.lp.rolling(5, center=True, min_periods=3).median()
 FULL_MONTHS = MONTHLY[MONTHLY.n >= 1000]
+
+# First-time vs returning workers per month
+NEW_M = DAILY.groupby(DAILY.d.dt.to_period("M")).new_w.sum()
+MONTHLY["new_w"] = MONTHLY.m.dt.to_period("M").map(NEW_M).fillna(0).values
+MONTHLY["ret_w"] = MONTHLY.w - MONTHLY.new_w
 
 # Countries
 CY_US = CY[CY.country == "US"].set_index("y").n / CY.groupby("y").n.sum()
@@ -421,39 +421,40 @@ def s_pool(fig, t):
     ax = fig.add_axes([0.08, 0.14, 0.56, 0.6])
     style_ax(ax)
     mm = MONTHLY[MONTHLY.x <= xr]
-    ax.bar(mm.x, mm.w, width=1 / 12 * 0.75, color=BLUE, lw=0)
-    ll = LPV[LPV.x <= xr]
-    ax.plot(ll.x, ll.smooth, color=ORANGE, lw=3.5, solid_capstyle="round")
+    ax.bar(mm.x, mm.ret_w, width=1 / 12 * 0.75, color=BLUE, lw=0)
+    ax.bar(mm.x, mm.new_w, bottom=mm.ret_w, width=1 / 12 * 0.75, color=ORANGE, lw=0)
     ax.set_xlim(x0, x1)
-    ax.set_ylim(0, 22000)
-    ax.set_yticks([0, 5000, 10000, 15000, 20000])
-    ax.set_yticklabels(["0", "5k", "10k", "15k", "20k"])
+    ax.set_ylim(0, 5000)
+    ax.set_yticks([0, 1000, 2000, 3000, 4000, 5000])
+    ax.set_yticklabels(["0", "1k", "2k", "3k", "4k", "5k"])
     ax.set_xticks(range(2016, 2027, 2))
     a = seg(t, 1.0, 1.8)
-    for i, (c, lab) in enumerate(((ORANGE, "estimated active pool that month"),
-                                  (BLUE, "workers who answered that month"))):
+    for i, (c, lab) in enumerate(((ORANGE, "first answer ever"),
+                                  (BLUE, "had answered before"))):
         y = 0.715 - 0.035 * i
         fig.patches.append(Rectangle((0.09, y), 0.016, 0.016, transform=fig.transFigure,
                                      color=c, alpha=a))
         txt(fig, 0.113, y + 0.002, lab, size=16, color=INK, alpha=a)
+    txt(fig, 0.08, 0.755, "workers who answered each month", size=16, color=INK2, alpha=a)
 
     seen = FULL_MONTHS.w.median()
-    pool = LPV.lp.median()
+    later = MONTHLY[(MONTHLY.m.dt.year >= 2016) & (MONTHLY.n >= 1000)]
+    new_share = (later.new_w / later.w).median()
     rise(fig, t, 3.0, 0.69, 0.66, f"~{fmt(round(seen, -2))}", size=54, weight="bold", family=DISPLAY)
     rise(fig, t, 3.2, 0.69, 0.625, "workers answered in a typical month", size=18, color=INK2)
-    rise(fig, t, 5.0, 0.69, 0.51, f"~{fmt(round(pool, -2))}", size=54, weight="bold", family=DISPLAY)
-    rise(fig, t, 5.2, 0.69, 0.475, "were active in a typical month", size=18, color=INK2)
-    rise(fig, t, 5.3, 0.69, 0.445, "(capture–recapture: who shows up again next month)",
-         size=15, color=MUTED)
-    rise(fig, t, 7.2, 0.69, 0.33, f"{fmt(TOT.workers)} is a floor,", size=30, weight="bold",
+    rise(fig, t, 5.0, 0.69, 0.51, f"{pct(new_share)}", size=54, weight="bold", family=DISPLAY)
+    rise(fig, t, 5.2, 0.69, 0.475, "of them were answering for the first time,", size=18,
+         color=INK2)
+    rise(fig, t, 5.3, 0.69, 0.445, "in a typical month since 2016", size=18, color=INK2)
+    rise(fig, t, 7.2, 0.69, 0.33, f"{fmt(TOT.workers)} is who we met,", size=30, weight="bold",
          family=DISPLAY)
-    rise(fig, t, 7.4, 0.69, 0.285, "not a census.", size=30, weight="bold", family=DISPLAY)
-    rise(fig, t, 8.2, 0.69, 0.225, f"We heard from ~1 in {round(pool / seen)} active Turkers",
-         size=18, color=INK2)
-    rise(fig, t, 8.3, 0.69, 0.195, "each month; many more never took our HIT.", size=18, color=INK2)
+    rise(fig, t, 7.4, 0.69, 0.285, "not everyone who worked.", size=30, weight="bold",
+         family=DISPLAY)
+    rise(fig, t, 8.2, 0.69, 0.225, "Some Turkers took HITs every day;", size=18, color=INK2)
+    rise(fig, t, 8.3, 0.69, 0.195, "many rarely, and we never saw them.", size=18, color=INK2)
     rise(fig, t, 8.6, 0.08, 0.075,
-         "Lincoln–Petersen estimate on consecutive months, 5-month rolling median "
-         "(method: Difallah, Filatova & Ipeirotis, WSDM 2018).", size=13, color=MUTED)
+         "Estimating the full population needs a model of how unevenly workers take HITs: "
+         "Difallah, Filatova & Ipeirotis, WSDM 2018.", size=13, color=MUTED)
 
 
 def s_where(fig, t):
