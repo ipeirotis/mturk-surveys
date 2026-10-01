@@ -4,7 +4,7 @@
 
 **mturk-surveys** is a Java Spring Boot web application that ran continuous demographic surveys of Amazon Mechanical Turk workers. It created HITs (Human Intelligence Tasks) on MTurk, collected worker responses, and provides aggregated demographics analytics through a web dashboard.
 
-> **Data collection has ended.** Amazon closed Mechanical Turk on **September 30, 2026**. The `createHIT` and `deleteHITs` cron jobs are removed, and both task endpoints return without calling MTurk once the date in `mturk.closure-date` (`application.properties`) has passed. The dashboard, API, snapshots, BigQuery export and backups keep running over the archived 2015–2026 data.
+> **Data collection has ended.** Amazon closed Mechanical Turk on **September 30, 2026**. The `createHIT` and `deleteHITs` cron jobs are removed. Once `MturkService.CLOSURE_DATE` has passed, every MTurk API call throws `MturkClosedException` (HTTP 410), the task endpoints return without calling MTurk, and `/saveAnswer` rejects new answers with 410. The dashboard, API, snapshots, BigQuery export and backups keep running over the archived 2015–2026 data.
 
 Deployed on **Google App Engine** (Java 21 runtime, GCP project `mturk-demographics`) with **Google Cloud Datastore** for persistence. The production URL is **https://demographics.mturk-tracker.com/**. The demographics survey ran from **March 2015** to **September 30, 2026** — there is no useful data outside that range.
 
@@ -108,7 +108,7 @@ src/main/appengine/
 | `/api/survey` | POST | Create a new survey |
 | `/api/survey/demographics/answers` | GET | Paginated user answers |
 | `/api/survey/demographics/aggregatedAnswers` | GET | Aggregated demographics by period |
-| `/saveAnswer` | GET | Save worker answer (JSONP) |
+| `/saveAnswer` | GET | Save worker answer (JSONP; 410 after MTurk closure) |
 | `/getAnswer` | GET | Get previous worker answer |
 | `/getHIT/{hitId}` | GET | Get MTurk HIT details |
 | `/listHITs` | GET | List all HITs |

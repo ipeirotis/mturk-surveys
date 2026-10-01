@@ -3,6 +3,7 @@ package com.ipeirotis.service;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -48,6 +49,18 @@ class MturkServiceTest {
     void wrapHTMLQuestions_emptyHtml() throws Exception {
         String result = invokeWrapHTMLQuestions("", 450L);
         assertTrue(result.contains("<![CDATA[]]>"));
+    }
+
+    @Test
+    void isClosedOn_openThroughClosureDate() {
+        assertFalse(MturkService.isClosedOn(LocalDate.of(2026, 9, 29)));
+        assertFalse(MturkService.isClosedOn(LocalDate.of(2026, 9, 30)));
+    }
+
+    @Test
+    void isClosedOn_closedAfterClosureDate() {
+        assertTrue(MturkService.isClosedOn(LocalDate.of(2026, 10, 1)));
+        assertTrue(MturkService.isClosedOn(LocalDate.of(2027, 1, 1)));
     }
 
     private String invokeWrapHTMLQuestions(String html, long frameHeight) throws Exception {

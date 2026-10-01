@@ -37,6 +37,11 @@ public class RestResponseEntityExceptionHandler extends ResponseEntityExceptionH
 		return buildResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
 	}
 
+	@ExceptionHandler(value = { MturkClosedException.class })
+	protected ResponseEntity<Object> mturkClosed(MturkClosedException e, WebRequest request) {
+		return buildResponse(e.getMessage(), HttpStatus.GONE);
+	}
+
 	@ExceptionHandler(value = { MturkException.class })
 	protected ResponseEntity<Object> mturkError(MturkException e, WebRequest request) {
 		log.error("MTurk API error", e);

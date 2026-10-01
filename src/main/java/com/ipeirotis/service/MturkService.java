@@ -1,10 +1,10 @@
 package com.ipeirotis.service;
 
 import com.ipeirotis.entity.Survey;
+import com.ipeirotis.exception.MturkClosedException;
 import com.ipeirotis.util.SafeDecimalFormat;
 import io.micrometer.core.annotation.Timed;
 import jakarta.annotation.PreDestroy;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
@@ -62,9 +62,12 @@ public class MturkService {
     private final MTurkClient productionClient;
     private final MTurkClient sandboxClient;
 
-    // Amazon closed Mechanical Turk for workers and requesters after this date.
-    @Value("${mturk.closure-date:2026-09-30}")
-    private String closureDate;
+    /**
+     * Last day Mechanical Turk was available. Amazon shut the service down on
+     * this date; the dashboard caps its date range to match (SURVEY_END_DATE in
+     * static/vue/composables/useDateFilter.js).
+     */
+    public static final LocalDate CLOSURE_DATE = LocalDate.of(2026, 9, 30);
 
     public MturkService(AwsCredentialsProvider awsCredentialsProvider) {
         ClientOverrideConfiguration overrideConfig = ClientOverrideConfiguration.builder()
@@ -94,14 +97,19 @@ public class MturkService {
 
     /**
      * Returns true once the MTurk service has shut down (the UTC date is past
-     * {@code mturk.closure-date}). Callers should skip MTurk API calls then.
+     * {@link #CLOSURE_DATE}). Every API call made through this service throws
+     * {@link MturkClosedException} from then on.
      */
     public boolean isClosed() {
-        return LocalDate.now(ZoneOffset.UTC).isAfter(LocalDate.parse(closureDate));
+        return isClosedOn(LocalDate.now(ZoneOffset.UTC));
+    }
+
+    static boolean isClosedOn(LocalDate date) {
+        return date.isAfter(CLOSURE_DATE);
     }
 
     public String getAccountBalance() {
-        GetAccountBalanceResponse response = productionClient
+        GetAccountBalanceResponse response = getClient(true)
                 .getAccountBalance(GetAccountBalanceRequest.builder().build());
         return response.availableBalance();
     }
@@ -184,6 +192,9 @@ public class MturkService {
     }
 
     private MTurkClient getClient(Boolean production) {
+        if (isClosed()) {
+            throw new MturkClosedException("Amazon Mechanical Turk closed on " + CLOSURE_DATE);
+        }
         return (production != null && production) ? productionClient : sandboxClient;
     }
 
