@@ -24,6 +24,8 @@ from matplotlib import font_manager  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 from matplotlib.patches import Rectangle  # noqa: E402
 
+import music  # noqa: E402
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
 OUT = os.environ.get("OUT_DIR", os.path.join(HERE, "out"))
@@ -735,6 +737,9 @@ def main():
             idx, t = int(args[i]), float(args[i + 1])
             still(idx, t, os.path.join(OUT, f"still_{idx:02d}_{t:05.1f}.png"))
         return
+    if args == ["music"]:  # redo the soundtrack only, over the existing scenes
+        print(add_music())
+        return
     wanted = [i for i, s in enumerate(SCENES) if not args or s[0] in args]
     with Pool(min(len(wanted), os.cpu_count() or 2)) as pool:
         paths = pool.map(render_scene, wanted)
@@ -744,10 +749,21 @@ def main():
     lst = os.path.join(OUT, "scenes.txt")
     with open(lst, "w") as fh:
         fh.writelines(f"file '{os.path.basename(p)}'\n" for p in paths)
-    final = os.path.join(OUT, "mturk_tracker_homage.mp4")
+    print(add_music())
+
+
+def add_music():
+    lst = os.path.join(OUT, "scenes.txt")
+    silent = os.path.join(OUT, "video_only.mp4")
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst,
-                    "-c", "copy", "-movflags", "+faststart", final], check=True)
-    print(final)
+                    "-c", "copy", silent], check=True)
+    wav = music.render(os.path.join(OUT, "music.wav"), sum(s[1] for s in SCENES))
+    final = os.path.join(OUT, "mturk_tracker_homage.mp4")
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", silent, "-i", wav,
+                    "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                    "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ar", "48000", "-shortest",
+                    "-movflags", "+faststart", final], check=True)
+    return final
 
 
 if __name__ == "__main__":
