@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Renders "MTurk Tracker, 2015-2026", a ~2 minute homage video, from the
+"""Renders "MTurk Tracker, 2015-2026", a 3-minute square (1080×1080) homage video, from the
 aggregates in ./data (see fetch_data.sh).
 
     pip install matplotlib pandas numpy      # plus ffmpeg on PATH
@@ -31,7 +31,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
 OUT = os.environ.get("OUT_DIR", os.path.join(HERE, "out"))
 FPS = 30
-W, H = 1920, 1080
+W, H = 1080, 1080
 
 # ---------------------------------------------------------------- style
 BG = "#141413"
@@ -81,10 +81,11 @@ def seg(t, a, b, f=eout):
     return f((t - a) / (b - a))
 
 
-# Type scale, in points at 1920×1080. The floor (SMALL) is about 1/32 of the frame height,
-# so every line stays readable when the video plays on a phone.
-SMALL, LABEL, BODY = 24, 26, 30
-KICKER, TITLE = 24, 52
+# Type scale, in points on a 1080×1080 frame. A square frame plays almost full width on a
+# phone, and the floor (SMALL, about 1/23 of the frame) stays readable there.
+SMALL, LABEL, BODY = 34, 38, 44
+TITLE = 66
+M = 0.06  # side margin
 
 
 def txt(fig, x, y, s, size=BODY, color=INK, weight="regular", alpha=1.0, ha="left",
@@ -101,40 +102,22 @@ def rise(fig, t, t0, x, y, s, dur=0.7, dy=0.012, **kw):
     return txt(fig, x, y - dy * (1 - a), s, alpha=a, **kw)
 
 
-def chrome(fig, t, kicker, title):
+def headline(fig, t, *rows):
+    """One or two lines of title at the top of the frame."""
     a = seg(t, 0.1, 0.9)
-    txt(fig, 0.05, 0.915, kicker.upper(), size=KICKER, color=INK2, weight="semibold", alpha=a)
-    txt(fig, 0.05, 0.835 - 0.01 * (1 - a), title, size=TITLE, weight="bold", alpha=a,
-        family=DISPLAY)
+    for i, r in enumerate(rows):
+        txt(fig, M, 0.885 - i * 0.085 - 0.01 * (1 - a), r, size=TITLE, weight="bold", alpha=a,
+            family=DISPLAY)
 
 
 def footnote(fig, t, t0, s):
-    rise(fig, t, t0, 0.05, 0.035, s, size=SMALL, color=MUTED)
+    rise(fig, t, t0, M, 0.035, s, size=SMALL, color=MUTED)
 
 
-def legend(fig, items, x, y, alpha, dy=0.05, size=LABEL):
-    """Swatch + label rows; a (colour, "o") item draws a dot marker instead of a swatch."""
-    for i, (c, lab) in enumerate(items):
-        yy = y - i * dy
-        if isinstance(c, tuple):
-            fig.lines.append(matplotlib.lines.Line2D([x + 0.009], [yy + 0.011],
-                                                     transform=fig.transFigure, marker="o",
-                                                     ms=12, color=c[0], mec=BG, alpha=alpha))
-        else:
-            fig.patches.append(Rectangle((x, yy), 0.018, 0.026, transform=fig.transFigure,
-                                         color=c, alpha=alpha))
-        txt(fig, x + 0.027, yy + 0.002, lab, size=size, color=INK, alpha=alpha)
-
-
-def stat(fig, t, t0, x, y, number, label, size=64, color=INK, label_color=INK2):
-    """A headline number with a short caption under it."""
-    rise(fig, t, t0, x, y, number, size=size, weight="bold", family=DISPLAY, color=color)
-    rise(fig, t, t0 + 0.1, x, y - 0.05, label, size=LABEL, color=label_color)
-
-
-def lines(fig, t, t0, x, y, rows, size=BODY, color=INK, dy=0.05, **kw):
-    for i, r in enumerate(rows):
-        rise(fig, t, t0 + 0.1 * i, x, y - i * dy, r, size=size, color=color, **kw)
+def swatch(fig, x, y, c, alpha, label, size=LABEL):
+    fig.patches.append(Rectangle((x, y), 0.036, 0.036, transform=fig.transFigure, color=c,
+                                 alpha=alpha))
+    txt(fig, x + 0.05, y + 0.004, label, size=size, color=INK, alpha=alpha)
 
 
 def style_ax(ax, ygrid=True):
@@ -144,7 +127,7 @@ def style_ax(ax, ygrid=True):
     ax.spines["bottom"].set_color(AXIS)
     ax.tick_params(colors=INK2, labelsize=SMALL, length=0, pad=10)
     if ygrid:
-        ax.grid(axis="y", color=GRID, lw=1)
+        ax.grid(axis="y", color=GRID, lw=1.5)
     ax.set_axisbelow(True)
 
 
@@ -301,165 +284,150 @@ def year_mean(col, year):
 # ---------------------------------------------------------------- scenes
 def day_ticks(fig, t, lit, y=0.2, alpha=1.0):
     """96 small tiles: one day of 15-minute slots."""
-    ax = fig.add_axes([0.15, y, 0.7, 0.045])
+    ax = fig.add_axes([M, y, 1 - 2 * M, 0.05])
     ax.axis("off")
     ax.set_xlim(0, 96)
     ax.set_ylim(0, 1)
     colors = [BLUE if i < lit else GRID for i in range(96)]
-    ax.bar(np.arange(96) + 0.5, 1, width=0.7, color=colors, alpha=alpha, lw=0)
+    ax.bar(np.arange(96) + 0.5, 1, width=0.62, color=colors, alpha=alpha, lw=0)
 
 
-def bars_h(ax, labels, vals, grow, color=BLUE, value_fmt=None, highlight=None, xpad=1.7,
-           height=0.64):
+def bars_h(ax, labels, vals, grow, value_fmt=None, highlight=None, xpad=1.8, height=0.66,
+           size=LABEL):
     """Horizontal bars with the value printed at each bar's end."""
     style_ax(ax, ygrid=False)
     ax.spines["bottom"].set_visible(False)
     ax.set_xticks([])
     ypos = np.arange(len(vals))
-    ax.barh(ypos, vals * grow, height=height, color=color, lw=0)
+    ax.barh(ypos, vals * grow, height=height, color=BLUE, lw=0)
     ax.set_yticks(ypos)
-    ax.set_yticklabels(labels, fontsize=LABEL)
+    ax.set_yticklabels(labels, fontsize=size, color=INK2)
     ax.set_ylim(len(vals) - 0.4, -0.6)
     ax.set_xlim(0, vals.max() * xpad)
     for i, v in enumerate(vals):
         if grow[i] > 0.02:
             hi = highlight is not None and labels[i] == highlight
             lab = (value_fmt or pct)(v) + ("  ← median" if hi else "")
-            ax.text(v * grow[i] + vals.max() * 0.03, i, lab, va="center", fontsize=LABEL,
+            ax.text(v * grow[i] + vals.max() * 0.04, i, lab, va="center", fontsize=size,
                     color=INK if hi else INK2, alpha=grow[i],
-                    weight="semibold" if hi else "regular")
+                    weight="bold" if hi else "regular")
 
 
 def s_title(fig, t):
-    txt(fig, 0.5, 0.74, "AMAZON MECHANICAL TURK  ·  2005 – 2026", size=28, color=INK2,
-        weight="medium", ha="center", alpha=seg(t, 0.3, 1.2))
+    a1 = seg(t, 0.3, 1.2)
+    txt(fig, 0.5, 0.83, "AMAZON MECHANICAL TURK", size=SMALL, color=INK2, weight="semibold",
+        ha="center", alpha=a1)
+    txt(fig, 0.5, 0.785, "2005 – 2026", size=SMALL, color=INK2, ha="center", alpha=a1)
     a = seg(t, 0.9, 2.0)
-    txt(fig, 0.5, 0.555 + 0.015 * (1 - a), "MTurk Tracker", size=130, weight="bold",
-        ha="center", alpha=a, family=DISPLAY)
-    rise(fig, t, 1.7, 0.5, 0.455, "11.5 years of worker demographics", size=44, color=INK2,
-         ha="center")
+    for i, w in enumerate(("MTurk", "Tracker")):
+        txt(fig, 0.5, 0.575 - i * 0.19 + 0.015 * (1 - a), w, size=160, weight="bold",
+            ha="center", alpha=a, family=DISPLAY)
     first = pd.Timestamp(TOT.first_day)
     last = pd.Timestamp(TOT.last_day)
-    rise(fig, t, 2.4, 0.5, 0.375,
-         f"{first.day} {first:%B %Y}   →   {last.day} {last:%B %Y}", size=34, color=MUTED,
+    rise(fig, t, 1.8, 0.5, 0.27, f"{first:%b %Y}  →  {last:%b %Y}", size=48, color=INK2,
          ha="center")
-    day_ticks(fig, t, int(96 * seg(t, 1.2, 6.2, smooth)), y=0.2, alpha=seg(t, 0.8, 1.6))
-    rise(fig, t, 3.0, 0.5, 0.13, "a new HIT every 15 minutes: 96 a day", size=30,
+    day_ticks(fig, t, int(96 * seg(t, 1.2, 6.2, smooth)), y=0.15, alpha=seg(t, 0.8, 1.6))
+    rise(fig, t, 3.0, 0.5, 0.075, "a new survey HIT every 15 minutes", size=LABEL,
          color=INK2, ha="center")
 
 
 def s_calendar(fig, t):
-    chrome(fig, t, "Every 15 minutes, a new HIT", f"{TOT.days:,} days of answers")
     p = seg(t, 1.0, 10.0, smooth)
     now = START + (END + pd.Timedelta(days=1) - START) * p
     now64 = now.to_datetime64()
+    a = seg(t, 0.1, 0.9)
+    txt(fig, M, 0.885, f"{TOT.days:,} days", size=TITLE, weight="bold", family=DISPLAY, alpha=a)
+    txt(fig, 1 - M, 0.885, f"{min(now, END):%b %Y}", size=48, color=INK2, ha="right", alpha=a)
 
-    ax = fig.add_axes([0.1, 0.06, 0.54, 0.66])
+    ax = fig.add_axes([0.17, 0.31, 1 - M - 0.17, 0.5])
     style_ax(ax, ygrid=False)
     ax.spines["bottom"].set_visible(False)
     X, Y = np.meshgrid(np.arange(53), np.arange(len(YEARS) + 1))
     board = np.ma.masked_invalid(np.where(np.isnan(WEEKS), np.nan, 1.0))
     ax.pcolormesh(X, Y, board, cmap=LinearSegmentedColormap.from_list("b", ["#1e1e1c"] * 2),
-                  edgecolors=BG, linewidth=2.5)
+                  edgecolors=BG, linewidth=1.5)
     shown = np.where((WEEK_START <= now64) & ~np.isnan(WEEKS), WEEKS, np.nan)
     cmap = LinearSegmentedColormap.from_list("ramp", BLUE_RAMP)
     cmap.set_under(EMPTY)
     cmap.set_bad((0, 0, 0, 0))
     ax.pcolormesh(X, Y, np.ma.masked_invalid(shown), cmap=cmap, vmin=1, vmax=700,
-                  edgecolors=BG, linewidth=2.5)
+                  edgecolors=BG, linewidth=1.5)
     ax.set_xlim(0, 52)
     ax.set_ylim(len(YEARS), 0)
-    ax.set_yticks(np.arange(len(YEARS)) + 0.5)
-    ax.set_yticklabels([f"{y}" if y % 2 == 1 or y in (YEARS[0], YEARS[-1]) else ""
-                        for y in YEARS])
-    mstarts = [(pd.Timestamp(2021, m, 1).dayofyear - 1) / 7 for m in (1, 4, 7, 10)]
-    ax.set_xticks(mstarts)
-    ax.set_xticklabels(["Jan", "Apr", "Jul", "Oct"])
-    ax.xaxis.tick_top()
+    ax.set_yticks([YEARS.index(y) + 0.5 for y in (2015, 2020, 2025)])
+    ax.set_yticklabels(["2015", "2020", "2025"])
+    ax.set_xticks([])
 
     i = int(np.searchsorted(DAILY.d.values, now64, side="right")) - 1
     cn = DAILY.cum_n.iloc[i] if i >= 0 else 0
     cw = DAILY.cum_w.iloc[i] if i >= 0 else 0
     a = seg(t, 0.6, 1.4)
-    shown_date = min(now, END)
-    txt(fig, 0.68, 0.64, f"{shown_date:%b %Y}", size=76, weight="bold", family=DISPLAY, alpha=a)
-    txt(fig, 0.68, 0.50, fmt(cn), size=60, weight="semibold", family=DISPLAY, alpha=a)
-    txt(fig, 0.68, 0.455, "answers", size=LABEL, color=INK2, alpha=a)
-    txt(fig, 0.68, 0.35, fmt(cw), size=60, weight="semibold", family=DISPLAY, alpha=a)
-    txt(fig, 0.68, 0.305, "different workers", size=LABEL, color=INK2, alpha=a)
-
+    for x, n, lab in ((M, cn, "answers"), (0.54, cw, "workers")):
+        txt(fig, x, 0.165, fmt(n), size=80, weight="bold", family=DISPLAY, alpha=a)
+        txt(fig, x, 0.105, lab, size=LABEL, color=INK2, alpha=a)
     b = seg(t, 10.2, 11.0)
     if b > 0:
-        txt(fig, 0.68, 0.21, "answers per week", size=SMALL, color=INK2, alpha=b)
-        lax = fig.add_axes([0.68, 0.16, 0.24, 0.03])
-        lax.imshow(np.linspace(0, 1, 256)[None, :], aspect="auto", cmap=cmap, alpha=b)
-        lax.axis("off")
-        txt(fig, 0.68, 0.145, "0", size=SMALL, color=MUTED, alpha=b, va="top")
-        txt(fig, 0.92, 0.145, "700", size=SMALL, color=MUTED, alpha=b, va="top", ha="right")
-        legend(fig, [(EMPTY, "survey paused")], 0.68, 0.045, b, size=SMALL)
+        swatch(fig, M, 0.03, EMPTY, b, "survey paused", size=SMALL)
 
 
 def s_how_many(fig, t):
-    # Phase A: the number, centred. Phase B: it moves left and the breakdown appears.
+    # Phase A: the number, centred. Phase B: it moves to the top and the breakdown appears.
     m = seg(t, 4.0, 5.0, smooth)
     a0 = seg(t, 0.2, 1.0)
+    gone = 1 - seg(t, 3.6, 4.0, smooth)  # lines that leave before the number moves
     ha = "center" if m < 0.5 else "left"
-    k_alpha = a0 * (1 - 2 * min(m, 0.5)) + max(0, 2 * m - 1)
-    txt(fig, 0.5 * (1 - m) + 0.05 * m, 0.74 * (1 - m) + 0.915 * m,
-        "SOMEONE ASKED: HOW MANY TURKERS WERE THERE?", size=30 * (1 - m) + KICKER * m,
-        color=INK2, weight="semibold", ha=ha, alpha=k_alpha)
+    x = 0.5 * (1 - m) + M * m
+    txt(fig, 0.5, 0.70, "HOW MANY TURKERS?", size=44, color=INK2, weight="semibold",
+        ha="center", alpha=a0 * gone)
     n = TOT.workers * seg(t, 0.6, 3.2, eout)
-    x = 0.5 * (1 - m) + 0.05 * m
-    y = 0.47 * (1 - m) + 0.66 * m
-    txt(fig, x, y, fmt(n), size=170 * (1 - m) + 100 * m, weight="bold", family=DISPLAY, ha=ha,
+    y = 0.47 * (1 - m) + 0.84 * m
+    txt(fig, x, y, fmt(n), size=160 * (1 - m) + 110 * m, weight="bold", family=DISPLAY, ha=ha,
         alpha=a0)
-    txt(fig, x, y - 0.085 * (1 - m) - 0.065 * m, "different workers took the survey",
-        size=44 * (1 - m) + BODY * m, color=INK2, ha=ha, alpha=seg(t, 1.6, 2.4))
-    txt(fig, x, y - 0.16 * (1 - m) - 0.12 * m,
-        f"{fmt(TOT.responses)} answers  ·  {TOT.countries} countries",
-        size=34 * (1 - m) + LABEL * m, color=MUTED, ha=ha, alpha=seg(t, 2.4, 3.2))
-    if t < 4.5:
+    txt(fig, x, y - 0.1 * (1 - m) - 0.07 * m, "Turkers took the survey",
+        size=52 * (1 - m) + BODY * m, color=INK2, ha=ha, alpha=seg(t, 1.6, 2.4))
+    txt(fig, 0.5, 0.29, f"{fmt(TOT.responses)} answers · {TOT.countries} countries",
+        size=LABEL, color=MUTED, ha="center", alpha=seg(t, 2.4, 3.2) * gone)
+    if t < 5.0:
         return
-    rise(fig, t, 4.8, 0.47, 0.80, "Times each worker answered", size=40, weight="bold",
-         family=DISPLAY)
-    rise(fig, t, 5.0, 0.47, 0.75, "at most once a month", size=LABEL, color=INK2)
-    labels = list(BUCKETS.index)
-    vals = BUCKETS.values
-    grow = np.array([seg(t, 5.3 + 0.18 * i, 6.5 + 0.18 * i) for i in range(len(vals))])
-    ax = fig.add_axes([0.55, 0.06, 0.42, 0.63])
-    bars_h(ax, labels, vals, grow, xpad=1.75,
-           value_fmt=lambda v: f"{fmt(v)} · {pct(v / vals.sum())}")
+    rise(fig, t, 4.8, M, 0.66, "How often each answered", size=BODY, weight="semibold")
+    c = TASKDIST.set_index("cnt_tasks").cnt_workers
+    vals = np.array([c.get(1, 0), c.get(2, 0), c[(c.index >= 3) & (c.index <= 5)].sum(),
+                     c[c.index >= 6].sum()])
+    labels = ["once", "twice", "3–5×", "6+×"]
+    grow = np.array([seg(t, 5.3 + 0.2 * i, 6.5 + 0.2 * i) for i in range(len(vals))])
+    ax = fig.add_axes([0.22, 0.22, 1 - M - 0.22, 0.38])
+    ax.set_alpha(0)
+    bars_h(ax, labels, vals, grow,
+           value_fmt=lambda v: pct(v / vals.sum()), xpad=1.4, size=44)
+    for lab in ax.get_yticklabels():
+        lab.set_alpha(seg(t, 5.0, 5.8))
     first = pd.Timestamp(TOP.first_day)
     last = pd.Timestamp(TOP.last_day)
-    rise(fig, t, 8.6, 0.05, 0.40, "Most loyal Turker", size=BODY, color=INK2)
-    rise(fig, t, 8.8, 0.05, 0.32, f"{TOP.cnt} answers", size=64, weight="bold", family=DISPLAY)
-    rise(fig, t, 9.0, 0.05, 0.265, f"{first:%b %Y} → {last:%b %Y}", size=BODY, color=INK2)
-    once = vals[0] / vals.sum()
-    rise(fig, t, 10.4, 0.05, 0.14, f"{pct(once)} answered only once.", size=BODY, color=INK)
+    rise(fig, t, 8.6, M, 0.11, f"Most loyal: {TOP.cnt} answers", size=BODY, weight="semibold")
+    rise(fig, t, 8.8, M, 0.055, f"{first:%b %Y} → {last:%b %Y}", size=LABEL, color=INK2)
 
 
 def s_loyalty(fig, t):
-    chrome(fig, t, "How long did a Turker stay?", "Most came once. Some stayed a decade.")
+    headline(fig, t, "Most came once.", "Some stayed 10 years.")
     p = seg(t, 1.0, 7.5, smooth)
     xmax = SURV_X[-1]
-    ax = fig.add_axes([0.09, 0.15, 0.87, 0.58])
+    ax = fig.add_axes([0.15, 0.15, 1 - M - 0.15, 0.52])
     style_ax(ax)
     xr = 0.0001 + p * xmax
     k = SURV_X <= xr
-    ax.fill_between(SURV_X[k], 0, SURV.values[k] * 100, color=BLUE, alpha=0.18, lw=0, step="post")
-    ax.step(SURV_X[k], SURV.values[k] * 100, where="post", color=BLUE, lw=4)
+    ax.fill_between(SURV_X[k], 0, SURV.values[k] * 100, color=BLUE, alpha=0.2, lw=0, step="post")
+    ax.step(SURV_X[k], SURV.values[k] * 100, where="post", color=BLUE, lw=5)
     ax.set_xlim(0, 11.8)
     ax.set_ylim(0, 105)
     ax.set_yticks([0, 50, 100])
     ax.set_yticklabels(["0%", "50%", "100%"])
-    ax.set_xticks(range(0, 12, 2))
-    ax.set_xticklabels(["start"] + [f"{i} yr" for i in range(2, 12, 2)])
+    ax.set_xticks([0, 5, 10])
+    ax.set_xticklabels(["start", "5 yrs", "10 yrs"])
     total = SPAN.sum()
     notes = [  # (30-day bucket, label, label height in %, alignment)
-        (1, f"{pct(SURV.iloc[1])} came back later", 66, "left"),
-        (12, f"{pct(SURV.iloc[12])} still there after a year", 47, "left"),
-        (61, f"{pct(SURV.iloc[61], 1)} after 5 years", 33, "left"),
-        (122, f"{fmt(SURV.iloc[122] * total)} Turkers for 10+ years", 18, "right"),
+        (1, f"{pct(SURV.iloc[1])} came back", 70, "left"),
+        (12, f"{pct(SURV.iloc[12])} after a year", 45, "left"),
+        (122, f"{fmt(SURV.iloc[122] * total)} Turkers, 10+ yrs", 20, "right"),
     ]
     for kk, label, ty, align in notes:
         xk = SURV_X[kk]
@@ -468,121 +436,80 @@ def s_loyalty(fig, t):
         reached = 1.0 + 6.5 * (xk / xmax)
         a = seg(t, reached, reached + 0.6)
         yk = SURV.iloc[kk] * 100
-        ax.plot([xk, xk], [yk + 1.5, ty - 1], color=INK2, lw=1.5, alpha=a * 0.7)
-        ax.plot([xk], [yk], "o", ms=13, color=BLUE, mec=BG, mew=2.5, alpha=a)
-        ax.text(xk + (-0.08 if align == "right" else 0.08), ty, label, fontsize=BODY, color=INK,
+        ax.plot([xk, xk], [yk + 2, ty - 1.5], color=INK2, lw=2, alpha=a * 0.7)
+        ax.plot([xk], [yk], "o", ms=16, color=BLUE, mec=BG, mew=3, alpha=a)
+        ax.text(xk + (-0.12 if align == "right" else 0.12), ty, label, fontsize=BODY, color=INK,
                 alpha=a, va="bottom", ha=align)
-    footnote(fig, t, 8.5, "Share of workers whose last answer came this long after their first.")
 
 
 def s_halflife(fig, t):
-    chrome(fig, t, "How long did workers stay on MTurk?", "Turkers kept leaving sooner")
-    p = seg(t, 1.0, 5.5, smooth)
-    gmax = 24
-    ax = fig.add_axes([0.09, 0.15, 0.5, 0.55])
-    style_ax(ax)
-    colors = (BLUE, ORANGE, AQUA)
-    gaps = POP_RETURN.index[POP_RETURN.index <= gmax]
-    gr = 2 + p * (gmax - 2)
-    for c, era in zip(colors, POP_RETURN.columns):
-        v = POP_RETURN.loc[gaps, era]
-        k = gaps <= gr
-        ax.plot(gaps[k], v[k] * 100, color=c, lw=4.5, solid_capstyle="round")
-    ax.set_xlim(1.5, gmax + 0.5)
-    ax.set_ylim(0, 30)
-    ax.set_yticks([0, 10, 20, 30])
-    ax.set_yticklabels(["0%", "10%", "20%", "30%"])
-    ax.set_xticks([2, 12, 24])
-    ax.set_xticklabels(["2", "12", "24 months"])
-    txt(fig, 0.05, 0.74, "came back, by months since an answer", size=LABEL, color=INK2,
-        alpha=seg(t, 0.6, 1.4))
-
-    rise(fig, t, 2.0, 0.64, 0.68, "Half were gone within", size=BODY, color=INK2)
-    for i, (c, row) in enumerate(zip(colors, POP_HALF.itertuples())):
-        y = 0.60 - i * 0.145
-        a = seg(t, 2.6 + 1.2 * i, 3.4 + 1.2 * i)
-        legend(fig, [(c, row.era)], 0.64, y, a)
+    headline(fig, t, "Turkers left", "sooner and sooner")
+    rise(fig, t, 1.2, M, 0.68, "half were gone within", size=BODY, color=INK2)
+    for i, (c, row) in enumerate(zip((BLUE, ORANGE, AQUA), POP_HALF.itertuples())):
+        y = 0.58 - i * 0.19
+        a = seg(t, 2.0 + 1.6 * i, 2.8 + 1.6 * i)
+        swatch(fig, M, y, c, a, row.era, size=LABEL)
         months = row.half_life_days / 30.44
-        txt(fig, 0.667, y - 0.068, f"{months:.0f} months", size=56, weight="bold",
-            family=DISPLAY, alpha=a)
-    lines(fig, t, 7.2, 0.64, 0.16, ["Even the regulars", "stopped sticking around."])
-    footnote(fig, t, 7.8, "Open-population capture–recapture (Difallah, Filatova & Ipeirotis, "
-                          "WSDM 2018)")
+        txt(fig, M, y - 0.105, f"{months:.0f} months", size=96, weight="bold", family=DISPLAY,
+            alpha=a)
+    footnote(fig, t, 8.0, "Capture–recapture, open-population model")
 
 
 def s_population(fig, t):
-    chrome(fig, t, "So how many Turkers were there?", "We met 157K. There were far more.")
-    ax = fig.add_axes([0.09, 0.15, 0.48, 0.55])
-    style_ax(ax)
-    kmax = 40
-    d = POP_SEEN[POP_SEEN.k <= kmax]
-    a1 = seg(t, 1.0, 2.0)
-    ax.bar(d.k, d.equal.clip(lower=0.8), width=0.7, color=AXIS, lw=0, alpha=a1)
-    pk = 1 + (kmax - 1) * seg(t, 2.8, 5.8, smooth)
-    o = d[(d.k <= pk) & (d.observed > 0)]
-    ax.plot(o.k, o.observed, "o", ms=10, color=BLUE, mec=BG, mew=1.5)
-    ax.set_yscale("log")
-    ax.set_ylim(0.8, 3e5)
-    ax.set_yticks([1, 100, 10000])
-    ax.set_yticklabels(["1", "100", "10K"])
-    ax.minorticks_off()
-    ax.set_xlim(0, kmax + 1)
-    ax.set_xticks([1, 20, 40])
-    ax.set_xticklabels(["1", "20", "40 months"])
-    txt(fig, 0.05, 0.74, "workers, by months in which they answered", size=LABEL, color=INK2,
-        alpha=a1)
-    legend(fig, [(AXIS, "if all were alike"), ((BLUE, "o"), "what we saw")], 0.27, 0.62,
-           a1, dy=0.055)
-
+    headline(fig, t, "How many Turkers", "were there?")
     T_ = POP_TOTAL
-    mix_lo, mix_hi = T_.mix4_N, T_.mix6_N
-    stat(fig, t, 1.5, 0.63, 0.66, fmt(T_.workers), "workers we met", size=56)
-    stat(fig, t, 4.0, 0.63, 0.50, f"~{fmt(round(T_.equal_N, -3))}", "if all were alike: too low",
-         size=56, color=MUTED, label_color=MUTED)
-    stat(fig, t, 6.6, 0.63, 0.33, f"≥ {fmt(round(T_.chao, -3))}",
-         "lower bound, any propensities", size=72)
-    stat(fig, t, 8.6, 0.63, 0.17,
-         f"{round(mix_lo, -4) / 1000:.0f}K – {round(mix_hi, -4) / 1000:.0f}K",
-         "skewed-propensity models", size=56)
-    footnote(fig, t, 9.0, "Lower bound: Chao (1987).  Models: binomial mixtures, 4–6 classes.")
+    scale = 400_000
+    width = 1 - 2 * M
+    rows = [  # (label, value, shown as, colour, start time)
+        ("we met", T_.workers, fmt(T_.workers), BLUE, 1.0),
+        ("on MTurk, at least", round(T_.chao, -3), f"{fmt(round(T_.chao, -3))}", AQUA, 4.0),
+    ]
+    for i, (lab, v, shown, c, t0) in enumerate(rows):
+        y = 0.56 - i * 0.22
+        g = seg(t, t0, t0 + 1.5, smooth)
+        rise(fig, t, t0, M, y + 0.075, lab, size=BODY, color=INK2)
+        fig.patches.append(Rectangle((M, y - 0.045), width * v / scale * g, 0.11,
+                                     transform=fig.transFigure, color=c, lw=0))
+        txt(fig, M + 0.02, y - 0.012, shown, size=60, weight="bold", family=DISPLAY,
+            alpha=seg(t, t0 + 1.0, t0 + 1.6))
+    a = seg(t, 7.5, 8.5)
+    lo, hi = round(T_.mix4_N, -4), round(T_.mix6_N, -4)
+    y = 0.34
+    fig.patches.append(Rectangle((M + width * T_.chao / scale, y - 0.045),
+                                 width * (hi - T_.chao) / scale * a, 0.11,
+                                 transform=fig.transFigure, color=AQUA, alpha=0.4, lw=0))
+    rise(fig, t, 7.5, M, 0.15, f"models: {lo / 1000:.0f}K – {hi / 1000:.0f}K", size=BODY,
+         color=INK)
+    footnote(fig, t, 9.0, "Lower bound: Chao (1987)")
 
 
 def s_years(fig, t):
-    chrome(fig, t, "Year by year", "Each year, tens of thousands unseen")
-    ax = fig.add_axes([0.09, 0.15, 0.56, 0.5])
+    headline(fig, t, "Workers on MTurk", "each year, at least")
+    ax = fig.add_axes([0.15, 0.29, 1 - M - 0.15, 0.4])
     style_ax(ax)
     yrs = POP_YEARS.year.values
     grow = np.array([seg(t, 1.0 + 0.25 * i, 2.0 + 0.25 * i) for i in range(len(yrs))])
-    ax.bar(yrs - 0.2, POP_YEARS.chao * grow, width=0.38, color=AQUA, lw=0)
-    ax.bar(yrs + 0.2, POP_YEARS.workers * grow, width=0.38, color=BLUE, lw=0)
-    for i, (y, v) in enumerate(zip(yrs, POP_YEARS.chao)):
-        if grow[i] > 0.3 and i % 2 == 1 or (grow[i] > 0.3 and v == POP_YEARS.chao.max()):
-            ax.text(y - 0.2, v * grow[i] + 1200, f"{v / 1000:.0f}K", ha="center",
-                    fontsize=SMALL, color=INK, alpha=grow[i])
+    ax.bar(yrs, POP_YEARS.chao * grow, width=0.7, color=AQUA, lw=0)
     ax.set_xlim(yrs[0] - 0.6, yrs[-1] + 0.6)
-    ax.set_ylim(0, 70000)
+    ax.set_ylim(0, 66000)
     ax.set_yticks([0, 30000, 60000])
     ax.set_yticklabels(["0", "30K", "60K"])
-    ax.set_xticks(yrs[::2])
-    ax.set_xticklabels([f"{y}" for y in yrs[::2]])
-    legend(fig, [(AQUA, "on MTurk, at least"), (BLUE, "answered our survey")], 0.09, 0.715,
-           seg(t, 1.0, 1.8), dy=0.055)
+    ax.set_xticks([2015, 2020, 2025])
     early = POP_YEARS[POP_YEARS.year <= 2022].chao
     late = POP_YEARS[POP_YEARS.year >= 2023].chao
-    stat(fig, t, 5.0, 0.70, 0.60, f"{early.min() / 1000:.0f}–{early.max() / 1000:.0f}K",
-         "a year, 2015–2022", size=72)
-    stat(fig, t, 6.4, 0.70, 0.40, f"{late.min() / 1000:.0f}–{late.max() / 1000:.0f}K",
-         "a year, 2023–2026", size=72)
-    lines(fig, t, 7.8, 0.70, 0.22, ["The pool roughly", "halved at the end."])
-    footnote(fig, t, 8.4, "Chao (1987) lower bound within each calendar year.")
+    for x, t0, rng, lab in ((M, 5.0, early, "a year, 2015–22"), (0.54, 6.4, late,
+                                                                "a year, 2023–26")):
+        rise(fig, t, t0, x, 0.13, f"{rng.min() / 1000:.0f}–{rng.max() / 1000:.0f}K", size=80,
+             weight="bold", family=DISPLAY)
+        rise(fig, t, t0 + 0.1, x, 0.075, lab, size=LABEL, color=INK2)
 
 
 def s_where(fig, t):
-    chrome(fig, t, "Where they worked from", "Mostly American, more so every year")
+    headline(fig, t, "Mostly American,", "more so every year")
     p = seg(t, 1.0, 6.0, smooth)
     x0, x1 = MONTHLY.x.min() - 1 / 24, MONTHLY.x.max() + 1 / 24
     xr = x0 + p * (x1 - x0)
-    ax = fig.add_axes([0.09, 0.15, 0.55, 0.58])
+    ax = fig.add_axes([0.15, 0.3, 1 - M - 0.15, 0.4])
     style_ax(ax, ygrid=False)
     x = MONTHLY.x.values
     us, ind = MONTHLY.us.values, MONTHLY.india.values
@@ -591,150 +518,117 @@ def s_where(fig, t):
     for lo, hi, c in layers:
         ax.fill_between(x, np.asarray(lo) * 100, hi * 100, color=c, lw=0, step="mid",
                         clip_path=clip)
-        line, = ax.step(x, hi * 100, where="mid", color=BG, lw=2)
-        line.set_clip_path(clip)
     ax.set_xlim(x0, x1)
     ax.set_ylim(0, 100)
     ax.set_yticks([0, 50, 100])
     ax.set_yticklabels(["0%", "50%", "100%"])
     ax.set_xticks([2016, 2020, 2024])
-    ax.text(2016.0, 38, "United States", fontsize=40, color=INK, weight="bold",
-            alpha=seg(t, 2.0, 2.8))
-    ax.text(2019.3, 74, "India", fontsize=32, color=INK, weight="bold", alpha=seg(t, 2.6, 3.4))
-    ax.text(2021.2, 89.5, "Elsewhere", fontsize=LABEL, color=INK, weight="bold",
-            alpha=seg(t, 3.0, 3.8))
-
-    rise(fig, t, 2.0, 0.69, 0.70, "Top countries", size=BODY, weight="semibold")
-    for i, (c, n) in enumerate(TOP_COUNTRIES.head(7).items()):
-        y = 0.63 - i * 0.065
-        b = seg(t, 2.4 + 0.25 * i, 3.1 + 0.25 * i)
-        txt(fig, 0.69, y, COUNTRY_NAMES.get(c, c), size=LABEL, color=INK, alpha=b)
-        txt(fig, 0.965, y, fmt(n), size=LABEL, color=INK2, alpha=b, ha="right")
-    rise(fig, t, 5.0, 0.69, 0.63 - 7 * 0.065,
-         f"+ {TOT.countries - 7} more countries", size=LABEL, color=MUTED)
+    a = seg(t, 1.5, 2.3)
+    for i, (c, lab) in enumerate(((BLUE, "US"), (ORANGE, "India"), (AQUA, "other"))):
+        swatch(fig, M + i * 0.3, 0.17, c, a, lab, size=BODY)
     y0, y1 = YEARS[0], YEARS[-1]
-    footnote(fig, t, 6.4, f"Share of answers.  India: {pct(CY_IN[y0])} in {y0}, "
-                          f"{pct(CY_IN[y1])} in {y1}.")
+    rise(fig, t, 6.4, M, 0.06, f"India: {pct(CY_IN[y0])} → {pct(CY_IN[y1])} of answers",
+         size=BODY)
 
 
 def s_us_india(fig, t):
-    chrome(fig, t, "Two workforces", "US and Indian Turkers differed")
+    headline(fig, t, "US vs India:", "two workforces")
     us, ind = US_IN.loc["US"], US_IN.loc["IN"]
-    metrics = [("Women", "female"), ("Married", "married"), ("Bachelor's or more", "college"),
-               ("Graduate degree", "graduate"), ("20+ hours a week", "hours20"),
-               ("Income under $10K", "income_lt10k"), ("Household of 4+", "household4")]
-    ax = fig.add_axes([0.28, 0.11, 0.38, 0.56])
+    metrics = [("Women", "female"), ("Degree", "college"), ("20+ h/week", "hours20"),
+               ("Under $10K", "income_lt10k")]
+    ax = fig.add_axes([0.4, 0.12, 1 - M - 0.4, 0.5])
     style_ax(ax, ygrid=False)
     ax.spines["bottom"].set_visible(False)
     ax.set_xticks([])
     ypos = np.arange(len(metrics))
-    grow = np.array([seg(t, 1.2 + 0.3 * i, 2.2 + 0.3 * i) for i in range(len(metrics))])
+    grow = np.array([seg(t, 1.2 + 0.4 * i, 2.2 + 0.4 * i) for i in range(len(metrics))])
     vu = np.array([us[c] for _, c in metrics])
     vi = np.array([ind[c] for _, c in metrics])
-    ax.barh(ypos - 0.2, vu * grow, height=0.38, color=BLUE, lw=0)
-    ax.barh(ypos + 0.2, vi * grow, height=0.38, color=ORANGE, lw=0)
+    ax.barh(ypos - 0.21, vu * grow, height=0.4, color=BLUE, lw=0)
+    ax.barh(ypos + 0.21, vi * grow, height=0.4, color=ORANGE, lw=0)
     for i in range(len(metrics)):
         if grow[i] > 0.05:
-            ax.text(vu[i] * grow[i] + 0.015, i - 0.2, pct(vu[i]), va="center", fontsize=SMALL,
-                    color=INK, alpha=grow[i])
-            ax.text(vi[i] * grow[i] + 0.015, i + 0.2, pct(vi[i]), va="center", fontsize=SMALL,
-                    color=INK, alpha=grow[i])
+            for v, off in ((vu[i], -0.21), (vi[i], 0.21)):
+                ax.text(v * grow[i] + 0.02, i + off, pct(v), va="center", fontsize=SMALL,
+                        color=INK, alpha=grow[i])
     ax.set_yticks(ypos)
-    ax.set_yticklabels([m for m, _ in metrics], fontsize=LABEL)
+    ax.set_yticklabels([m for m, _ in metrics], fontsize=LABEL, color=INK2)
     ax.set_ylim(len(metrics) - 0.45, -0.65)
-    ax.set_xlim(0, 1.12)
-    legend(fig, [(BLUE, f"United States · median age {us.median_age:.0f}"),
-                 (ORANGE, f"India · median age {ind.median_age:.0f}")],
-           0.28, 0.735, seg(t, 1.0, 1.8), dy=0.05)
-    ratio = ind.income_lt10k / us.income_lt10k
-    lines(fig, t, 4.6, 0.70, 0.55, ["Indian Turkers were", "more educated and",
-                                    "worked more hours,"])
-    lines(fig, t, 5.8, 0.70, 0.36, [f"yet {ratio:.0f}× as likely to", "report a household",
-                                    "income under $10K."])
-    footnote(fig, t, 7.0, "Answers from 2015–2022.")
+    ax.set_xlim(0, 1.2)
+    a = seg(t, 1.0, 1.8)
+    swatch(fig, M, 0.68, BLUE, a, "US", size=BODY)
+    swatch(fig, 0.36, 0.68, ORANGE, a, "India", size=BODY)
+    footnote(fig, t, 6.0, "answers from 2015–2022")
 
 
 def s_languages(fig, t):
     total = LANG_COUNTS.n.sum()
-    chrome(fig, t, "Languages spoken", f"{LANGS.lang.nunique()} languages, one marketplace")
+    headline(fig, t, f"{LANGS.lang.nunique()} languages,", "one marketplace")
     tab = LANGS.pivot_table(index="lang", columns="grp", values="n", aggfunc="sum", fill_value=0)
     tab = tab.drop("English").assign(tot=lambda d: d.sum(axis=1)).sort_values("tot",
                                                                             ascending=False)
-    top = tab.head(10)
-    ax = fig.add_axes([0.18, 0.1, 0.45, 0.56])
+    top = tab.head(6)
+    ax = fig.add_axes([0.4, 0.17, 1 - M - 0.4, 0.44])
     style_ax(ax, ygrid=False)
     ax.spines["bottom"].set_visible(False)
     ax.set_xticks([])
     ypos = np.arange(len(top))
-    grow = np.array([seg(t, 1.2 + 0.15 * i, 2.2 + 0.15 * i) for i in range(len(top))])
+    grow = np.array([seg(t, 1.2 + 0.2 * i, 2.2 + 0.2 * i) for i in range(len(top))])
     left = np.zeros(len(top))
     for grp, c in (("US", BLUE), ("IN", ORANGE), ("other", AQUA)):
         w = top[grp].values / total * 100 * grow
-        ax.barh(ypos, w, left=left, height=0.68, color=c, lw=1.5, edgecolor=BG)
+        ax.barh(ypos, w, left=left, height=0.7, color=c, lw=2, edgecolor=BG)
         left += w
     for i, v in enumerate(top.tot.values):
         if grow[i] > 0.05:
-            ax.text(left[i] + 0.08, i, f"{v / total * 100:.1f}%", va="center", fontsize=SMALL,
+            ax.text(left[i] + 0.1, i, f"{v / total * 100:.0f}%", va="center", fontsize=SMALL,
                     color=INK2, alpha=grow[i])
     ax.set_yticks(ypos)
-    ax.set_yticklabels([LANG_NAMES.get(x, x) for x in top.index], fontsize=LABEL)
+    ax.set_yticklabels([LANG_NAMES.get(x, x) for x in top.index], fontsize=BODY, color=INK2)
     ax.set_ylim(len(top) - 0.4, -0.6)
     ax.set_xlim(0, top.tot.max() / total * 100 * 1.25)
     a = seg(t, 1.0, 1.8)
-    for i, (c, lab) in enumerate(((BLUE, "US"), (ORANGE, "India"), (AQUA, "elsewhere"))):
-        legend(fig, [(c, lab)], 0.18 + i * 0.11, 0.725, a)
-
-    eng = LANGS[LANGS.lang == "English"].n.sum() / total
-    multi = LANG_COUNTS[LANG_COUNTS.k >= 2].n.sum() / total
-    rank = list(tab.index).index("Tamil") + 2  # +1 for English, +1 for 1-based
-    stat(fig, t, 3.6, 0.70, 0.60, pct(eng), "listed English")
-    stat(fig, t, 4.8, 0.70, 0.42, pct(multi), "listed two or more")
-    ordinal = {2: "second", 3: "third", 4: "fourth"}.get(rank, f"#{rank}")
-    lines(fig, t, 6.4, 0.70, 0.24, [f"Tamil ranked {ordinal},", "ahead of Hindi."])
-    footnote(fig, t, 7.2, "Share of answers naming each language besides English.")
+    for i, (c, lab) in enumerate(((BLUE, "US"), (ORANGE, "India"), (AQUA, "other"))):
+        swatch(fig, M + i * 0.3, 0.68, c, a, lab, size=LABEL)
+    rise(fig, t, 6.0, M, 0.06, "Tamil ranked third, above Hindi", size=BODY)
 
 
 def s_gender(fig, t):
-    chrome(fig, t, "Who they were", "The gender balance swung both ways")
+    headline(fig, t, "The gender balance", "swung both ways")
     p = seg(t, 1.0, 6.5, smooth)
     df = FULL_MONTHS.copy()
     df["roll"] = df.female.rolling(3, center=True, min_periods=1).mean()
     x0, x1 = 2015.2, 2026.8
     xr = x0 + p * (x1 - x0)
-    ax = fig.add_axes([0.09, 0.12, 0.87, 0.58])
+    ax = fig.add_axes([0.15, 0.12, 1 - M - 0.15, 0.5])
     style_ax(ax)
     d = df[df.x <= xr]
-    ax.axhline(50, color=MUTED, lw=1.5, ls=(0, (4, 4)))
-    ax.text(2020.4, 51, "50 / 50", fontsize=SMALL, color=MUTED, ha="center", va="bottom")
-    ax.plot(d.x, d.female * 100, color=BLUE, lw=1.5, alpha=0.35)
-    ax.plot(d.x, d.roll * 100, color=BLUE, lw=5, solid_capstyle="round")
+    ax.axhline(50, color=MUTED, lw=2, ls=(0, (4, 4)))
+    ax.plot(d.x, d.roll * 100, color=BLUE, lw=6, solid_capstyle="round")
     ax.set_xlim(x0, x1)
-    ax.set_ylim(15, 75)
-    ax.set_yticks([20, 40, 60])
-    ax.set_yticklabels(["20%", "40%", "60%"])
+    ax.set_ylim(3, 75)
+    ax.set_yticks([20, 50])
+    ax.set_yticklabels(["20%", "50%"])
     ax.set_xticks([2016, 2020, 2024])
-    txt(fig, 0.05, 0.74, "women, share of answers", size=LABEL, color=INK2,
-        alpha=seg(t, 0.6, 1.4))
+    txt(fig, M, 0.68, "women, share of answers", size=LABEL, color=INK2, alpha=seg(t, 0.6, 1.4))
     lo = df.loc[df.roll.idxmin()]
     marks = [  # (x, y, label, vertical offset, alignment)
-        (df.x.iloc[8], df.roll.iloc[8], f"{YEARS[0]}: {pct(year_mean('female', YEARS[0]))}", 5,
-         "left"),
-        (lo.x, lo.roll, f"{lo.m:%b %Y}: {pct(lo.roll)}", -5, "center"),
-        (df.x.iloc[-4], df.roll.iloc[-4], f"{YEARS[-1]}: {pct(year_mean('female', YEARS[-1]))}",
-         6, "right"),
+        (df.x.iloc[8], df.roll.iloc[8], pct(year_mean("female", YEARS[0])), 6, "center"),
+        (lo.x, lo.roll, pct(lo.roll), -4, "center"),
+        (df.x.iloc[-4], df.roll.iloc[-4], pct(year_mean("female", YEARS[-1])), 6, "right"),
     ]
     for mx, my, label, off, align in marks:
         if xr < mx:
             continue
         reached = 1.0 + 5.5 * (mx - x0) / (x1 - x0)
         a = seg(t, reached, reached + 0.6)
-        ax.plot([mx], [my * 100], "o", ms=14, color=BLUE, mec=BG, mew=2.5, alpha=a)
-        ax.text(mx, my * 100 + off, label, fontsize=34, color=INK, weight="semibold", alpha=a,
-                ha=align, va="bottom" if off > 0 else "top")
+        ax.plot([mx], [my * 100], "o", ms=18, color=BLUE, mec=BG, mew=3, alpha=a)
+        ax.text(mx, my * 100 + off, label, fontsize=60, color=INK, weight="bold", alpha=a,
+                ha=align, va="bottom" if off > 0 else "top", family=DISPLAY)
 
 
 def s_age(fig, t):
-    chrome(fig, t, "How old they were", "New generations, about the same age")
+    headline(fig, t, "New generations,", "same median age")
     pos = (len(YEARS) - 1) * seg(t, 1.2, 9.5, lambda v: clamp(v))
     i0 = int(np.floor(pos))
     i1 = min(i0 + 1, len(YEARS) - 1)
@@ -743,114 +637,86 @@ def s_age(fig, t):
     share = YOB_SHARE[y0] * (1 - f) + YOB_SHARE[y1] * f
     yr = YEARS[int(round(pos))]
     med = YOB_MED[y0] * (1 - f) + YOB_MED[y1] * f
-    ax = fig.add_axes([0.09, 0.12, 0.56, 0.56])
-    style_ax(ax)
     a = seg(t, 0.6, 1.4)
-    ax.bar(YOB_BINS, share * 100, width=0.72, color=BLUE, lw=0, alpha=a)
+    txt(fig, M, 0.62, str(yr), size=90, weight="bold", family=DISPLAY, alpha=a)
+    txt(fig, 1 - M, 0.62, f"median age {yr - YOB_MED[yr]}", size=BODY, ha="right", alpha=a)
+    ax = fig.add_axes([0.15, 0.2, 1 - M - 0.15, 0.36])
+    style_ax(ax)
+    ax.bar(YOB_BINS, share * 100, width=0.75, color=BLUE, lw=0, alpha=a)
     top = np.ceil(YOB_MAX * 100 / 10) * 10
-    ax.axvline(med, color=INK, lw=2.5, alpha=a * 0.9)
-    ax.text(med, top * 1.02, "median", fontsize=SMALL, color=INK, alpha=a, va="bottom",
-            ha="center")
+    ax.axvline(med, color=INK, lw=3, alpha=a * 0.9)
     ax.set_xlim(1944, 2007)
     ax.set_ylim(0, top)
-    ticks = np.arange(0, top + 0.1, 10)
-    ax.set_yticks(ticks)
-    ax.set_yticklabels([f"{v:.0f}%" for v in ticks])
+    ax.set_yticks([0, 10, 20])
+    ax.set_yticklabels(["0%", "10%", "20%"])
     ax.set_xticks([1950, 1970, 1990])
-    txt(fig, 0.05, 0.74, "year of birth, share of answers", size=LABEL, color=INK2, alpha=a)
-    txt(fig, 0.70, 0.60, str(yr), size=120, weight="bold", family=DISPLAY, alpha=a)
-    txt(fig, 0.70, 0.51, f"median age {yr - YOB_MED[yr]}", size=36, color=INK, alpha=a)
-    txt(fig, 0.70, 0.46, f"born {YOB_MED[yr]}", size=BODY, color=INK2, alpha=a)
     first, last = YEARS[0], YEARS[-1]
-    lines(fig, t, 10.0, 0.70, 0.35,
-          [f"Born: {YOB_MED[first]} → {YOB_MED[last]}",
-           f"Age: {first - YOB_MED[first]} → {last - YOB_MED[last]}"])
-    peak_year = max(YOB_SHARE, key=lambda y: YOB_SHARE[y][YOB_BINS == 1990][0])
-    peak = YOB_SHARE[peak_year][YOB_BINS == 1990][0]
-    base = YOB_SHARE[first][YOB_BINS == 1990][0]
-    lines(fig, t, 11.0, 0.70, 0.19,
-          ["“Born in 1990”:", f"{pct(base)} ({first}) → {pct(peak)} ({peak_year})"],
-          size=LABEL, color=INK2, dy=0.045)
+    rise(fig, t, 10.0, M, 0.06,
+         f"born {YOB_MED[first]} → {YOB_MED[last]}, age {first - YOB_MED[first]} → "
+         f"{last - YOB_MED[last]}", size=BODY)
 
 
 def s_households(fig, t):
-    chrome(fig, t, "At home, in the US", "Middle income, often families")
-    for j, (s_, labels, title, tx, axr) in enumerate((
-            (INCOME_S, INCOME_LABELS, "Household income", 0.05, [0.17, 0.06, 0.29, 0.6]),
-            (SIZE_S, SIZE_LABELS, "Household size", 0.52, [0.65, 0.06, 0.29, 0.6]))):
-        rise(fig, t, 0.8 + 0.3 * j, tx, 0.72, title, size=36, weight="semibold")
-        grow = np.array([seg(t, 1.3 + 0.3 * j + 0.12 * i, 2.3 + 0.3 * j + 0.12 * i)
-                         for i in range(len(s_))])
-        bars_h(fig.add_axes(axr), labels, s_.values, grow, highlight=median_label(s_, labels),
-               xpad=2.0)
+    headline(fig, t, "Middle-income", "households")
+    rise(fig, t, 0.6, M, 0.68, "US workers, household income", size=LABEL, color=INK2)
+    grow = np.array([seg(t, 1.3 + 0.15 * i, 2.3 + 0.15 * i) for i in range(len(INCOME_S))])
+    bars_h(fig.add_axes([0.27, 0.06, 1 - M - 0.27, 0.57]), INCOME_LABELS, INCOME_S.values, grow,
+           highlight=median_label(INCOME_S, INCOME_LABELS), xpad=2.1, size=SMALL)
 
 
 def s_answers(fig, t):
-    chrome(fig, t, "Answers that moved", "Some answers changed too fast")
+    headline(fig, t, "Some answers", "changed too fast")
     p = seg(t, 1.0, 6.5, smooth)
     df = FULL_MONTHS.copy()
     df["mar"] = df.married.rolling(3, center=True, min_periods=1).mean()
     df["col"] = df.college.rolling(3, center=True, min_periods=1).mean()
     x0, x1 = 2015.2, 2026.8
     xr = x0 + p * (x1 - x0)
-    ax = fig.add_axes([0.09, 0.16, 0.54, 0.48])
+    ax = fig.add_axes([0.15, 0.3, 1 - M - 0.15, 0.32])
     style_ax(ax)
     d = df[df.x <= xr]
-    ax.plot(d.x, d.mar * 100, color=BLUE, lw=5, solid_capstyle="round")
+    ax.plot(d.x, d.mar * 100, color=BLUE, lw=6, solid_capstyle="round")
     dc = d[d.col.notna()]
-    ax.plot(dc.x, dc.col * 100, color=ORANGE, lw=5, solid_capstyle="round")
+    ax.plot(dc.x, dc.col * 100, color=ORANGE, lw=6, solid_capstyle="round")
     ax.set_xlim(x0, x1)
     ax.set_ylim(0, 105)
     ax.set_yticks([0, 50, 100])
     ax.set_yticklabels(["0%", "50%", "100%"])
     ax.set_xticks([2016, 2020, 2024])
-    legend(fig, [(BLUE, "married"), (ORANGE, "bachelor's or more")], 0.09, 0.715,
-           seg(t, 1.0, 1.8), dy=0.055)
     col0 = df[df.college.notna()]
     col_y1 = int(col0.m.dt.year.iloc[0]) + 1
     y0, y1 = YEARS[0], YEARS[-1]
-    stat(fig, t, 3.0, 0.68, 0.64,
-         f"{pct(year_mean('married', y0))} → {pct(year_mean('married', y1))}",
-         f"married, {y0} → {y1}")
-    stat(fig, t, 4.8, 0.68, 0.45,
-         f"{pct(year_mean('college', col_y1))} → {pct(year_mean('college', y1))}",
-         f"bachelor's+, {col_y1} → {y1}")
-    lines(fig, t, 7.6, 0.68, 0.27, ["Shifts this fast deserve", "a close look at who, or",
-                                    "what, is answering."])
-    footnote(fig, t, 8.5, "Education question added in mid-2017.")
+    for x, c, lab, t0, v0, v1 in (
+            (M, BLUE, "married", 3.0, year_mean("married", y0), year_mean("married", y1)),
+            (0.54, ORANGE, "degree", 4.8, year_mean("college", col_y1),
+             year_mean("college", y1))):
+        a = seg(t, 1.0, 1.8)
+        swatch(fig, x, 0.68, c, a, lab, size=BODY)
+        rise(fig, t, t0, x, 0.1, f"{pct(v0)} → {pct(v1)}", size=56, weight="bold",
+             family=DISPLAY)
 
 
 def s_work(fig, t):
-    chrome(fig, t, "What the work looked like", "A side income, not a salary")
-    for j, (s_, labels, title, tx, axr) in enumerate((
-            (HOURS_S, HOURS_LABELS, "Hours a week on MTurk", 0.05, [0.14, 0.08, 0.31, 0.58]),
-            (PAY_S, PAY_LABELS, "Earned a week on MTurk", 0.52, [0.64, 0.08, 0.31, 0.58]))):
-        rise(fig, t, 0.8 + 0.3 * j, tx, 0.72, title, size=36, weight="semibold")
-        grow = np.array([seg(t, 1.3 + 0.3 * j + 0.12 * i, 2.3 + 0.3 * j + 0.12 * i)
-                         for i in range(len(s_))])
-        bars_h(fig.add_axes(axr), labels, s_.values, grow, highlight=median_label(s_, labels),
-               xpad=2.0, height=0.7)
-    top = PAY_S.iloc[-2:].sum()
-    footnote(fig, t, 5.0, f"Only {pct(top, 1)} earned $200+ a week.  Questions added in 2017.")
+    headline(fig, t, "A side income,", "not a salary")
+    rise(fig, t, 0.6, M, 0.68, "earned on MTurk per week", size=LABEL, color=INK2)
+    grow = np.array([seg(t, 1.3 + 0.12 * i, 2.3 + 0.12 * i) for i in range(len(PAY_S))])
+    bars_h(fig.add_axes([0.27, 0.06, 1 - M - 0.27, 0.57]), PAY_LABELS, PAY_S.values, grow,
+           highlight=median_label(PAY_S, PAY_LABELS), xpad=2.1, size=SMALL)
 
 
 def s_closing(fig, t):
-    rise(fig, t, 0.4, 0.5, 0.76, f"To the {fmt(TOT.workers)} Turkers in {TOT.countries} countries",
-         size=46, color=INK, ha="center")
-    rise(fig, t, 1.2, 0.5, 0.68, "who told us who they were, one HIT at a time:",
-         size=36, color=INK2, ha="center")
+    rise(fig, t, 0.4, 0.5, 0.86, f"To the {fmt(TOT.workers)} Turkers", size=52, ha="center")
+    rise(fig, t, 1.2, 0.5, 0.785, f"in {TOT.countries} countries:", size=52, ha="center",
+         color=INK2)
     a = seg(t, 2.2, 3.4)
-    txt(fig, 0.5, 0.48 + 0.015 * (1 - a), "Thank you.", size=150, weight="bold", ha="center",
-        family=DISPLAY, alpha=a)
-    # the day's 96 slots go dark one by one
+    for i, w in enumerate(("Thank", "you.")):
+        txt(fig, 0.5, 0.57 - i * 0.19 + 0.015 * (1 - a), w, size=160, weight="bold",
+            ha="center", family=DISPLAY, alpha=a)
     lit = 96 - int(96 * seg(t, 3.5, 8.5, smooth))
-    day_ticks(fig, t, lit, y=0.32, alpha=seg(t, 2.6, 3.4))
-    rise(fig, t, 4.2, 0.5, 0.22, "Amazon Mechanical Turk closed on September 30, 2026.",
-         size=BODY, color=INK2, ha="center")
-    rise(fig, t, 5.0, 0.5, 0.15, "demographics.mturk-tracker.com", size=BODY, color=INK,
+    day_ticks(fig, t, lit, y=0.24, alpha=seg(t, 2.6, 3.4))
+    rise(fig, t, 4.2, 0.5, 0.15, "MTurk closed September 30, 2026", size=40, color=INK2,
          ha="center")
-    rise(fig, t, 5.2, 0.5, 0.095, "BigQuery: mturk-demographics.demographics.responses",
-         size=SMALL, color=MUTED, ha="center")
+    rise(fig, t, 5.0, 0.5, 0.07, "demographics.mturk-tracker.com", size=LABEL, ha="center")
 
 
 SCENES = [

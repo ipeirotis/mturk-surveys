@@ -1,7 +1,11 @@
 # MTurk Tracker homage video
 
-A 3-minute, 1080p video covering the demographics survey from 26 March 2015 to
+A 3-minute, square (1080×1080) video covering the demographics survey from 26 March 2015 to
 30 September 2026, made when Amazon closed Mechanical Turk.
+
+The square frame is for phones: in a social feed it plays almost full width, so text sized
+against 1080 px stays readable. The smallest text is 34 pt (about 1/23 of the frame), titles
+are 66 pt, and each scene carries one chart or one set of headline numbers.
 
 Scenes: title · calendar of 4,114 days · how many Turkers we met · how long they stayed ·
 half-life by era · population estimate · workers available per year · countries ·
@@ -13,8 +17,10 @@ hours and weekly earnings · thank-you card.
 `merged.sql` defines `all_answers`: the public `demographics.responses` table plus the two
 Datastore backups in the `test` dataset (`userAnswers_oct2020`, `UserAnswer_2025MAR20`),
 with backup worker IDs hashed the same way as the public table (SHA-256 hex) and one row
-per (worker, HIT). The public table alone is missing about 63K answers from 2015–2021
-that the backups still hold; merged, the survey has 392,995 answers from 157,255 workers.
+per (worker, HIT): 392,995 answers from 157,255 workers. The public table was missing
+about 63K answers from 2015–2021 until they were restored from these backups on
+2026-10-01, so today the union adds nothing new; it is kept so the numbers don't depend
+on that restore.
 
 ## Population estimates
 
