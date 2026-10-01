@@ -1,5 +1,6 @@
 package com.ipeirotis.controller.tasks;
 
+import com.ipeirotis.service.BigQueryExportService;
 import com.ipeirotis.service.DatastoreRestoreService;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.DateValidation;
@@ -34,6 +35,9 @@ public class DatastoreRestoreController {
 	@Autowired
 	private DatastoreRestoreService restoreService;
 
+	@Autowired
+	private BigQueryExportService bigQueryExportService;
+
 	/**
 	 * Compare daily counts between Datastore and BigQuery backup for a date range.
 	 * Returns only days where the counts differ.
@@ -66,8 +70,9 @@ public class DatastoreRestoreController {
 	}
 
 	/**
-	 * Restore a single day's entries from BigQuery backup into Datastore.
-	 * Uses original Datastore entity IDs so existing entries are overwritten.
+	 * Restore a single day's entries from BigQuery backup into Datastore,
+	 * skipping (workerId, hitId) pairs that already exist, then append the day's
+	 * missing rows to demographics.responses.
 	 *
 	 * Example: /tasks/restoreDateFromBigQuery?date=2024-01-15
 	 *
@@ -75,13 +80,19 @@ public class DatastoreRestoreController {
 	 */
 	@PostMapping("/tasks/restoreDateFromBigQuery")
 	public Map<String, Object> restoreDate(@RequestParam String date,
-			@RequestParam(required = false) String table) {
+			@RequestParam(required = false) String table) throws ParseException {
 		DateValidation.requireValidDate(date, "date", "yyyy-MM-dd");
 		int restored = restoreService.restoreDate(date, table);
+		// Append the day to demographics.responses in the same request, every time:
+		// if the export fails, the non-2xx response makes Cloud Tasks retry the whole
+		// restore, and the retry (which restores nothing new) still exports the day.
+		Date day = SafeDateFormat.forPattern("yyyy-MM-dd").parse(date);
+		int exported = bigQueryExportService.exportDate(SafeDateFormat.forPattern("MM/dd/yyyy").format(day));
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("status", "ok");
 		result.put("date", date);
 		result.put("entitiesRestored", restored);
+		result.put("rowsAppendedToBigQuery", exported);
 		if (table != null) result.put("table", table);
 		return result;
 	}
@@ -101,6 +112,7 @@ public class DatastoreRestoreController {
 			@RequestParam String from, @RequestParam String to,
 			@RequestParam(required = false) String table) throws ParseException {
 		DateValidation.requireValidRange(from, to, "yyyy-MM-dd");
+		restoreService.requireRestoreSource(table);
 		DateFormat df = SafeDateFormat.forPattern("yyyy-MM-dd");
 
 		Calendar start = Calendar.getInstance();
@@ -174,6 +186,7 @@ public class DatastoreRestoreController {
 			@RequestParam String from, @RequestParam String to,
 			@RequestParam(required = false) String table) throws ParseException {
 		DateValidation.requireValidRange(from, to, "yyyy-MM-dd");
+		restoreService.requireRestoreSource(table);
 		List<Map<String, Object>> mismatches = restoreService.compareCounts(from, to, table);
 
 		int tasksEnqueued = 0;

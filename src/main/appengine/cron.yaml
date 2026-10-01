@@ -1,5 +1,7 @@
 # The MTurk jobs (createHIT every 15 min, deleteHITs daily) were removed when
 # Amazon closed Mechanical Turk on 2026-09-30. The data jobs below still run.
+# The daily exportToBigQuery job was removed too: no new answers arrive, and
+# demographics.responses is now the canonical archive (see CLAUDE.md).
 cron:
 - url: '/tasks/snapshotDemographics'
   schedule: 'every day 04:00'
@@ -7,9 +9,6 @@ cron:
 - url: '/tasks/warmChartCache'
   schedule: 'every day 04:15'
   description: 'Pre-warm chart data cache for full date range'
-- url: '/tasks/exportToBigQuery'
-  schedule: 'every day 05:00'
-  description: 'Export yesterday demographics to BigQuery'
 - url: '/tasks/backupDatastore'
   schedule: 'every sunday 06:00'
   description: 'Weekly full Datastore backup to GCS'

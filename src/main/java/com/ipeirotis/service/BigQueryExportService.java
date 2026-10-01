@@ -1,7 +1,9 @@
 package com.ipeirotis.service;
 
 import com.google.cloud.bigquery.*;
+import com.ipeirotis.entity.BigQueryExportLock;
 import com.ipeirotis.entity.UserAnswer;
+import com.ipeirotis.exception.ExportInProgressException;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.SafeDateFormat;
 import io.micrometer.core.annotation.Timed;
@@ -18,6 +20,8 @@ import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
 @Service
 public class BigQueryExportService {
 
@@ -25,6 +29,8 @@ public class BigQueryExportService {
 
 	private static final String DATASET_ID = "demographics";
 	private static final String TABLE_ID = "responses";
+	/** Longer than any single-day export takes; an abandoned lease frees itself after this. */
+	private static final long LOCK_TTL_MS = 10 * 60 * 1000L;
 
 	@Autowired
 	private BigQuery bigQuery;
@@ -33,12 +39,84 @@ public class BigQueryExportService {
 	private SurveyService surveyService;
 
 	/**
-	 * Export a single day's data to BigQuery.
+	 * Append a single day's Datastore answers to BigQuery. Append-only: rows already in
+	 * demographics.responses (matched by hashed worker ID + HIT ID) are left untouched,
+	 * and nothing is ever deleted, so Datastore cannot shrink the canonical table.
 	 * @param dateStr date in MM/dd/yyyy format
-	 * @return number of rows exported
+	 * @return number of rows appended
 	 */
 	@Timed(value = "bigquery.export", description = "BigQuery export duration")
 	public int exportDate(String dateStr) throws ParseException {
+		String sortableDate = SafeDateFormat.forPattern("yyyy-MM-dd")
+				.format(SafeDateFormat.forPattern("MM/dd/yyyy").parse(dateStr));
+		String owner = acquireLock(sortableDate);
+		try {
+			return exportDateLocked(dateStr);
+		} finally {
+			releaseLock(sortableDate, owner);
+		}
+	}
+
+	/**
+	 * Take the leases for the export date and both neighbouring dates in one
+	 * transaction. loadExistingPairs checks a window of date +/- 1 day, so exports of
+	 * adjacent dates read overlapping windows; holding all three leases makes any two
+	 * exports whose windows overlap run one after the other, while exports further
+	 * apart still run in parallel.
+	 * @return owner token to pass to releaseLock
+	 * @throws ExportInProgressException if an export with an overlapping window holds a lease
+	 */
+	private String acquireLock(String sortableDate) {
+		String owner = UUID.randomUUID().toString();
+		List<String> dates = lockDates(sortableDate);
+		boolean acquired = ofy().transact(() -> {
+			Date now = new Date();
+			Map<String, BigQueryExportLock> locks = ofy().load().type(BigQueryExportLock.class).ids(dates);
+			for (BigQueryExportLock lock : locks.values()) {
+				if (lock.isHeldAt(now)) {
+					return false;
+				}
+			}
+			Date expiresAt = new Date(now.getTime() + LOCK_TTL_MS);
+			List<BigQueryExportLock> mine = new ArrayList<>();
+			for (String d : dates) {
+				mine.add(new BigQueryExportLock(d, owner, expiresAt));
+			}
+			ofy().save().entities(mine).now();
+			return true;
+		});
+		if (!acquired) {
+			throw new ExportInProgressException("A BigQuery export overlapping " + sortableDate
+					+ " is already running; retry later");
+		}
+		return owner;
+	}
+
+	private void releaseLock(String sortableDate, String owner) {
+		List<String> dates = lockDates(sortableDate);
+		try {
+			ofy().transact(() -> {
+				List<BigQueryExportLock> mine = new ArrayList<>();
+				for (BigQueryExportLock lock : ofy().load().type(BigQueryExportLock.class).ids(dates).values()) {
+					if (owner.equals(lock.getOwner())) {
+						mine.add(lock);
+					}
+				}
+				ofy().delete().entities(mine).now();
+			});
+		} catch (RuntimeException e) {
+			// The leases expire on their own after LOCK_TTL_MS.
+			logger.warn("Failed to release BigQuery export locks around " + sortableDate + ": " + e.getMessage(), e);
+		}
+	}
+
+	/** The export date and its neighbours, matching the window loadExistingPairs reads. */
+	static List<String> lockDates(String sortableDate) {
+		java.time.LocalDate day = java.time.LocalDate.parse(sortableDate);
+		return List.of(day.minusDays(1).toString(), sortableDate, day.plusDays(1).toString());
+	}
+
+	private int exportDateLocked(String dateStr) throws ParseException {
 		DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
 		Calendar dateFrom = Calendar.getInstance();
 		dateFrom.setTime(df.parse(dateStr));
@@ -82,21 +160,20 @@ public class BigQueryExportService {
 		DateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 		isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
 
-		// Step 1: Delete existing rows for this date (non-transactional)
-		String deleteSql = String.format("DELETE FROM %s WHERE DATE(date) = '%s'",
-				fullTable, sortableDate);
-		try {
-			bigQuery.query(QueryJobConfiguration.newBuilder(deleteSql)
-					.setJobTimeoutMs(60_000L).build());
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw new RuntimeException("Interrupted during BigQuery delete", e);
-		} catch (BigQueryException e) {
-			if (e.getMessage() != null && e.getMessage().contains("concurrent")) {
-				logger.warn("Concurrent update conflict during delete for " + dateStr + ", will retry later");
-				throw new RuntimeException("BigQuery concurrent update conflict for " + dateStr, e);
+		// Step 1: demographics.responses is the canonical archive, so never delete from it.
+		// Only append (worker, HIT) pairs that are not already in the table for this date.
+		Set<String> existing = loadExistingPairs(fullTable, sortableDate);
+		int candidates = answers.size();
+		List<UserAnswer> missing = new ArrayList<>();
+		for (UserAnswer ua : answers) {
+			if (!existing.contains(pairKey(ua))) {
+				missing.add(ua);
 			}
-			throw e;
+		}
+		answers = missing;
+		if (answers.isEmpty()) {
+			logger.info("All " + candidates + " entries for " + dateStr + " already in BigQuery");
+			return 0;
 		}
 
 		// Step 2: Insert rows in batches (non-transactional)
@@ -178,8 +255,40 @@ public class BigQueryExportService {
 		}
 
 		int totalExported = answers.size();
-		logger.info("Exported " + totalExported + " rows to BigQuery for " + dateStr);
+		logger.info("Appended " + totalExported + " missing rows to BigQuery for " + dateStr
+				+ " (" + (candidates - totalExported) + " already present)");
 		return totalExported;
+	}
+
+	/**
+	 * (hashed worker_id, hit_id) pairs already in the table around one UTC day. The
+	 * neighbouring days are included because a row's timestamp in the table can differ
+	 * slightly from Datastore's and land on the other side of midnight.
+	 */
+	private Set<String> loadExistingPairs(String fullTable, String sortableDate) {
+		String sql = String.format(
+				"SELECT worker_id, hit_id FROM %s WHERE DATE(date) BETWEEN "
+				+ "DATE_SUB(DATE '%s', INTERVAL 1 DAY) AND DATE_ADD(DATE '%s', INTERVAL 1 DAY)",
+				fullTable, sortableDate, sortableDate);
+		Set<String> pairs = new HashSet<>();
+		try {
+			TableResult result = bigQuery.query(QueryJobConfiguration.newBuilder(sql)
+					.setJobTimeoutMs(60_000L).build());
+			for (FieldValueList row : result.iterateAll()) {
+				FieldValue w = row.get("worker_id");
+				FieldValue h = row.get("hit_id");
+				pairs.add((w.isNull() ? "" : w.getStringValue()) + "|" + (h.isNull() ? "" : h.getStringValue()));
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new RuntimeException("Interrupted reading existing BigQuery rows", e);
+		}
+		return pairs;
+	}
+
+	static String pairKey(UserAnswer ua) {
+		return (ua.getWorkerId() != null ? sha256Hex(ua.getWorkerId()) : "")
+				+ "|" + (ua.getHitId() != null ? ua.getHitId() : "");
 	}
 
 	/**

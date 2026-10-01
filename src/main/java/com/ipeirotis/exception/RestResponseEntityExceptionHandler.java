@@ -54,6 +54,11 @@ public class RestResponseEntityExceptionHandler extends ResponseEntityExceptionH
 		return buildResponse("Failed to enqueue task: " + e.getMessage(), HttpStatus.BAD_GATEWAY);
 	}
 
+	@ExceptionHandler(value = { ExportInProgressException.class })
+	protected ResponseEntity<Object> exportInProgress(ExportInProgressException e, WebRequest request) {
+		return buildResponse(e.getMessage(), HttpStatus.CONFLICT);
+	}
+
 	@ExceptionHandler(value = { Exception.class })
 	protected ResponseEntity<Object> handleAll(Exception e, WebRequest request) {
 		log.error("Unhandled exception: " + request.getDescription(false), e);

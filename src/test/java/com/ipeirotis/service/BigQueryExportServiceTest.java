@@ -55,6 +55,32 @@ class BigQueryExportServiceTest {
         assertEquals(64, result.length());
     }
 
+    @Test
+    void pairKey_hashesWorkerIdLikeTheTable() throws Exception {
+        com.ipeirotis.entity.UserAnswer ua = new com.ipeirotis.entity.UserAnswer();
+        ua.setWorkerId("hello");
+        ua.setHitId("HIT1");
+        assertEquals(invokeSha256Hex("hello") + "|HIT1", BigQueryExportService.pairKey(ua));
+    }
+
+    @Test
+    void pairKey_nullFields_useEmptyStrings() {
+        assertEquals("|", BigQueryExportService.pairKey(new com.ipeirotis.entity.UserAnswer()));
+    }
+
+    @Test
+    void lockDates_coversTheLookupWindow() {
+        assertEquals(java.util.List.of("2016-02-28", "2016-02-29", "2016-03-01"),
+                BigQueryExportService.lockDates("2016-02-29"));
+    }
+
+    @Test
+    void lockDates_adjacentDatesShareALease() {
+        java.util.List<String> a = BigQueryExportService.lockDates("2016-11-15");
+        java.util.List<String> b = BigQueryExportService.lockDates("2016-11-16");
+        assertTrue(a.stream().anyMatch(b::contains));
+    }
+
     private String invokeSha256Hex(String input) throws Exception {
         Method method = BigQueryExportService.class.getDeclaredMethod("sha256Hex", String.class);
         method.setAccessible(true);

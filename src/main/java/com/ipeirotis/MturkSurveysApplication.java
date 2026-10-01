@@ -1,6 +1,7 @@
 package com.ipeirotis;
 
 import com.googlecode.objectify.ObjectifyService;
+import com.ipeirotis.entity.BigQueryExportLock;
 import com.ipeirotis.entity.DemographicsRollup;
 import com.ipeirotis.entity.DemographicsSnapshot;
 import com.ipeirotis.entity.Question;
@@ -21,6 +22,7 @@ public class MturkSurveysApplication {
 
     static {
         classes = new HashSet<>();
+        classes.add(BigQueryExportLock.class);
         classes.add(DemographicsRollup.class);
         classes.add(DemographicsSnapshot.class);
         classes.add(Question.class);
