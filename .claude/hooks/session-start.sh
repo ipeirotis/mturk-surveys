@@ -43,7 +43,12 @@ if [ -f "$CONFIG" ]; then
     if [ -n "$USER_EMAIL" ] && [ -f "$ENC_FILE" ] && [ -n "$KEY" ]; then
       if echo "$KEY" | openssl enc -d -aes-256-cbc -pbkdf2 \
            -pass stdin -in "$ENC_FILE" -out /tmp/credentials.json 2>/dev/null; then
-        gcloud auth activate-service-account --key-file=/tmp/credentials.json --quiet 2>/dev/null || true
+        if gcloud auth activate-service-account --key-file=/tmp/credentials.json --quiet 2>/dev/null; then
+          # An access token in CLOUDSDK_AUTH_ACCESS_TOKEN (set by some environments, and
+          # often expired) overrides the activated service account in gcloud and bq.
+          echo "unset CLOUDSDK_AUTH_ACCESS_TOKEN" >> "$ENV_FILE"
+          unset CLOUDSDK_AUTH_ACCESS_TOKEN
+        fi
         echo "export GOOGLE_APPLICATION_CREDENTIALS=\"/tmp/credentials.json\"" >> "$ENV_FILE"
         echo "GCP credentials activated for $USER_EMAIL"
       fi

@@ -1,17 +1,6 @@
-# The MTurk jobs (createHIT every 15 min, deleteHITs daily) were removed when
-# Amazon closed Mechanical Turk on 2026-09-30. The data jobs below still run.
-# The daily exportToBigQuery job was removed too: no new answers arrive, and
-# demographics.responses is now the canonical archive (see CLAUDE.md).
+# No scheduled jobs. Amazon closed Mechanical Turk on 2026-09-30, so no new
+# answers arrive: the MTurk jobs (createHIT, deleteHITs), the BigQuery export,
+# the daily snapshot and cache warm, and the weekly Datastore backup and dedup
+# have all been removed. demographics.responses is the canonical archive (see
+# CLAUDE.md). Deploying this file deletes any App Engine cron jobs still defined.
 cron:
-- url: '/tasks/snapshotDemographics'
-  schedule: 'every day 04:00'
-  description: 'Snapshot yesterday demographics data and rebuild affected rollups'
-- url: '/tasks/warmChartCache'
-  schedule: 'every day 04:15'
-  description: 'Pre-warm chart data cache for full date range'
-- url: '/tasks/backupDatastore'
-  schedule: 'every sunday 06:00'
-  description: 'Weekly full Datastore backup to GCS'
-- url: '/tasks/dedupDatastoreGlobal'
-  schedule: 'every sunday 07:00'
-  description: 'Weekly global deduplication of UserAnswer entities'
