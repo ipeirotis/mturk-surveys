@@ -1,9 +1,9 @@
 # MTurk Tracker homage video
 
 A 3-minute, 1080p video covering the demographics survey from 26 March 2015 to
-29 September 2026, made when Amazon closed Mechanical Turk.
+30 September 2026, made when Amazon closed Mechanical Turk.
 
-Scenes: title · calendar of 4,113 days · how many Turkers we met · how long they stayed ·
+Scenes: title · calendar of 4,114 days · how many Turkers we met · how long they stayed ·
 half-life by era · population estimate · workers available per year · countries ·
 US vs India · languages · gender · birth year · US households · answers that changed ·
 hours and weekly earnings · thank-you card.
@@ -14,7 +14,7 @@ hours and weekly earnings · thank-you card.
 Datastore backups in the `test` dataset (`userAnswers_oct2020`, `UserAnswer_2025MAR20`),
 with backup worker IDs hashed the same way as the public table (SHA-256 hex) and one row
 per (worker, HIT). The public table alone is missing about 63K answers from 2015–2021
-that the backups still hold; merged, the survey has 392,951 answers from 157,240 workers.
+that the backups still hold; merged, the survey has 392,995 answers from 157,255 workers.
 
 ## Population estimates
 
@@ -23,8 +23,8 @@ Dynamics of Mechanical Turk Workers* (WSDM 2018), with 30-day periods as capture
 
 | | Paper (28 periods) | This data, same window | 2015–2026 (140 periods) |
 |---|---|---|---|
-| Workers seen | 39,461 | 38,753 | 157,240 |
-| Chao lower bound | 97,579 | 96,738 | 330,685 |
+| Workers seen | 39,461 | 38,753 | 157,255 |
+| Chao lower bound | 97,579 | 96,738 | 330,594 |
 | Open-population half-life | 404 days | 428 days | 537 / 478 / 253 days (2015–19 / 2020–22 / 2023–26) |
 | Equal-catchability active pool | ~12K | 12.2K | — |
 

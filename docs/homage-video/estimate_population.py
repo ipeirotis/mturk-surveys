@@ -34,13 +34,14 @@ ERAS = [("2015–2019", "2015-03-26", "2019-12-31"), ("2020–2022", "2020-01-01
 
 def load_captures():
     sql = open(os.path.join(HERE, "merged.sql")).read() + """
-        SELECT FARM_FINGERPRINT(worker_id) w,
-               DIV(DATE_DIFF(DATE(date), DATE '2015-03-26', DAY), 30) occ
+        SELECT FARM_FINGERPRINT(worker_id) w, DATE_DIFF(DATE(date), DATE '2015-03-26', DAY) day
         FROM all_answers GROUP BY 1, 2"""
     out = subprocess.run(["bq", "query", "--nouse_legacy_sql", "--format=csv", "--quiet",
                           "--max_rows=2000000"], input=sql, capture_output=True, text=True,
                          check=True).stdout
-    return pd.read_csv(io.StringIO(out))
+    caps = pd.read_csv(io.StringIO(out))
+    caps["occ"] = caps.day // 30
+    return caps
 
 
 def occ_of(date):
@@ -116,6 +117,20 @@ def equal_catchability(freq, n):
     return dict(p=p, N=f.sum() / (1 - (1 - p) ** n))
 
 
+def year_window(caps, year):
+    """Capture frequencies within one calendar year, with 30-day occasions counted from the
+    year's first survey day (the last occasion absorbs the leftover days)."""
+    first = max(pd.Timestamp(f"{year}-01-01"), START)
+    d0 = (first - START).days
+    d1 = (pd.Timestamp(f"{year}-12-31") - START).days
+    w = caps[(caps.day >= d0) & (caps.day <= d1)]
+    span = w.day.max() - d0 + 1
+    n_occ = max(1, span // 30)
+    occ = np.minimum((w.day - d0) // 30, n_occ - 1)
+    freq = w.assign(o=occ).groupby("w").o.nunique().value_counts().to_dict()
+    return freq, int(occ.nunique())
+
+
 def window(caps, o0, o1):
     w = caps[(caps.occ >= o0) & (caps.occ <= o1)]
     n = w.occ.nunique()
@@ -181,9 +196,7 @@ def main():
     # Per calendar year: workers seen and Chao's lower bound on workers available
     rows = []
     for y in range(2015, 2027):
-        o0 = max(0, occ_of(f"{y}-01-01"))
-        o1 = min(last, occ_of(f"{y}-12-31"))
-        freq, n = window(caps, o0, o1)
+        freq, n = year_window(caps, y)
         rows.append(dict(year=y, occasions=n, workers=sum(freq.values()), chao=chao(freq, n)))
     pd.DataFrame(rows).to_csv(os.path.join(DATA, "pop_years.csv"), index=False)
     print(pd.DataFrame(rows))

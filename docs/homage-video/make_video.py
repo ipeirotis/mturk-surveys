@@ -568,7 +568,8 @@ def s_years(fig, t):
     rise(fig, t, 7.8, 0.72, 0.34, "The pool of available workers", size=19, color=INK)
     rise(fig, t, 7.9, 0.72, 0.31, "roughly halved in the final years.", size=19, color=INK)
     rise(fig, t, 8.4, 0.08, 0.075,
-         "Lower bound within each calendar year (12–13 thirty-day periods), Chao (1987).",
+         "Chao (1987) lower bound within each calendar year, using 30-day periods counted from "
+         "January 1.",
          size=13, color=MUTED)
 
 
