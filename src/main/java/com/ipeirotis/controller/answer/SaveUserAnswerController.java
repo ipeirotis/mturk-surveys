@@ -3,6 +3,7 @@ package com.ipeirotis.controller.answer;
 import com.google.gson.Gson;
 import com.ipeirotis.controller.tasks.AddHitCreationTimeToUserAnswerController;
 import com.ipeirotis.entity.UserAnswer;
+import com.ipeirotis.service.MturkService;
 import com.ipeirotis.service.UserAnswerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,8 @@ public class SaveUserAnswerController {
 
 	@Autowired
 	private UserAnswerService userAnswerService;
+	@Autowired
+	private MturkService mturkService;
 
 	@RequestMapping(value = "/saveAnswer", method = RequestMethod.GET, produces = "application/javascript")
 	public ResponseEntity saveAnswer(@RequestParam("userAnswer") String userAnswerJson,
@@ -32,6 +35,10 @@ public class SaveUserAnswerController {
 									 @RequestHeader("X-AppEngine-Country") String country,
 									 @RequestHeader("X-AppEngine-Region") String region,
 									 @RequestHeader("X-AppEngine-City") String city) {
+		if (mturkService.isClosed()) {
+			// Data collection ended with MTurk; keep the archive closed to new records.
+			return new ResponseEntity<>(HttpStatus.GONE);
+		}
 		Gson gson = new Gson();
 		UserAnswer userAnswer = gson.fromJson(userAnswerJson, UserAnswer.class);
 		if(userAnswer == null) {

@@ -40,6 +40,11 @@ public class CreateHITController {
 	public ResponseEntity createHIT(@RequestParam String surveyId, @RequestParam Boolean production,
 			@RequestParam(required = false, defaultValue = "0") int retryCount,
 			@RequestParam(required = false) String idempotencyToken) {
+		if (mturkService.isClosed()) {
+			// Return 200 so Cloud Tasks does not retry a request that can never succeed.
+			logger.info("MTurk has closed; not creating HIT for survey " + surveyId);
+			return new ResponseEntity<>("MTurk has closed; no HIT created", HttpStatus.OK);
+		}
 		// Generate a deterministic token from surveyId + time window so that
 		// retries (including crash-recovery redeliveries) produce the same token.
 		// Truncate to 15-minute intervals matching the cron schedule.

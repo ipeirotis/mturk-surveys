@@ -15,10 +15,14 @@ import software.amazon.awssdk.services.mturk.model.HIT;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/tasks")
 public class AddHitCreationTimeToUserAnswerController {
+
+	private static final Logger logger = LoggerFactory.getLogger(AddHitCreationTimeToUserAnswerController.class);
 
 	@Autowired
 	private MturkService mturkService;
@@ -27,6 +31,11 @@ public class AddHitCreationTimeToUserAnswerController {
 
 	@PostMapping("/addHitCreationTime")
 	public void addHitCreationTime(@RequestParam String hitId) {
+		if (mturkService.isClosed()) {
+			// Return normally so Cloud Tasks drops the task instead of retrying.
+			logger.info("MTurk has closed; skipping HIT creation time lookup for " + hitId);
+			return;
+		}
 		HIT hit = mturkService.getHIT(true, hitId);
 
 		if(hit == null) {

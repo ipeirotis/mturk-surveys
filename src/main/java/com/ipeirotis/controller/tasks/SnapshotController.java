@@ -3,6 +3,7 @@ package com.ipeirotis.controller.tasks;
 import com.ipeirotis.dao.DemographicsSnapshotDao;
 import com.ipeirotis.entity.DemographicsSnapshot;
 import com.ipeirotis.service.DemographicsSnapshotService;
+import com.ipeirotis.service.MturkService;
 import com.ipeirotis.util.CalendarUtils;
 import com.ipeirotis.util.DateValidation;
 import com.ipeirotis.util.SafeDateFormat;
@@ -42,9 +43,12 @@ public class SnapshotController {
      */
     @GetMapping("/tasks/warmChartCache")
     public Map<String, Object> warmChartCache() {
-        DateFormat df = SafeDateFormat.forPattern("MM/dd/yyyy");
         String from = "03/26/2015";
-        String to = df.format(new java.util.Date());
+        // The dashboard's "to" is exclusive and capped at the day after the
+        // survey ended, so warm that same key once the survey is over.
+        LocalDate end = LocalDate.now().isAfter(MturkService.CLOSURE_DATE)
+                ? MturkService.CLOSURE_DATE.plusDays(1) : LocalDate.now();
+        String to = String.format("%02d/%02d/%04d", end.getMonthValue(), end.getDayOfMonth(), end.getYear());
         long start = System.currentTimeMillis();
         snapshotService.getChartData(from, to);
         long elapsed = System.currentTimeMillis() - start;
