@@ -31,6 +31,7 @@ public class DatastoreRestoreController {
 
 	private static final Logger logger = LoggerFactory.getLogger(DatastoreRestoreController.class);
 	private static final int MAX_CHUNKS = 30;
+	private static final String CANONICAL_TABLE = "demographics.responses";
 
 	@Autowired
 	private DatastoreRestoreService restoreService;
@@ -39,8 +40,9 @@ public class DatastoreRestoreController {
 	private BigQueryExportService bigQueryExportService;
 
 	/**
-	 * Compare daily counts between Datastore and BigQuery backup for a date range.
-	 * Returns only days where the counts differ.
+	 * Compare daily counts between Datastore and a BigQuery table for a date range.
+	 * Defaults to the canonical demographics.responses table; pass table= to compare
+	 * against a Datastore backup instead. Returns only days where the counts differ.
 	 *
 	 * Example: /tasks/compareDatastoreBigQuery?from=2020-11-03&to=2025-03-20
 	 *
@@ -52,7 +54,8 @@ public class DatastoreRestoreController {
 			@RequestParam String from, @RequestParam String to,
 			@RequestParam(required = false) String table) throws ParseException {
 		DateValidation.requireValidRange(from, to, "yyyy-MM-dd");
-		List<Map<String, Object>> mismatches = restoreService.compareCounts(from, to, table);
+		String compareTable = (table == null || table.isBlank()) ? CANONICAL_TABLE : table;
+		List<Map<String, Object>> mismatches = restoreService.compareCounts(from, to, compareTable);
 
 		long totalDelta = 0;
 		for (Map<String, Object> row : mismatches) {
@@ -63,6 +66,7 @@ public class DatastoreRestoreController {
 		result.put("status", "ok");
 		result.put("from", from);
 		result.put("to", to);
+		result.put("table", compareTable);
 		result.put("daysWithDifferences", mismatches.size());
 		result.put("totalDelta", totalDelta);
 		result.put("mismatches", mismatches);
