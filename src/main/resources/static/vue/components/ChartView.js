@@ -295,8 +295,10 @@ const ChartView = {
             dateFilterState.from.value = fromDateStr(hashParams.from);
         }
         if (hashParams.to) {
-            toStr.value = hashParams.to;
-            dateFilterState.to.value = fromDateStr(hashParams.to);
+            var hashTo = fromDateStr(hashParams.to);
+            if (hashTo > maxDate) hashTo = new Date(maxDate.getTime());
+            toStr.value = toDateStr(hashTo);
+            dateFilterState.to.value = hashTo;
         }
         if (hashParams.mode && ['bar', 'area', 'line', 'donut', 'sparklines'].indexOf(hashParams.mode) >= 0) {
             displayMode.value = hashParams.mode;
@@ -307,6 +309,8 @@ const ChartView = {
         }
         if (hashParams.preset) {
             activePreset.value = hashParams.preset;
+        } else if (hashParams.from || hashParams.to) {
+            activePreset.value = null;
         }
 
         var isMapView = ref(!!MAP_VIEWS[props.viewId]);
@@ -661,12 +665,15 @@ const ChartView = {
 
         async function load() {
             var from = fromDateStr(fromStr.value);
+            // The end date input is inclusive; the API's "to" is exclusive.
             var to = fromDateStr(toStr.value);
+            to.setDate(to.getDate() + 1);
 
-            // Compute prior period for trend comparison
-            var rangeMs = to.getTime() - from.getTime();
-            var priorTo = new Date(from.getTime() - 1);
-            var priorFrom = new Date(priorTo.getTime() - rangeMs);
+            // Compute prior period of the same length, ending the day before "from"
+            var rangeDays = Math.round((to.getTime() - from.getTime()) / 86400000);
+            var priorTo = new Date(from.getTime());
+            var priorFrom = new Date(from.getTime());
+            priorFrom.setDate(priorFrom.getDate() - rangeDays);
             if (priorFrom < minDate) priorFrom = new Date(minDate.getTime());
 
             loading.value = true;

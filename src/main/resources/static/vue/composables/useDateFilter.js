@@ -6,11 +6,11 @@
 const SURVEY_START_DATE = new Date(2015, 2, 26);
 
 // Amazon closed Mechanical Turk on 2026-09-30 (MturkService.CLOSURE_DATE), the
-// last day of data collection. Chart queries treat "to" as exclusive, so the
-// latest selectable end date is the day after.
-const SURVEY_END_DATE = new Date(2026, 9, 1);
+// last day of data collection. The date inputs show inclusive end dates; the
+// chart API treats "to" as exclusive, so ChartView adds a day when querying.
+const SURVEY_END_DATE = new Date(2026, 8, 30);
 
-// Latest selectable end date: today, or the day after the survey ended once it has passed.
+// Latest selectable end date: today, or the last survey day once it has passed.
 const latestDataDate = () => {
     const today = new Date();
     return today > SURVEY_END_DATE ? new Date(SURVEY_END_DATE.getTime()) : today;
