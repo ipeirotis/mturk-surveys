@@ -37,4 +37,4 @@ Report:
 - Any quarter outside the expected range that isn't a known pause
 - Days where Datastore and `demographics.responses` differ
 
-If Datastore has rows the table lacks, `/tasks/exportDateToBigQuery?date=MM/dd/yyyy` appends only the missing pairs (it never deletes). If Datastore is missing rows, use `/tasks/smartRestoreFromBigQuery`, which restores from the Datastore backups and then appends the day to the table.
+If Datastore has rows the table lacks, `POST /tasks/exportDateToBigQuery?date=MM/dd/yyyy` appends only the missing pairs (it never deletes). If Datastore is missing rows, use `/tasks/smartRestoreFromBigQuery`, which restores from the Datastore backups and then appends the day to the table.

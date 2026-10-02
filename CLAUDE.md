@@ -31,7 +31,7 @@ mvn spring-boot:run
 mvn appengine:deploy
 ```
 
-Unit tests live in `src/test/java` (JUnit 5 + Mockito via `spring-boot-starter-test`) and run as part of `mvn clean install`, including in CI. Run them alone with `mvn test`. No linter or formatter is set up.
+Unit tests live in `src/test/java` (JUnit 5 + Mockito via `spring-boot-starter-test`) and run as part of `mvn clean install`, including in CI. Run them alone with `mvn test`. Checkstyle (`checkstyle.xml`) runs in the `verify` phase, so `mvn clean install` runs it too; it reports warnings and never fails the build. No formatter is set up.
 
 ### Required CLI Tools
 
@@ -105,7 +105,6 @@ src/main/appengine/
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/api/survey/{surveyId}` | GET | Get survey details |
-| `/api/survey` | POST | Create a new survey |
 | `/api/survey/demographics/answers` | GET | Paginated user answers |
 | `/api/survey/demographics/aggregatedAnswers` | GET | Aggregated demographics by period |
 | `/saveAnswer` | GET | Save worker answer (JSONP; 410 after MTurk closure) |
@@ -240,11 +239,15 @@ It does **not** need `roles/datastore.importExportAdmin` any more. That role was
 # List available backups
 gsutil ls gs://demographics_data_export/
 
-# Import a specific backup (restores ALL entity kinds)
-gcloud datastore import gs://demographics_data_export/2026-10-02-final/ --project=mturk-demographics
+# Import a backup (restores ALL entity kinds). Pass the export's
+# .overall_export_metadata object, not the folder.
+gcloud datastore import \
+  gs://demographics_data_export/2026-10-02-final/2026-10-02-final.overall_export_metadata \
+  --project=mturk-demographics
 
 # Import only specific kinds
-gcloud datastore import gs://demographics_data_export/2026-10-02-final/ \
+gcloud datastore import \
+  gs://demographics_data_export/2026-10-02-final/2026-10-02-final.overall_export_metadata \
   --kinds=UserAnswer,DemographicsSnapshot --project=mturk-demographics
 ```
 
@@ -258,7 +261,7 @@ GET /tasks/compareDatastoreBigQuery?from=2024-01-01&to=2024-12-31
 GET /tasks/compareDatastoreBigQuery?from=2024-01-01&to=2024-12-31&table=UserAnswer_2025MAR20
 
 # Restore a single day from BigQuery backup
-GET /tasks/restoreDateFromBigQuery?date=2024-06-15
+POST /tasks/restoreDateFromBigQuery?date=2024-06-15
 
 # Smart restore: only restore days where Datastore has fewer entries
 GET /tasks/smartRestoreFromBigQuery?from=2024-01-01&to=2024-12-31
@@ -289,7 +292,7 @@ GET /tasks/backupDatastore
 GET /tasks/backupDatastore?kinds=UserAnswer,DemographicsSnapshot
 
 # Export a single date to BigQuery demographics.responses
-GET /tasks/exportDateToBigQuery?date=01/15/2024
+POST /tasks/exportDateToBigQuery?date=01/15/2024
 
 # Full BigQuery backfill (all dates)
 GET /tasks/backfillBigQuery?from=03/26/2015&to=03/11/2026
