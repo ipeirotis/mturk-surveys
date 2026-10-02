@@ -31,7 +31,7 @@ mvn spring-boot:run
 mvn appengine:deploy
 ```
 
-There are **no tests** configured in this project. No linter or formatter is set up.
+Unit tests live in `src/test/java` (JUnit 5 + Mockito via `spring-boot-starter-test`) and run as part of `mvn clean install`, including in CI. Run them alone with `mvn test`. Checkstyle (`checkstyle.xml`) runs in the `verify` phase, so `mvn clean install` runs it too; it reports warnings and never fails the build. No formatter is set up.
 
 ### Required CLI Tools
 
@@ -105,7 +105,6 @@ src/main/appengine/
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/api/survey/{surveyId}` | GET | Get survey details |
-| `/api/survey` | POST | Create a new survey |
 | `/api/survey/demographics/answers` | GET | Paginated user answers |
 | `/api/survey/demographics/aggregatedAnswers` | GET | Aggregated demographics by period |
 | `/saveAnswer` | GET | Save worker answer (JSONP; 410 after MTurk closure) |
@@ -181,7 +180,7 @@ The system has multiple layers of backup for disaster recovery.
 | Layer | Frequency | Location | What |
 |---|---|---|---|
 | **BigQuery `demographics.responses`** | Static since 2026-10-01 | BigQuery | **Canonical.** Every answer, worker IDs and IPs hashed. Append-only. |
-| **Datastore export** | Manual only (weekly cron removed) | `gs://demographics_data_export/<date>/` | Raw entity backup. Last good export: 2026-03-18. The weekly job failed with 403 from at least September 2026 because the App Engine service account lacks `roles/datastore.importExportAdmin`. |
+| **Datastore export** | Manual only (weekly cron removed) | `gs://demographics_data_export/<date>/` | Raw entity backup. Final export: `2026-10-02-final/` (400,419 entities, run as an owner). The weekly job failed with 403 from at least September 2026 because the App Engine service account lacks `roles/datastore.importExportAdmin`. |
 | **DemographicsSnapshot** | Manual only (daily cron removed) | Datastore | Pre-aggregated daily counts for the dashboard. Last built 2026-10-01 for 2026-09-30. |
 | **DemographicsRollup** | Manual only | Datastore | Weekly/monthly aggregates built from snapshots |
 
@@ -191,7 +190,6 @@ The system has multiple layers of backup for disaster recovery.
 |---|---|
 | `demographics.responses` | **Canonical** public dataset (worker IDs + IPs SHA256-hashed, lowercase hex). 392,998 answers, 2015-03-26 to 2026-09-30. See "Canonical dataset" below. |
 | `test.MISQ_DataSet` | View over `demographics.responses` that keeps the old MISQ column names, with `worker_id`/`ip_address` as raw SHA-256 bytes (`FROM_HEX`). Before 2026-10-01 it unioned the two backups below, without dedup or survey filtering. |
-| `test.responses_backup_20261001` | Copy of `demographics.responses` taken right before the 2026-10-01 restore (329,772 rows). Safe to drop once the restore is accepted. |
 | `test.UserAnswer_2025MAR20` | One-time Datastore backup from 2025-03-20 (raw entity export via GCS). Covers 2020-11-03 to 2025-03-20. |
 | `test.userAnswers_oct2020` | Older Datastore backup. Covers 2015-03-26 to 2021-06-10. |
 
@@ -201,7 +199,7 @@ The system has multiple layers of backup for disaster recovery.
 
 - **Never delete or rewrite rows in it from Datastore.** `BigQueryExportService.exportDate` is append-only: it inserts only (hashed worker, HIT) pairs not already in the table for that day. It used to `DELETE` the day and rebuild it from Datastore, which is how a partial Datastore wiped out good rows.
 - **Overlapping exports are serialized** by `BigQueryExportLock` leases in Datastore (10-minute expiry). Each export checks existing pairs over its date ± 1 day, so it takes the leases for all three dates in one transaction. Exports whose windows overlap run one at a time; exports at least three days apart still run in parallel. Without the leases, two overlapping exports could both see a pair as missing and insert it twice. An insert-only `MERGE` wouldn't help, because BigQuery doesn't detect conflicts between insert-only DML statements. A second export for the same date gets HTTP 409, and `/tasks/exportDateToBigQuery` returns non-2xx on any failure, so Cloud Tasks retries it.
-- **2026-10-01 restore:** 63,226 answers from 2015-09 to 2021-06 were missing. The BigQuery backfill ran between the 2026-03-10 Datastore restore (which reused original IDs and only brought back part of each day) and the 2026-03-17 restore (new IDs, filled the rest), and the restored days were never re-exported. They were appended with one `INSERT … SELECT` from `test.userAnswers_oct2020` + `test.UserAnswer_2025MAR20` (`surveyId = 'demographics'`, earliest row per (workerId, hitId), `TO_HEX(SHA256(...))` for worker ID and IP, only pairs not already present).
+- **2026-10-01 restore:** 63,226 answers from 2015-09 to 2021-06 were missing. The BigQuery backfill ran between the 2026-03-10 Datastore restore (which reused original IDs and only brought back part of each day) and the 2026-03-17 restore (new IDs, filled the rest), and the restored days were never re-exported. They were appended with one `INSERT … SELECT` from `test.userAnswers_oct2020` + `test.UserAnswer_2025MAR20` (`surveyId = 'demographics'`, earliest row per (workerId, hitId), `TO_HEX(SHA256(...))` for worker ID and IP, only pairs not already present). On 2026-10-02 their `date` values were truncated to whole seconds to match the rest of the table (`hit_creation_date` already was).
 - `demographics.responses` can't be a restore source: `restoreDateFromBigQuery`, `backfillRestoreFromBigQuery` and `smartRestoreFromBigQuery` reject `table=demographics.responses` with HTTP 400. They read the Datastore backup schema.
 - To check the public table against Datastore: `GET /tasks/compareDatastoreBigQuery?from=…&to=…` (it defaults to `demographics.responses`).
 
@@ -213,29 +211,25 @@ The system has multiple layers of backup for disaster recovery.
 - The session hook unsets `CLOUDSDK_AUTH_ACCESS_TOKEN` once the service account is activated. Some cloud environments set it to an expired token, which overrides the service account and causes "Invalid Credentials".
 - The "3 duplicate pairs" turned out not to be duplicates: 3 genuine answers (2016-12-24, 2016-12-28, 2020-05-03) have a HIT ID but no worker ID, and `COUNT(DISTINCT CONCAT(worker_id, '|', hit_id))` skips NULLs. They stay.
 
-#### Optional follow-ups
+#### Done on 2026-10-02 (project closed)
 
-- [ ] **Final Datastore export**, if a raw entity backup newer than 2026-03-18 is wanted: grant the App Engine service account `roles/datastore.importExportAdmin` (an owner must do this; see IAM Requirements) and call `/tasks/backupDatastore` once, or run `gcloud datastore export gs://demographics_data_export/<date>/` as an owner.
-- [ ] **Timestamp precision:** the Java export wrote `date`/`hit_creation_date` truncated to whole seconds. The 63,226 rows appended on 2026-10-01 kept milliseconds. If consistency matters, run `UPDATE … SET date = TIMESTAMP_TRUNC(date, SECOND), hit_creation_date = TIMESTAMP_TRUNC(hit_creation_date, SECOND)` on those rows (production write, needs approval).
-- [ ] **Dashboard vs. table:** snapshots and rollups are built from Datastore (393,001 total vs. 392,998 in `responses`). Rebuilding them from `responses` would make the dashboard match the canonical table exactly. It's a larger change to `DemographicsSnapshotService`.
-- [ ] **Drop `test.responses_backup_20261001`** once the restore is accepted.
+- **Final Datastore export** to `gs://demographics_data_export/2026-10-02-final/` (400,419 entities, 326 MB), run as a project owner (`gcloud datastore export`). The App Engine service account still lacks `roles/datastore.importExportAdmin`, so `/tasks/backupDatastore` would still fail with 403.
+- **Timestamp precision:** 63,168 rows from the 2026-10-01 restore had sub-second `date` values; they were truncated with `UPDATE … SET date = TIMESTAMP_TRUNC(date, SECOND)`. No row in `demographics.responses` has sub-second timestamps now. Row count is unchanged at 392,998.
+- **Dropped `test.responses_backup_20261001`** after checking that all 329,772 of its rows are present in `demographics.responses`.
+- **Dashboard vs. table** (393,001 in snapshots vs. 392,998 in `responses`): left as is, by decision. The dashboard is not being developed further.
+- All open items in TASKS.md were closed: three that were already done (T12.8, T12.9, T12.11) are marked completed, two partly done ones (T12.13, T12.19) record what was done, and the rest are won't do. The dataset is static and published for download; no further development is planned.
 
 ### GCS Bucket
 
-- **`gs://demographics_data_export/`** — Stores Datastore exports (weekly until the 2026-10-01 cron removal; the last successful one is `2026-03-18T02:08:51_4585/`). Each export creates a timestamped subfolder with all entity data in Datastore's native export format.
+- **`gs://demographics_data_export/`** — Stores Datastore exports (weekly until the 2026-10-01 cron removal; the last weekly one is `2026-03-18T02:08:51_4585/`, and the final one is `2026-10-02-final/`). Each export creates a timestamped subfolder with all entity data in Datastore's native export format.
 
 ### IAM Requirements
 
 The App Engine default service account (`mturk-demographics@appspot.gserviceaccount.com`) needs:
 
-- `roles/datastore.importExportAdmin` — For the weekly Datastore export to GCS
 - `roles/secretmanager.secretAccessor` — For reading AWS credentials (already configured)
 
-```bash
-gcloud projects add-iam-policy-binding mturk-demographics \
-  --member="serviceAccount:mturk-demographics@appspot.gserviceaccount.com" \
-  --role="roles/datastore.importExportAdmin"
-```
+It does **not** need `roles/datastore.importExportAdmin` any more. That role was for the weekly Datastore export, which was removed; the final export (`2026-10-02-final/`) was run by an owner. Don't grant it unless you deliberately want `/tasks/backupDatastore` to work again; a one-off export is better run as an owner with `gcloud datastore export`.
 
 ### Recovery Procedures
 
@@ -245,11 +239,15 @@ gcloud projects add-iam-policy-binding mturk-demographics \
 # List available backups
 gsutil ls gs://demographics_data_export/
 
-# Import a specific backup (restores ALL entity kinds)
-gcloud datastore import gs://demographics_data_export/2026-03-09/ --project=mturk-demographics
+# Import a backup (restores ALL entity kinds). Pass the export's
+# .overall_export_metadata object, not the folder.
+gcloud datastore import \
+  gs://demographics_data_export/2026-10-02-final/2026-10-02-final.overall_export_metadata \
+  --project=mturk-demographics
 
 # Import only specific kinds
-gcloud datastore import gs://demographics_data_export/2026-03-09/ \
+gcloud datastore import \
+  gs://demographics_data_export/2026-10-02-final/2026-10-02-final.overall_export_metadata \
   --kinds=UserAnswer,DemographicsSnapshot --project=mturk-demographics
 ```
 
@@ -263,7 +261,7 @@ GET /tasks/compareDatastoreBigQuery?from=2024-01-01&to=2024-12-31
 GET /tasks/compareDatastoreBigQuery?from=2024-01-01&to=2024-12-31&table=UserAnswer_2025MAR20
 
 # Restore a single day from BigQuery backup
-GET /tasks/restoreDateFromBigQuery?date=2024-06-15
+POST /tasks/restoreDateFromBigQuery?date=2024-06-15
 
 # Smart restore: only restore days where Datastore has fewer entries
 GET /tasks/smartRestoreFromBigQuery?from=2024-01-01&to=2024-12-31
@@ -294,7 +292,7 @@ GET /tasks/backupDatastore
 GET /tasks/backupDatastore?kinds=UserAnswer,DemographicsSnapshot
 
 # Export a single date to BigQuery demographics.responses
-GET /tasks/exportDateToBigQuery?date=01/15/2024
+POST /tasks/exportDateToBigQuery?date=01/15/2024
 
 # Full BigQuery backfill (all dates)
 GET /tasks/backfillBigQuery?from=03/26/2015&to=03/11/2026
@@ -315,7 +313,7 @@ These gaps are legitimate (no survey activity) and appear as zero-response entri
 - MTurk sandbox vs production is toggled in `MturkService`
 - Datastore queries require composite indexes defined in `index.yaml`
 - **CI/CD pipeline** configured via GitHub Actions (`.github/workflows/ci.yml` and `deploy.yml`)
-- No test framework is present — be careful when modifying business logic
+- Test coverage is limited to a few services (`src/test/java`) — be careful when modifying business logic
 - **Spring Boot 3.4.1 / Jakarta namespace:** The project uses `jakarta.*` imports (not `javax.*`). Objectify 6.1.3 ships with both — use `ObjectifyService.Filter` (jakarta) not the deprecated `ObjectifyFilter` (javax)
 
 ## Cloud Credentials
@@ -382,8 +380,11 @@ See [TASKS.md](TASKS.md) for the full task list. Summary:
 - [x] **Track 4** — Java 21 + Spring Boot 3.x Migration (T4.1–T4.7 completed)
 - [x] **Track 5** — AWS SDK Update (T5.1–T5.3 completed)
 - [x] **Track 6** — Google Cloud Libraries Update (T6.1–T6.3 completed)
-- [ ] **Track 7** — Frontend Modernization (T7.1 done: Vue 3 migration, T7.2–T7.3 done, T7.4–T7.8 done, T7.11 done, T7.15 done, T7.16–T7.19 done, T7.20–T7.22 done)
+- [x] **Track 7** — Frontend Modernization (T7.1–T7.12, T7.15–T7.22 done; T7.13, T7.14, T7.23 closed as won't do)
 - [x] **Track 8** — Data Access & API Quality (T8.1–T8.6: CORS, OpenAPI, counts endpoint, CSV export, enhanced filtering, BigQuery export)
 - [x] **Track 9** — Robustness & Reliability (all tasks completed: T9.1–T9.14)
 - [x] **Track 11** — Observability & Operations (T11.1–T11.6: Actuator health, custom indicators, Micrometer/Stackdriver metrics, structured JSON logging, correlation IDs, task status endpoint)
-- [ ] **Track 12** — API Security & Documentation (T12.1–T12.3, T12.6, T12.17 done)
+- [x] **Track 10** — Scalability & Performance (closed as won't do)
+- [x] **Track 12** — API Security & Documentation (T12.1–T12.3, T12.6, T12.8, T12.9, T12.11, T12.17 done; T12.13 and T12.19 partly done; the rest closed as won't do)
+
+All tracks are closed as of 2026-10-02: collection has ended and no further development is planned.

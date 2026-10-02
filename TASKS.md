@@ -1,5 +1,7 @@
 # TASKS.md
 
+> **Closed (2026-10-02).** Amazon shut down Mechanical Turk on 2026-09-30 and data collection has ended. The 2015–2026 dataset is static and published in BigQuery (`demographics.responses`) for anyone to download. No further development is planned. Open tasks that turned out to be done already are marked completed, partly done ones say which part was done, and the rest are closed as won't do.
+
 ## Track 0: Build Fixes
 
 - [x] **T0.1** — Upgrade `yuicompressor-maven-plugin` from 1.3.2 to 1.5.1 to fix `DirectoryScanner` class not found error with Maven 3.9+ *(completed)*
@@ -54,7 +56,7 @@ The largest effort. Spring Boot 3 requires Java 17+ and the `jakarta.*` namespac
 
 ## Track 7: Frontend Modernization (Low Priority)
 
-AngularJS 1.x is EOL but functional. Only pursue if the frontend needs active development.
+Originally scoped as optional (AngularJS 1.x was EOL but functional). The Vue 3 migration and most visualizations shipped; the rest were closed on 2026-10-02.
 
 - [x] **T7.1** — **Migrate from AngularJS to Vue 3** — Replaced the entire AngularJS 1.8.3 frontend with Vue 3 (CDN, no build step) + Vue Router 4. Removed jQuery, angular-cookies, angular-resource, angular-route, angular-sanitize, ui-bootstrap. Created Vue composables (useLoading, useDateFilter, useChartData) and components (ChartView, ChartjsChart, ChoroplethMap). Chart.js 4.4.7, D3.js v7, Bootstrap 5.3.3 remain unchanged. All 12 navigation views, 4 chart types, 2 map views, trend arrows, Top-N filtering, and date range selection preserved. *(completed)*
 - [x] **T7.2** — **Update Bootstrap 3.1.1 to Bootstrap 5.3.3** — Replaced Bootstrap 3 CDN with Bootstrap 5.3.3, added Bootstrap Icons 1.11.3. Updated all CSS classes (`col-xs-*` → `col-*`, `btn-default` → `btn-outline-secondary`, `glyphicon` → `bi`, `text-right` → `text-end`, sidebar collapse `in` → `show`). Added CSS compatibility layer for ui-bootstrap datepicker (maps `.glyphicon-chevron-*` to Bootstrap Icons font, `.btn-default` and `.input-group-btn` shims). Updated nav-pills directive to toggle `.active` on `<a>` instead of `<li>`. *(completed)*
@@ -84,8 +86,8 @@ Incremental improvements to the demographics dashboard charts, from quick wins w
 
 - [x] **T7.11** — **Response volume chart** — Added a "Volume" tab to the chart pills that shows a filled line chart of daily response counts. Uses the `/api/survey/demographics/counts` endpoint (loaded in parallel with aggregated answers). Chart has its own styling (no legend, y-axis labeled "Responses", smooth line with small data points). *(completed)*
 - [x] **T7.12** — **Geographic choropleth maps** — Added world map and US states choropleth views using D3.js v7 + TopoJSON. World map shows response counts by country (ISO codes) with blue color scale. US states map shows per-capita response rates (per million residents, 2020 Census) with yellow-red scale, with a toggle for raw counts. Backend: added `countriesDetailed` (full ISO country codes) and `usStates` (2-letter state codes) fields to `DemographicsSnapshot`, `DemographicsRollup`, and all DTOs/builders. State data comes from App Engine's `X-AppEngine-Region` header (already stored in `UserAnswer.locationRegion`). Requires snapshot backfill to populate new fields for historical data. *(completed)*
-- **T7.13** — **Cross-tabulation / demographic intersections** — Show how demographics correlate (e.g., income distribution broken down by gender, age distribution by country). Add a new API endpoint returning two-dimensional pivot tables. Display as grouped bar charts or heatmap grids. *Effort: ~1-2 weeks. **Hard** — `UserAnswer.answers` is an unindexed map, so cross-dimensional queries require full table scans (~7M entities). `DemographicsSnapshot` stores single-dimension counts only; adding all dimension pairs would explode storage. Best approaches: (a) add a BigQuery read path for on-demand queries, (b) pre-compute a curated set of ~5 popular cross-tabs in snapshots, or (c) compute on-the-fly with a tight date cap (~30 days). Recommend deferring until a BigQuery read path exists.*
-- **T7.14** — **Worker retention / return rate** — Track unique vs repeat workers over time using hashed `workerId`. Add a line chart of "new workers vs returning workers per week" to reveal workforce dynamics. *Effort: ~1-2 weeks. **Hard** — Datastore has no `COUNT DISTINCT`. Classifying workers as new vs returning requires loading all historical `UserAnswer` entities and maintaining a running set of all previously-seen worker IDs (millions of entries). Not feasible at request time. Requires either BigQuery (`SELECT DATE_TRUNC(date, WEEK), COUNT(DISTINCT worker_id)` is trivial there) or a carefully designed pre-computation pipeline with persistent worker-set storage. Recommend deferring until a BigQuery read path exists.*
+- [x] **T7.13** — **Cross-tabulation / demographic intersections** — Show how demographics correlate (e.g., income distribution broken down by gender, age distribution by country). Add a new API endpoint returning two-dimensional pivot tables. Display as grouped bar charts or heatmap grids. *Effort: ~1-2 weeks. **Hard** — `UserAnswer.answers` is an unindexed map, so cross-dimensional queries require full table scans (~7M entities). `DemographicsSnapshot` stores single-dimension counts only; adding all dimension pairs would explode storage. Best approaches: (a) add a BigQuery read path for on-demand queries, (b) pre-compute a curated set of ~5 popular cross-tabs in snapshots, or (c) compute on-the-fly with a tight date cap (~30 days). Recommend deferring until a BigQuery read path exists.* *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
+- [x] **T7.14** — **Worker retention / return rate** — Track unique vs repeat workers over time using hashed `workerId`. Add a line chart of "new workers vs returning workers per week" to reveal workforce dynamics. *Effort: ~1-2 weeks. **Hard** — Datastore has no `COUNT DISTINCT`. Classifying workers as new vs returning requires loading all historical `UserAnswer` entities and maintaining a running set of all previously-seen worker IDs (millions of entries). Not feasible at request time. Requires either BigQuery (`SELECT DATE_TRUNC(date, WEEK), COUNT(DISTINCT worker_id)` is trivial there) or a carefully designed pre-computation pipeline with persistent worker-set storage. Recommend deferring until a BigQuery read path exists.* *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 - [x] **T7.15** — **Response time trends** — Added response time percentile tracking (p25, median, p75) to `DemographicsSnapshot` and `DemographicsRollup` entities. The snapshot builder calculates percentiles from `hitCreationDate` vs `date` deltas (capped at 7 days to filter outliers). Response time data flows through all counts builders (daily, grouped, rollup-based) into `DemographicsCountsResponse`. Frontend: added "Response Time" sidebar link under new "Insights" section, a dedicated line chart with shaded p25-p75 band and bold median line. Tooltips format values as hours+minutes. Requires snapshot backfill to populate new fields for historical data. *(completed)*
 - [x] **T7.16** — **Summary statistics cards** — Added four stat cards above the chart area showing: total responses, average responses per day, top country (with percentage), and top gender (with percentage). Cards use responsive grid (2 per row on mobile, 4 on desktop) with subtle styling. Data sourced from the counts API. *(completed)*
 
@@ -97,9 +99,11 @@ All frontend-only — no backend changes needed. Data for all categories already
 - [x] **T7.20** — **Top-N filter** — Added an All/Top 5/Top 10/Top 15 button group that filters chart categories by total value, grouping the remainder into an "Other" series. Works with all display modes (bar, area, line, donut). Categories are ranked by sum of values across all periods. *(completed)*
 - [x] **T7.21** — **Highlight on legend click** — Clicking a legend item now dims all other datasets instead of hiding them. Clicked dataset gets full opacity and thicker border; others fade to ~20% opacity. Click again to restore all. Uses Chart.js 4.x `legend.onClick` override. *(completed)*
 - [x] **T7.22** — **Pie/donut chart for latest period** — Added a "Donut" display mode button. Shows the most recent period's breakdown as a doughnut chart with right-aligned legend, percentage tooltips, and Top-N filtering support. *(completed)*
-- **T7.23** — **Heatmap view** — For fields with many categories over time (countries, income brackets), a heatmap where color intensity = percentage could be more readable than either stacked bars or spaghetti lines. *Effort: ~2-3 days. **Moderate** — Chart.js has no native heatmap. Best approach: custom D3.js directive following the established choropleth pattern, or use `chartjs-chart-matrix` plugin.*
+- [x] **T7.23** — **Heatmap view** — For fields with many categories over time (countries, income brackets), a heatmap where color intensity = percentage could be more readable than either stacked bars or spaghetti lines. *Effort: ~2-3 days. **Moderate** — Chart.js has no native heatmap. Best approach: custom D3.js directive following the established choropleth pattern, or use `chartjs-chart-matrix` plugin.* *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-### Recommended Priority (Remaining Track 7)
+### Recommended Priority (Track 7, historical)
+
+All rows are done or closed; nothing here is outstanding.
 
 | Priority | Task | Effort | Backend? | Value |
 |----------|------|--------|----------|-------|
@@ -109,9 +113,9 @@ All frontend-only — no backend changes needed. Data for all categories already
 | ~~4~~ | ~~T7.7 Trend arrows~~ | ~~1d~~ | ~~Minor~~ | ~~Medium~~ — **Done** |
 | ~~1~~ | ~~T7.19 Sparklines~~ | ~~2-3d~~ | ~~No~~ | ~~High~~ — **Done** |
 | ~~2~~ | ~~T7.15 Response time~~ | ~~2-3d~~ | ~~Medium~~ | ~~Medium~~ — **Done** |
-| 1 | T7.23 Heatmap | 2-3d | No | Medium — nice to have |
-| 4 | T7.13 Cross-tabs | 1-2w | **Heavy** | High — defer for BigQuery read path |
-| 5 | T7.14 Worker retention | 1-2w | **Heavy** | High — defer for BigQuery read path |
+| ~~1~~ | ~~T7.23 Heatmap~~ | ~~2-3d~~ | ~~No~~ | ~~Medium~~ — **Closed (won't do)** |
+| ~~4~~ | ~~T7.13 Cross-tabs~~ | ~~1-2w~~ | ~~Heavy~~ | ~~High~~ — **Closed (won't do)** |
+| ~~5~~ | ~~T7.14 Worker retention~~ | ~~1-2w~~ | ~~Heavy~~ | ~~High~~ — **Closed (won't do)** |
 
 ## Track 8: Data Access & API Quality
 
@@ -146,15 +150,18 @@ Improvements to make the API more useful for data analysis and programmatic acce
 | `weekly_income_from_mturk` | STRING | Survey answer |
 | `languages_spoken` | STRING | Comma-separated language codes |
 
-### Environment Setup (Manual)
+### Environment Setup (Manual, done)
+
+These one-time steps were completed when the export was set up; they're kept for reference.
+
 
 - App Engine service account needs `roles/bigquery.dataEditor` on the dataset
 - Dataset `demographics` in project `mturk-demographics` will be auto-created on first export
 - To backfill all historical data: `GET /tasks/backfillBigQuery?from=01/01/2015&to=03/09/2026`
 
-### Note: Snapshot Backfill Required
+### Note: Snapshot Backfill (done)
 
-After deploying T7.17, run a snapshot backfill to populate the 4 new demographic fields for historical data:
+After deploying T7.17, a snapshot backfill was run a snapshot backfill to populate the 4 new demographic fields for historical data:
 `GET /tasks/backfillSnapshots?from=01/01/2015&to=03/10/2026`
 
 ---
@@ -218,25 +225,25 @@ Improvements to error handling, resilience, and operational stability for a prod
 
 ## Track 10: Scalability & Performance
 
-Improvements to handle growing data volume and reduce latency.
+Improvements that were planned for growing data volume. Collection has ended, so the data no longer grows; all items are closed.
 
 ### Batch Operations
 
-- [ ] **T10.1** — **Batch MTurk API calls in DeleteHITs and ApproveAssignments** — Currently these controllers make one AWS API call per `UserAnswer` (N+1 pattern). Collect HIT IDs / assignment IDs into batches of 10-20, then process batches. Add a configurable rate limiter (e.g., Guava `RateLimiter` at 5 requests/second) to stay within AWS API limits.
+- [x] **T10.1** — **Batch MTurk API calls in DeleteHITs and ApproveAssignments** — Currently these controllers make one AWS API call per `UserAnswer` (N+1 pattern). Collect HIT IDs / assignment IDs into batches of 10-20, then process batches. Add a configurable rate limiter (e.g., Guava `RateLimiter` at 5 requests/second) to stay within AWS API limits. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [ ] **T10.2** — **Increase task processing batch sizes** — `DeleteHITsController` and `ApproveAssignmentsController` use `limit(30)` per task execution. Increase to `limit(100)` with task-level timeout awareness (check remaining time vs. App Engine 10-min limit before processing next batch).
+- [x] **T10.2** — **Increase task processing batch sizes** — `DeleteHITsController` and `ApproveAssignmentsController` use `limit(30)` per task execution. Increase to `limit(100)` with task-level timeout awareness (check remaining time vs. App Engine 10-min limit before processing next batch). *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
 ### Caching
 
-- [ ] **T10.3** — **Add Memcache/Redis for distributed caching** — The current in-memory cache is per-instance. On App Engine with auto-scaling (2+ instances), each instance maintains a separate cache. Add App Engine Memcache or Cloud Memorystore (Redis) for shared caching of `chartData` and `aggregatedAnswers`.
+- [x] **T10.3** — **Add Memcache/Redis for distributed caching** — The current in-memory cache is per-instance. On App Engine with auto-scaling (2+ instances), each instance maintains a separate cache. Add App Engine Memcache or Cloud Memorystore (Redis) for shared caching of `chartData` and `aggregatedAnswers`. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [ ] **T10.4** — **Implement incremental cache invalidation** — Currently `@CacheEvict(allEntries=true)` clears the entire cache when any snapshot is built. Instead, evict only the affected cache keys (by date range) so that unrelated queries remain cached.
+- [x] **T10.4** — **Implement incremental cache invalidation** — Currently `@CacheEvict(allEntries=true)` clears the entire cache when any snapshot is built. Instead, evict only the affected cache keys (by date range) so that unrelated queries remain cached. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
 ### Database Optimization
 
-- [ ] **T10.5** — **Review and optimize Datastore indexes** — Audit `index.yaml` against actual query patterns. Remove unused composite indexes (each index adds write latency). Add missing indexes for new query patterns (e.g., `DemographicsSnapshot` by date range, `DemographicsRollup` by period + type).
+- [x] **T10.5** — **Review and optimize Datastore indexes** — Audit `index.yaml` against actual query patterns. Remove unused composite indexes (each index adds write latency). Add missing indexes for new query patterns (e.g., `DemographicsSnapshot` by date range, `DemographicsRollup` by period + type). *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [ ] **T10.6** — **Add Datastore query projection** — For aggregation queries that only need a few fields (e.g., snapshot building needs only `answers`, `date`, `locationCountryCode`), use Objectify projection queries to avoid deserializing full entities. This reduces both Datastore read costs and memory usage.
+- [x] **T10.6** — **Add Datastore query projection** — For aggregation queries that only need a few fields (e.g., snapshot building needs only `answers`, `date`, `locationCountryCode`), use Objectify projection queries to avoid deserializing full entities. This reduces both Datastore read costs and memory usage. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
 ## Track 11: Observability & Operations
 
@@ -274,53 +281,55 @@ Focused hardening and cleanup tasks to reduce operational risk and improve contr
 
 ### API Modernization
 
-- [ ] **T12.4** — **Migrate JSONP answer endpoints to JSON APIs** — Replace `/saveAnswer` and `/getAnswer` callback-based responses with `application/json` contracts, using standard request/response DTOs.
+- [x] **T12.4** — **Migrate JSONP answer endpoints to JSON APIs** — Replace `/saveAnswer` and `/getAnswer` callback-based responses with `application/json` contracts, using standard request/response DTOs. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [ ] **T12.5** — **Add deprecation window for legacy JSONP clients** — Keep compatibility wrappers for a defined period (e.g., 60-90 days), emit deprecation headers/log warnings, and remove JSONP after migration.
+- [x] **T12.5** — **Add deprecation window for legacy JSONP clients** — Keep compatibility wrappers for a defined period (e.g., 60-90 days), emit deprecation headers/log warnings, and remove JSONP after migration. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
 ### CORS & Transport Controls
 
 - [x] **T12.6** — **Tighten CORS allowlist** — Replaced wildcard `*` origin in `CorsConfig` with explicit `https://demographics.mturk-tracker.com` and `https://mturk-demographics.appspot.com`. Additional origins can be added via `cors.allowed-origins` property (comma-separated) or `CORS_ALLOWED_ORIGINS` env var. *(completed)*
 
-- [ ] **T12.7** — **Add rate limiting for public API endpoints** — Add per-IP limits on `/api/**` read endpoints and stricter limits on write/submit endpoints to mitigate abuse and traffic spikes.
+- [x] **T12.7** — **Add rate limiting for public API endpoints** — Add per-IP limits on `/api/**` read endpoints and stricter limits on write/submit endpoints to mitigate abuse and traffic spikes. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
 ### Data & Performance Hygiene
 
-- [ ] **T12.8** — **Stream CSV export with cursor pagination** — Refactor `SurveyController.exportAnswersCsv()` to iterate through UserAnswer records in chunks and stream rows without loading full date ranges into memory.
+- [x] **T12.8** — **Stream CSV export with cursor pagination** — Refactor `SurveyController.exportAnswersCsv()` to iterate through UserAnswer records in chunks and stream rows without loading full date ranges into memory. *(completed as T9.11)*
 
-- [ ] **T12.9** — **Replace unbounded cache with Caffeine** — Swap `ConcurrentMapCacheManager` for Caffeine with explicit max size, TTL, and optional metrics hooks.
+- [x] **T12.9** — **Replace unbounded cache with Caffeine** — Swap `ConcurrentMapCacheManager` for Caffeine with explicit max size, TTL, and optional metrics hooks. *(completed as T9.12)*
 
-- [ ] **T12.12** — **Fix duplicate-write race condition in answer ingestion** — Replace check-then-save dedup with transactional/idempotent persistence keyed by `(workerId, hitId)` to prevent concurrent duplicate inserts.
+- [x] **T12.12** — **Fix duplicate-write race condition in answer ingestion** — Replace check-then-save dedup with transactional/idempotent persistence keyed by `(workerId, hitId)` to prevent concurrent duplicate inserts. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [ ] **T12.13** — **Bound recursive/self-enqueued retries** — Add retry counters + exponential backoff to self-requeue paths (e.g., HIT creation/backfill recursion) and dead-letter handling after max attempts.
+- [x] **T12.13** — **Bound recursive/self-enqueued retries** — Add retry counters + exponential backoff to self-requeue paths (e.g., HIT creation/backfill recursion) and dead-letter handling after max attempts. *(partly done as T9.5: `CreateHITController` caps retries at 5 with exponential backoff and `DeleteHITsController` caps pagination at 200 pages. The backfill self-enqueue paths and dead-letter handling were never added; closed 2026-10-02 as won't do)*
 
-- [ ] **T12.14** — **Externalize hardcoded backup project/bucket configuration** — Move `DatastoreBackupController` constants to required env config with fail-fast startup validation.
+- [x] **T12.14** — **Externalize hardcoded backup project/bucket configuration** — Move `DatastoreBackupController` constants to required env config with fail-fast startup validation. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [ ] **T12.15** — **Standardize date formats across API/task endpoints** — Prefer ISO `yyyy-MM-dd` (or dual parser with strict validation) to reduce operator mistakes across `/api/**` and `/tasks/**`.
+- [x] **T12.15** — **Standardize date formats across API/task endpoints** — Prefer ISO `yyyy-MM-dd` (or dual parser with strict validation) to reduce operator mistakes across `/api/**` and `/tasks/**`. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [ ] **T12.16** — **Harden request context handling in answer ingestion** — Guard `getIp()` against null/non-servlet contexts and malformed forwarding headers.
+- [x] **T12.16** — **Harden request context handling in answer ingestion** — Guard `getIp()` against null/non-servlet contexts and malformed forwarding headers. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
 - [x] **T12.17** — **Reuse MTurk clients instead of per-call creation** — Refactored `MturkService` to create production and sandbox `MTurkClient` singletons at startup instead of per-call. Both clients share a `ClientOverrideConfiguration` with timeouts. Clients are closed via `@PreDestroy` on shutdown. *(completed)*
 
-- [ ] **T12.18** — **Make global dedup memory-safe** — Refactor `deduplicateGlobal()` to streaming/partitioned processing rather than loading all groups into memory.
+- [x] **T12.18** — **Make global dedup memory-safe** — Refactor `deduplicateGlobal()` to streaming/partitioned processing rather than loading all groups into memory. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [ ] **T12.19** — **Expose reliable export failure signals** — Adjust BigQuery export task contract so failures are observable/retriable (status codes + metrics + reconciliation workflow), not silently treated as success.
+- [x] **T12.19** — **Expose reliable export failure signals** — Adjust BigQuery export task contract so failures are observable/retriable (status codes + metrics + reconciliation workflow), not silently treated as success. *(partly done in PR #118: export failures return non-2xx and an overlapping export returns 409, so Cloud Tasks retries; `/tasks/compareDatastoreBigQuery` is the reconciliation check. No export-failure metric was added; closed 2026-10-02 as won't do)*
 
-- [ ] **T12.20** — **Refactor `SurveyService` into focused modules** — Split CRUD/template/validation/legacy aggregation responsibilities to reduce coupling and rule drift.
+- [x] **T12.20** — **Refactor `SurveyService` into focused modules** — Split CRUD/template/validation/legacy aggregation responsibilities to reduce coupling and rule drift. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [ ] **T12.21** — **Add controller/security coverage for critical routes** — Add MVC tests for task auth guards, answer ingestion contracts, and export/restore endpoints.
+- [x] **T12.21** — **Add controller/security coverage for critical routes** — Add MVC tests for task auth guards, answer ingestion contracts, and export/restore endpoints. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [ ] **T12.22** — **Reduce reflection-heavy tests** — Convert private-method reflection tests to behavior-focused tests over public APIs and collaborator contracts.
+- [x] **T12.22** — **Reduce reflection-heavy tests** — Convert private-method reflection tests to behavior-focused tests over public APIs and collaborator contracts. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [ ] **T12.23** — **Add concurrency tests for idempotency** — Add parallel-submission tests to verify duplicate prevention under contention.
+- [x] **T12.23** — **Add concurrency tests for idempotency** — Add parallel-submission tests to verify duplicate prevention under contention. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
 ### Documentation Quality
 
-- [ ] **T12.10** — **Expand README for onboarding** — Add setup prerequisites, local run instructions, environment variable requirements, test commands, and high-level architecture.
+- [x] **T12.10** — **Expand README for onboarding** — Add setup prerequisites, local run instructions, environment variable requirements, test commands, and high-level architecture. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [ ] **T12.11** — **Fix documentation drift in `CLAUDE.md`** — Update inaccurate notes (e.g., test availability) and align operational docs with current code behavior/endpoints.
+- [x] **T12.11** — **Fix documentation drift in `CLAUDE.md`** — Update inaccurate notes (e.g., test availability) and align operational docs with current code behavior/endpoints. *(completed 2026-10-02: test availability, backup state and task status updated)*
 
-## Recommended Execution Order
+## Recommended Execution Order (historical)
+
+The order the tracks were originally planned in. All tracks are now closed.
 
 1. **Track 1** (CI/CD) — no code risk, immediate value
 2. **Track 2** (Config/Security) — fixes broken Cloud Tasks, improves security
