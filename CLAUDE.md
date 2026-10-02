@@ -181,7 +181,7 @@ The system has multiple layers of backup for disaster recovery.
 | Layer | Frequency | Location | What |
 |---|---|---|---|
 | **BigQuery `demographics.responses`** | Static since 2026-10-01 | BigQuery | **Canonical.** Every answer, worker IDs and IPs hashed. Append-only. |
-| **Datastore export** | Manual only (weekly cron removed) | `gs://demographics_data_export/<date>/` | Raw entity backup. Last good export: 2026-03-18. The weekly job failed with 403 from at least September 2026 because the App Engine service account lacks `roles/datastore.importExportAdmin`. |
+| **Datastore export** | Manual only (weekly cron removed) | `gs://demographics_data_export/<date>/` | Raw entity backup. Final export: `2026-10-02-final/` (400,419 entities, run as an owner). The weekly job failed with 403 from at least September 2026 because the App Engine service account lacks `roles/datastore.importExportAdmin`. |
 | **DemographicsSnapshot** | Manual only (daily cron removed) | Datastore | Pre-aggregated daily counts for the dashboard. Last built 2026-10-01 for 2026-09-30. |
 | **DemographicsRollup** | Manual only | Datastore | Weekly/monthly aggregates built from snapshots |
 
@@ -214,7 +214,7 @@ The system has multiple layers of backup for disaster recovery.
 
 #### Done on 2026-10-02 (project closed)
 
-- **Final Datastore export** to `gs://demographics_data_export/2026-10-02-final/`, run as a project owner (`gcloud datastore export`). The App Engine service account still lacks `roles/datastore.importExportAdmin`, so `/tasks/backupDatastore` would still fail with 403.
+- **Final Datastore export** to `gs://demographics_data_export/2026-10-02-final/` (400,419 entities, 326 MB), run as a project owner (`gcloud datastore export`). The App Engine service account still lacks `roles/datastore.importExportAdmin`, so `/tasks/backupDatastore` would still fail with 403.
 - **Timestamp precision:** 63,168 rows from the 2026-10-01 restore had sub-second `date` values; they were truncated with `UPDATE … SET date = TIMESTAMP_TRUNC(date, SECOND)`. No row in `demographics.responses` has sub-second timestamps now. Row count is unchanged at 392,998.
 - **Dropped `test.responses_backup_20261001`** after checking that all 329,772 of its rows are present in `demographics.responses`.
 - **Dashboard vs. table** (393,001 in snapshots vs. 392,998 in `responses`): left as is, by decision. The dashboard is not being developed further.
@@ -222,7 +222,7 @@ The system has multiple layers of backup for disaster recovery.
 
 ### GCS Bucket
 
-- **`gs://demographics_data_export/`** — Stores Datastore exports (weekly until the 2026-10-01 cron removal; the last successful one is `2026-03-18T02:08:51_4585/`). Each export creates a timestamped subfolder with all entity data in Datastore's native export format.
+- **`gs://demographics_data_export/`** — Stores Datastore exports (weekly until the 2026-10-01 cron removal; the last weekly one is `2026-03-18T02:08:51_4585/`, and the final one is `2026-10-02-final/`). Each export creates a timestamped subfolder with all entity data in Datastore's native export format.
 
 ### IAM Requirements
 
