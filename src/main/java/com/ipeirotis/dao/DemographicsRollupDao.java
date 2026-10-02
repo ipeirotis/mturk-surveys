@@ -69,14 +69,17 @@ public class DemographicsRollupDao extends OfyBaseDao<DemographicsRollup> {
     }
 
     /**
-     * Align a date to the start of the NEXT period (exclusive upper bound).
+     * Align an exclusive end date to the start of the period after the one holding
+     * the last included day (to - 1), so a range ending on a period boundary
+     * (e.g. to=05/01) doesn't pull in the following period's rollup.
      */
-    private String alignToPeriodEnd(LocalDate date, String granularity) {
+    static String alignToPeriodEnd(LocalDate exclusiveTo, String granularity) {
+        LocalDate lastDay = exclusiveTo.minusDays(1);
         if ("monthly".equals(granularity)) {
-            return date.plusMonths(1).withDayOfMonth(1).toString();
+            return lastDay.plusMonths(1).withDayOfMonth(1).toString();
         } else if ("weekly".equals(granularity)) {
-            return date.with(TemporalAdjusters.next(DayOfWeek.MONDAY)).toString();
+            return lastDay.with(TemporalAdjusters.next(DayOfWeek.MONDAY)).toString();
         }
-        return date.toString();
+        return exclusiveTo.toString();
     }
 }
