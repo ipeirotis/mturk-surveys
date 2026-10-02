@@ -1,6 +1,6 @@
 # TASKS.md
 
-> **Closed (2026-10-02).** Amazon shut down Mechanical Turk on 2026-09-30 and data collection has ended. The 2015–2026 dataset is static and published in BigQuery (`demographics.responses`) for anyone to download. No further development is planned: every task that was still open is closed as won't do.
+> **Closed (2026-10-02).** Amazon shut down Mechanical Turk on 2026-09-30 and data collection has ended. The 2015–2026 dataset is static and published in BigQuery (`demographics.responses`) for anyone to download. No further development is planned. Open tasks that turned out to be done already are marked completed; the rest are closed as won't do.
 
 ## Track 0: Build Fixes
 
@@ -288,13 +288,13 @@ Focused hardening and cleanup tasks to reduce operational risk and improve contr
 
 ### Data & Performance Hygiene
 
-- [x] **T12.8** — **Stream CSV export with cursor pagination** — Refactor `SurveyController.exportAnswersCsv()` to iterate through UserAnswer records in chunks and stream rows without loading full date ranges into memory. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
+- [x] **T12.8** — **Stream CSV export with cursor pagination** — Refactor `SurveyController.exportAnswersCsv()` to iterate through UserAnswer records in chunks and stream rows without loading full date ranges into memory. *(completed as T9.11)*
 
-- [x] **T12.9** — **Replace unbounded cache with Caffeine** — Swap `ConcurrentMapCacheManager` for Caffeine with explicit max size, TTL, and optional metrics hooks. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
+- [x] **T12.9** — **Replace unbounded cache with Caffeine** — Swap `ConcurrentMapCacheManager` for Caffeine with explicit max size, TTL, and optional metrics hooks. *(completed as T9.12)*
 
 - [x] **T12.12** — **Fix duplicate-write race condition in answer ingestion** — Replace check-then-save dedup with transactional/idempotent persistence keyed by `(workerId, hitId)` to prevent concurrent duplicate inserts. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [x] **T12.13** — **Bound recursive/self-enqueued retries** — Add retry counters + exponential backoff to self-requeue paths (e.g., HIT creation/backfill recursion) and dead-letter handling after max attempts. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
+- [x] **T12.13** — **Bound recursive/self-enqueued retries** — Add retry counters + exponential backoff to self-requeue paths (e.g., HIT creation/backfill recursion) and dead-letter handling after max attempts. *(completed as T9.5: `CreateHITController` caps retries at 5 with exponential backoff; `DeleteHITsController` caps pagination at 200 pages)*
 
 - [x] **T12.14** — **Externalize hardcoded backup project/bucket configuration** — Move `DatastoreBackupController` constants to required env config with fail-fast startup validation. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
@@ -306,7 +306,7 @@ Focused hardening and cleanup tasks to reduce operational risk and improve contr
 
 - [x] **T12.18** — **Make global dedup memory-safe** — Refactor `deduplicateGlobal()` to streaming/partitioned processing rather than loading all groups into memory. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [x] **T12.19** — **Expose reliable export failure signals** — Adjust BigQuery export task contract so failures are observable/retriable (status codes + metrics + reconciliation workflow), not silently treated as success. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
+- [x] **T12.19** — **Expose reliable export failure signals** — Adjust BigQuery export task contract so failures are observable/retriable (status codes + metrics + reconciliation workflow), not silently treated as success. *(completed in PR #118: export failures return non-2xx and an overlapping export returns 409, so Cloud Tasks retries; `/tasks/compareDatastoreBigQuery` is the reconciliation check)*
 
 - [x] **T12.20** — **Refactor `SurveyService` into focused modules** — Split CRUD/template/validation/legacy aggregation responsibilities to reduce coupling and rule drift. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
@@ -320,7 +320,7 @@ Focused hardening and cleanup tasks to reduce operational risk and improve contr
 
 - [x] **T12.10** — **Expand README for onboarding** — Add setup prerequisites, local run instructions, environment variable requirements, test commands, and high-level architecture. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [x] **T12.11** — **Fix documentation drift in `CLAUDE.md`** — Update inaccurate notes (e.g., test availability) and align operational docs with current code behavior/endpoints. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
+- [x] **T12.11** — **Fix documentation drift in `CLAUDE.md`** — Update inaccurate notes (e.g., test availability) and align operational docs with current code behavior/endpoints. *(completed 2026-10-02: test availability, backup state and task status updated)*
 
 ## Recommended Execution Order
 

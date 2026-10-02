@@ -218,7 +218,7 @@ The system has multiple layers of backup for disaster recovery.
 - **Timestamp precision:** 63,168 rows from the 2026-10-01 restore had sub-second `date` values; they were truncated with `UPDATE … SET date = TIMESTAMP_TRUNC(date, SECOND)`. No row in `demographics.responses` has sub-second timestamps now. Row count is unchanged at 392,998.
 - **Dropped `test.responses_backup_20261001`** after checking that all 329,772 of its rows are present in `demographics.responses`.
 - **Dashboard vs. table** (393,001 in snapshots vs. 392,998 in `responses`): left as is, by decision. The dashboard is not being developed further.
-- All open items in TASKS.md were closed as won't do. The dataset is static and published for download; no further development is planned.
+- All open items in TASKS.md were closed: five that were already done (T12.8, T12.9, T12.11, T12.13, T12.19) are marked completed, the rest won't do. The dataset is static and published for download; no further development is planned.
 
 ### GCS Bucket
 
@@ -228,14 +228,9 @@ The system has multiple layers of backup for disaster recovery.
 
 The App Engine default service account (`mturk-demographics@appspot.gserviceaccount.com`) needs:
 
-- `roles/datastore.importExportAdmin` — For the weekly Datastore export to GCS
 - `roles/secretmanager.secretAccessor` — For reading AWS credentials (already configured)
 
-```bash
-gcloud projects add-iam-policy-binding mturk-demographics \
-  --member="serviceAccount:mturk-demographics@appspot.gserviceaccount.com" \
-  --role="roles/datastore.importExportAdmin"
-```
+It does **not** need `roles/datastore.importExportAdmin` any more. That role was for the weekly Datastore export, which was removed; the final export (`2026-10-02-final/`) was run by an owner. Don't grant it unless you deliberately want `/tasks/backupDatastore` to work again; a one-off export is better run as an owner with `gcloud datastore export`.
 
 ### Recovery Procedures
 
@@ -387,6 +382,6 @@ See [TASKS.md](TASKS.md) for the full task list. Summary:
 - [x] **Track 9** — Robustness & Reliability (all tasks completed: T9.1–T9.14)
 - [x] **Track 11** — Observability & Operations (T11.1–T11.6: Actuator health, custom indicators, Micrometer/Stackdriver metrics, structured JSON logging, correlation IDs, task status endpoint)
 - [x] **Track 10** — Scalability & Performance (closed as won't do)
-- [x] **Track 12** — API Security & Documentation (T12.1–T12.3, T12.6, T12.17 done; the rest closed as won't do)
+- [x] **Track 12** — API Security & Documentation (T12.1–T12.3, T12.6, T12.8, T12.9, T12.11, T12.13, T12.17, T12.19 done; the rest closed as won't do)
 
 All tracks are closed as of 2026-10-02: collection has ended and no further development is planned.
