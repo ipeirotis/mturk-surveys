@@ -1,6 +1,6 @@
 # TASKS.md
 
-> **Closed (2026-10-02).** Amazon shut down Mechanical Turk on 2026-09-30 and data collection has ended. The 2015–2026 dataset is static and published in BigQuery (`demographics.responses`) for anyone to download. No further development is planned. Open tasks that turned out to be done already are marked completed; the rest are closed as won't do.
+> **Closed (2026-10-02).** Amazon shut down Mechanical Turk on 2026-09-30 and data collection has ended. The 2015–2026 dataset is static and published in BigQuery (`demographics.responses`) for anyone to download. No further development is planned. Open tasks that turned out to be done already are marked completed, partly done ones say which part was done, and the rest are closed as won't do.
 
 ## Track 0: Build Fixes
 
@@ -294,7 +294,7 @@ Focused hardening and cleanup tasks to reduce operational risk and improve contr
 
 - [x] **T12.12** — **Fix duplicate-write race condition in answer ingestion** — Replace check-then-save dedup with transactional/idempotent persistence keyed by `(workerId, hitId)` to prevent concurrent duplicate inserts. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [x] **T12.13** — **Bound recursive/self-enqueued retries** — Add retry counters + exponential backoff to self-requeue paths (e.g., HIT creation/backfill recursion) and dead-letter handling after max attempts. *(completed as T9.5: `CreateHITController` caps retries at 5 with exponential backoff; `DeleteHITsController` caps pagination at 200 pages)*
+- [x] **T12.13** — **Bound recursive/self-enqueued retries** — Add retry counters + exponential backoff to self-requeue paths (e.g., HIT creation/backfill recursion) and dead-letter handling after max attempts. *(partly done as T9.5: `CreateHITController` caps retries at 5 with exponential backoff and `DeleteHITsController` caps pagination at 200 pages. The backfill self-enqueue paths and dead-letter handling were never added; closed 2026-10-02 as won't do)*
 
 - [x] **T12.14** — **Externalize hardcoded backup project/bucket configuration** — Move `DatastoreBackupController` constants to required env config with fail-fast startup validation. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
@@ -306,7 +306,7 @@ Focused hardening and cleanup tasks to reduce operational risk and improve contr
 
 - [x] **T12.18** — **Make global dedup memory-safe** — Refactor `deduplicateGlobal()` to streaming/partitioned processing rather than loading all groups into memory. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-- [x] **T12.19** — **Expose reliable export failure signals** — Adjust BigQuery export task contract so failures are observable/retriable (status codes + metrics + reconciliation workflow), not silently treated as success. *(completed in PR #118: export failures return non-2xx and an overlapping export returns 409, so Cloud Tasks retries; `/tasks/compareDatastoreBigQuery` is the reconciliation check)*
+- [x] **T12.19** — **Expose reliable export failure signals** — Adjust BigQuery export task contract so failures are observable/retriable (status codes + metrics + reconciliation workflow), not silently treated as success. *(partly done in PR #118: export failures return non-2xx and an overlapping export returns 409, so Cloud Tasks retries; `/tasks/compareDatastoreBigQuery` is the reconciliation check. No export-failure metric was added; closed 2026-10-02 as won't do)*
 
 - [x] **T12.20** — **Refactor `SurveyService` into focused modules** — Split CRUD/template/validation/legacy aggregation responsibilities to reduce coupling and rule drift. *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
