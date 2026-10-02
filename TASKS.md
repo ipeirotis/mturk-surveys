@@ -56,7 +56,7 @@ The largest effort. Spring Boot 3 requires Java 17+ and the `jakarta.*` namespac
 
 ## Track 7: Frontend Modernization (Low Priority)
 
-AngularJS 1.x is EOL but functional. Only pursue if the frontend needs active development.
+Originally scoped as optional (AngularJS 1.x was EOL but functional). The Vue 3 migration and most visualizations shipped; the rest were closed on 2026-10-02.
 
 - [x] **T7.1** — **Migrate from AngularJS to Vue 3** — Replaced the entire AngularJS 1.8.3 frontend with Vue 3 (CDN, no build step) + Vue Router 4. Removed jQuery, angular-cookies, angular-resource, angular-route, angular-sanitize, ui-bootstrap. Created Vue composables (useLoading, useDateFilter, useChartData) and components (ChartView, ChartjsChart, ChoroplethMap). Chart.js 4.4.7, D3.js v7, Bootstrap 5.3.3 remain unchanged. All 12 navigation views, 4 chart types, 2 map views, trend arrows, Top-N filtering, and date range selection preserved. *(completed)*
 - [x] **T7.2** — **Update Bootstrap 3.1.1 to Bootstrap 5.3.3** — Replaced Bootstrap 3 CDN with Bootstrap 5.3.3, added Bootstrap Icons 1.11.3. Updated all CSS classes (`col-xs-*` → `col-*`, `btn-default` → `btn-outline-secondary`, `glyphicon` → `bi`, `text-right` → `text-end`, sidebar collapse `in` → `show`). Added CSS compatibility layer for ui-bootstrap datepicker (maps `.glyphicon-chevron-*` to Bootstrap Icons font, `.btn-default` and `.input-group-btn` shims). Updated nav-pills directive to toggle `.active` on `<a>` instead of `<li>`. *(completed)*
@@ -101,7 +101,9 @@ All frontend-only — no backend changes needed. Data for all categories already
 - [x] **T7.22** — **Pie/donut chart for latest period** — Added a "Donut" display mode button. Shows the most recent period's breakdown as a doughnut chart with right-aligned legend, percentage tooltips, and Top-N filtering support. *(completed)*
 - [x] **T7.23** — **Heatmap view** — For fields with many categories over time (countries, income brackets), a heatmap where color intensity = percentage could be more readable than either stacked bars or spaghetti lines. *Effort: ~2-3 days. **Moderate** — Chart.js has no native heatmap. Best approach: custom D3.js directive following the established choropleth pattern, or use `chartjs-chart-matrix` plugin.* *(closed 2026-10-02: won't do — MTurk closed, the dataset is static)*
 
-### Recommended Priority (Remaining Track 7)
+### Recommended Priority (Track 7, historical)
+
+All rows are done or closed; nothing here is outstanding.
 
 | Priority | Task | Effort | Backend? | Value |
 |----------|------|--------|----------|-------|
@@ -111,9 +113,9 @@ All frontend-only — no backend changes needed. Data for all categories already
 | ~~4~~ | ~~T7.7 Trend arrows~~ | ~~1d~~ | ~~Minor~~ | ~~Medium~~ — **Done** |
 | ~~1~~ | ~~T7.19 Sparklines~~ | ~~2-3d~~ | ~~No~~ | ~~High~~ — **Done** |
 | ~~2~~ | ~~T7.15 Response time~~ | ~~2-3d~~ | ~~Medium~~ | ~~Medium~~ — **Done** |
-| 1 | T7.23 Heatmap | 2-3d | No | Medium — nice to have |
-| 4 | T7.13 Cross-tabs | 1-2w | **Heavy** | High — defer for BigQuery read path |
-| 5 | T7.14 Worker retention | 1-2w | **Heavy** | High — defer for BigQuery read path |
+| ~~1~~ | ~~T7.23 Heatmap~~ | ~~2-3d~~ | ~~No~~ | ~~Medium~~ — **Closed (won't do)** |
+| ~~4~~ | ~~T7.13 Cross-tabs~~ | ~~1-2w~~ | ~~Heavy~~ | ~~High~~ — **Closed (won't do)** |
+| ~~5~~ | ~~T7.14 Worker retention~~ | ~~1-2w~~ | ~~Heavy~~ | ~~High~~ — **Closed (won't do)** |
 
 ## Track 8: Data Access & API Quality
 
@@ -148,15 +150,18 @@ Improvements to make the API more useful for data analysis and programmatic acce
 | `weekly_income_from_mturk` | STRING | Survey answer |
 | `languages_spoken` | STRING | Comma-separated language codes |
 
-### Environment Setup (Manual)
+### Environment Setup (Manual, done)
+
+These one-time steps were completed when the export was set up; they're kept for reference.
+
 
 - App Engine service account needs `roles/bigquery.dataEditor` on the dataset
 - Dataset `demographics` in project `mturk-demographics` will be auto-created on first export
 - To backfill all historical data: `GET /tasks/backfillBigQuery?from=01/01/2015&to=03/09/2026`
 
-### Note: Snapshot Backfill Required
+### Note: Snapshot Backfill (done)
 
-After deploying T7.17, run a snapshot backfill to populate the 4 new demographic fields for historical data:
+After deploying T7.17, a snapshot backfill was run a snapshot backfill to populate the 4 new demographic fields for historical data:
 `GET /tasks/backfillSnapshots?from=01/01/2015&to=03/10/2026`
 
 ---
@@ -220,7 +225,7 @@ Improvements to error handling, resilience, and operational stability for a prod
 
 ## Track 10: Scalability & Performance
 
-Improvements to handle growing data volume and reduce latency.
+Improvements that were planned for growing data volume. Collection has ended, so the data no longer grows; all items are closed.
 
 ### Batch Operations
 
@@ -322,7 +327,9 @@ Focused hardening and cleanup tasks to reduce operational risk and improve contr
 
 - [x] **T12.11** — **Fix documentation drift in `CLAUDE.md`** — Update inaccurate notes (e.g., test availability) and align operational docs with current code behavior/endpoints. *(completed 2026-10-02: test availability, backup state and task status updated)*
 
-## Recommended Execution Order
+## Recommended Execution Order (historical)
+
+The order the tracks were originally planned in. All tracks are now closed.
 
 1. **Track 1** (CI/CD) — no code risk, immediate value
 2. **Track 2** (Config/Security) — fixes broken Cloud Tasks, improves security
