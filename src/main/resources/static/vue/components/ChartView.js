@@ -685,12 +685,16 @@ const ChartView = {
                 response.value = chartData.aggregated;
                 countsData.value = chartData.counts;
 
-                // Load prior period for trend arrows (non-blocking)
-                chartDataService.loadChartData(priorFrom, priorTo).then(function(priorData) {
-                    buildSummaryStats(chartData.counts, priorData.counts);
-                }).catch(function() {
+                // Load prior period for trend arrows (non-blocking); none before the survey start
+                if (priorFrom < priorTo) {
+                    chartDataService.loadChartData(priorFrom, priorTo).then(function(priorData) {
+                        buildSummaryStats(chartData.counts, priorData.counts);
+                    }).catch(function() {
+                        buildSummaryStats(chartData.counts, null);
+                    });
+                } else {
                     buildSummaryStats(chartData.counts, null);
-                });
+                }
 
                 if (isMapView.value) {
                     populateMapData(chartData.counts);
