@@ -180,7 +180,7 @@ const ChartView = {
         var MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
         // Date validation limits
-        var minDate = new Date(2015, 2, 26);
+        var minDate = new Date(SURVEY_START_DATE.getTime());
         var maxDate = latestDataDate();
 
         // Clamp persisted dates to valid range
@@ -228,7 +228,7 @@ const ChartView = {
             { label: '5Y', years: 5 },
             { label: 'All', years: null }
         ];
-        var activePreset = ref('2Y');
+        var activePreset = ref('All');
 
         function applyPreset(preset) {
             var to = new Date(maxDate.getTime());

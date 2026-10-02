@@ -2,6 +2,9 @@
  * Date filter state composable
  * Replaces the dateFilterState AngularJS factory
  */
+// First day of the demographics survey.
+const SURVEY_START_DATE = new Date(2015, 2, 26);
+
 // Amazon closed Mechanical Turk on 2026-09-30 (MturkService.CLOSURE_DATE), the
 // last day of data collection. Chart queries treat "to" as exclusive, so the
 // latest selectable end date is the day after.
@@ -15,9 +18,9 @@ const latestDataDate = () => {
 
 const useDateFilter = () => {
     const { ref } = Vue;
+    // Collection has ended, so the default range is the whole survey.
     const defaultTo = latestDataDate();
-    const defaultFrom = new Date(defaultTo.getTime());
-    defaultFrom.setFullYear(defaultFrom.getFullYear() - 2);
+    const defaultFrom = new Date(SURVEY_START_DATE.getTime());
 
     const from = ref(defaultFrom);
     const to = ref(defaultTo);
